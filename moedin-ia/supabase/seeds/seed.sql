@@ -1,0 +1,2 @@
+-- Exemplo: categorias padrão serão inseridas depois que houver usuário.
+-- Como cada categoria depende do user_id, o ideal é criar isso após cadastro.
