@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Moedin.IA Web
 
-## Getting Started
+Aplicação frontend do Moedin.IA, construída com Next.js 16, React 19, TypeScript, Tailwind CSS 4, Supabase SSR, Recharts e lucide-react.
 
-First, run the development server:
+Leia também o README da raiz do repositório para configuração completa de Supabase, migrations, Docker, n8n e LGPD.
+
+## Rodar localmente
+
+Crie `apps/web/.env.local` com:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=sua-chave-publica
+```
+
+Instale e inicie:
+
+```bash
+npm install
+npm run dev
+```
+
+Acesse:
+
+```text
+http://localhost:3000
+```
+
+## Scripts
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run lint
+npm run build
+npm run start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Estrutura principal
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+src/app/page.tsx                  # landing page
+src/app/(auth)                    # login, cadastro, recuperar senha, atualizar senha
+src/app/(app)                     # área autenticada
+src/app/api/categories/ensure     # garante categorias padrão por usuário
+src/components                    # componentes compartilhados
+src/lib                           # helpers e clientes Supabase
+src/proxy.ts                      # proxy/middleware do Next 16
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Rotas
 
-## Learn More
+Públicas:
 
-To learn more about Next.js, take a look at the following resources:
+```text
+/
+/login
+/cadastro
+/recuperar-senha
+/atualizar-senha
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Autenticadas:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```text
+/dashboard
+/historico
+/lancamentos
+/planejamento-mensal
+/gastos-fixos
+/parcelamentos
+/metas
+/perfil
+/planos
+```
 
-## Deploy on Vercel
+## Validação
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Antes de commit/deploy:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run lint
+npm run build
+```
+
+O build deve mostrar `ƒ Proxy (Middleware)`, confirmando que `src/proxy.ts` está ativo.
+
+## Observações de segurança
+
+- O frontend deve usar apenas chaves públicas do Supabase.
+- Não use `SUPABASE_SERVICE_ROLE_KEY` nesta aplicação.
+- `.env.local`, `.next`, `node_modules`, logs e `*.tsbuildinfo` não devem ser versionados.
+- O aceite de Termos/Privacidade usa `localStorage` para UX e `user_settings` no Supabase para usuário logado.
