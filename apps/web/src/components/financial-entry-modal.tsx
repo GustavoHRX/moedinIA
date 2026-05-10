@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { useAppData } from "@/components/app-data-provider";
 import { addMonthsClamped, isPastOrToday, todayDateInput, toCompetenceMonth } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/client";
 
@@ -47,7 +49,7 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full rounded-2xl border border-[var(--line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)] ${props.className ?? ""}`}
+      className={`w-full rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-[var(--text)] outline-none transition focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)] ${props.className ?? ""}`}
     />
   );
 }
@@ -56,7 +58,7 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className={`w-full rounded-2xl border border-[var(--line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)] ${props.className ?? ""}`}
+      className={`w-full rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-[var(--text)] outline-none transition focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)] ${props.className ?? ""}`}
     />
   );
 }
@@ -76,7 +78,7 @@ function ModeCard({
     <button
       type="button"
       onClick={onClick}
-      className="group rounded-[20px] border border-[var(--line)] bg-white p-4 text-left shadow-[0_8px_18px_rgba(9,42,32,0.04)] transition hover:-translate-y-0.5 hover:border-[var(--brand)] hover:shadow-[var(--shadow-soft)]"
+      className="group rounded-[20px] border border-[var(--line)] bg-[var(--surface-strong)] p-4 text-left shadow-[0_8px_18px_rgba(9,42,32,0.04)] transition hover:-translate-y-0.5 hover:border-[var(--brand)] hover:shadow-[var(--shadow-soft)]"
     >
       <span
         className={
@@ -99,7 +101,16 @@ export default function FinancialEntryModal({
   onSaved,
 }: FinancialEntryModalProps) {
   const supabase = useMemo(() => createClient(), []);
+  const {
+    user: cachedUser,
+    loadingUser,
+    categoriesLoaded,
+    getCategoriesByType,
+    refreshCategories,
+    invalidateFinancialData,
+  } = useAppData();
   const [mode, setMode] = useState<EntryMode>("menu");
+  const [mounted, setMounted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -116,49 +127,61 @@ export default function FinancialEntryModal({
 
   const [installmentTotal, setInstallmentTotal] = useState("");
   const [installmentCount, setInstallmentCount] = useState("2");
-  const [installmentValue, setInstallmentValue] = useState("");
 
   const [fixedDueDay, setFixedDueDay] = useState("");
   const [fixedMonthsAhead, setFixedMonthsAhead] = useState("12");
   const [fixedAutoCreate, setFixedAutoCreate] = useState(true);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    resetForm();
+    setMode("menu");
+    setMessage("");
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    let cancelled = false;
+
     async function loadCategories() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      try {
+        const cachedExpense = getCategoriesByType("expense");
+        const cachedIncome = getCategoriesByType("income");
 
-      if (!user) {
-        setMessage("Usuário não autenticado.");
-        setExpenseCategories([]);
-        setIncomeCategories([]);
-        return;
+        if (categoriesLoaded && cachedExpense.length > 0 && cachedIncome.length > 0) {
+          if (!cancelled) {
+            setExpenseCategories(cachedExpense);
+            setIncomeCategories(cachedIncome);
+          }
+          return;
+        }
+
+        const refreshed = await refreshCategories();
+        if (cancelled) return;
+
+        setExpenseCategories(refreshed.filter((category) => category.type === "expense"));
+        setIncomeCategories(refreshed.filter((category) => category.type === "income"));
+      } catch (error) {
+        if (cancelled) return;
+
+        setMessage(
+          `Erro ao carregar categorias: ${error instanceof Error ? error.message : "erro desconhecido"}`
+        );
       }
-
-      const { data, error } = await supabase
-        .from("categories")
-        .select("id, name, type")
-        .eq("user_id", user.id)
-        .order("is_default", { ascending: false })
-        .order("name", { ascending: true });
-
-      if (error) {
-        setMessage(`Erro ao carregar categorias: ${error.message}`);
-        return;
-      }
-
-      const all = (data ?? []) as Category[];
-      setExpenseCategories(all.filter((c) => c.type === "expense"));
-      setIncomeCategories(all.filter((c) => c.type === "income"));
     }
 
-    if (open) {
-      loadCategories();
-      resetForm();
-      setMode("menu");
-      setMessage("");
-    }
-  }, [open, supabase]);
+    loadCategories();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [categoriesLoaded, getCategoriesByType, open, refreshCategories]);
 
   useEffect(() => {
     setCategoryId("");
@@ -172,17 +195,21 @@ export default function FinancialEntryModal({
     setNotes("");
     setInstallmentTotal("");
     setInstallmentCount("2");
-    setInstallmentValue("");
     setFixedDueDay("");
     setFixedMonthsAhead("12");
     setFixedAutoCreate(true);
   }
 
   async function getUserId() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    return user?.id ?? null;
+    if (cachedUser?.id) {
+      return cachedUser.id;
+    }
+
+    if (loadingUser) {
+      return null;
+    }
+
+    return null;
   }
 
   async function createManualTransaction(type: "income" | "expense") {
@@ -338,8 +365,7 @@ export default function FinancialEntryModal({
 
     const parsedTotal = toMoney(installmentTotal);
     const parsedCount = Number(installmentCount);
-    const parsedValue =
-      toMoney(installmentValue) || Number((parsedTotal / parsedCount).toFixed(2));
+    const parsedValue = Number((parsedTotal / parsedCount).toFixed(2));
 
     if (!title.trim()) {
       setMessage("Informe a descrição do gasto parcelado.");
@@ -420,6 +446,8 @@ export default function FinancialEntryModal({
 
   function finish(successMessage: string) {
     setMessage(successMessage);
+    invalidateFinancialData();
+    window.dispatchEvent(new CustomEvent("financial-data-invalidated"));
     setTimeout(() => {
       onClose();
       onSaved?.();
@@ -463,12 +491,11 @@ export default function FinancialEntryModal({
     }
   }
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
   const isExpense = mode.includes("expense");
   const isInstallment = mode === "expense_installment";
   const isFixedExpense = mode === "expense_fixed";
-  const isNormal = mode === "expense_normal" || mode === "income_normal" || mode === "income_fixed";
   const categoriesForMode = isExpense ? expenseCategories : incomeCategories;
   const titleMap: Record<EntryMode, string> = {
     menu: "Novo lançamento",
@@ -479,19 +506,19 @@ export default function FinancialEntryModal({
     income_fixed: "Receita fixa",
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] bg-slate-950/50 p-3 backdrop-blur-md sm:p-6">
       <div className="mx-auto flex h-full max-w-5xl items-center">
-        <div className="max-h-[92vh] w-full overflow-hidden rounded-[28px] border border-white/60 bg-white shadow-[0_28px_70px_rgba(9,42,32,0.28)]">
-          <header className="flex items-center justify-between bg-[#1A1A1A] px-5 py-5 text-white sm:px-6">
+        <div className="max-h-[92vh] w-full overflow-hidden rounded-[28px] border border-[var(--line)] bg-[var(--surface-strong)] shadow-[0_28px_70px_rgba(9,42,32,0.28)]">
+          <header className="flex items-center justify-between bg-[var(--hero-gradient)] px-5 py-5 text-[var(--text)] sm:px-6">
             <div>
-              <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-white/78">Moedin.IA</p>
+              <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Moedin.IA</p>
               <h2 className="text-2xl font-black">{titleMap[mode]}</h2>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-xl font-bold text-white hover:bg-white/20"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--surface)] text-xl font-bold text-[var(--text)] hover:bg-[var(--bg-soft)]"
               aria-label="Fechar"
             >
               X
@@ -547,7 +574,7 @@ export default function FinancialEntryModal({
                 </div>
               </div>
             ) : (
-              <div className="rounded-[24px] border border-[var(--line)] bg-white p-4 shadow-[var(--shadow-soft)] sm:p-5">
+              <div className="rounded-[24px] border border-[var(--line)] bg-[var(--surface-strong)] p-4 shadow-[var(--shadow-soft)] sm:p-5">
                 <div className="space-y-4">
                 <Field label={isExpense ? "Descrição do gasto" : "Descrição da receita"}>
                   <Input
@@ -575,10 +602,14 @@ export default function FinancialEntryModal({
                           onChange={(e) => setInstallmentCount(e.target.value)}
                         />
                       </Field>
-                      <Field label="Valor de cada parcela (opcional)">
+                      <Field label="Valor de cada parcela">
                         <Input
-                          value={installmentValue}
-                          onChange={(e) => setInstallmentValue(e.target.value)}
+                          value={
+                            toMoney(installmentTotal) > 0 && Number(installmentCount) > 0
+                              ? (toMoney(installmentTotal) / Number(installmentCount)).toFixed(2).replace(".", ",")
+                              : ""
+                          }
+                          readOnly
                           placeholder="Auto"
                         />
                       </Field>
@@ -667,7 +698,7 @@ export default function FinancialEntryModal({
                       setMessage("");
                       setMode("menu");
                     }}
-                    className="rounded-2xl border border-[var(--line)] bg-white px-5 py-3 font-semibold text-[var(--text)] transition hover:bg-[var(--bg-soft)]"
+                    className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-5 py-3 font-semibold text-[var(--text)] transition hover:bg-[var(--bg-soft)]"
                   >
                     Voltar
                   </button>
@@ -686,6 +717,7 @@ export default function FinancialEntryModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

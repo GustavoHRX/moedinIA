@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAppData } from "@/components/app-data-provider";
 import { categoryName, type CategoryRelation } from "@/lib/categories";
 import { todayDateInput, toCompetenceMonth } from "@/lib/dates";
+import { formatCurrency, formatDate } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
 import NewEntryButton from "@/components/new-entry-button";
 import { ActionButton, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
@@ -28,20 +30,25 @@ type Category = {
   type: "income" | "expense";
 };
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
-}
-
-function formatDate(date: string) {
-  return new Date(`${date}T00:00:00`).toLocaleDateString("pt-BR");
-}
+type HistoryData = {
+  transactions: TransactionItem[];
+  categories: Category[];
+};
 
 export default function HistoricoPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const {
+    user: cachedUser,
+    loadingUser,
+    categories: cachedCategories,
+    categoriesLoaded,
+    refreshCategories,
+    financialVersion,
+    getFinancialCache,
+    setFinancialCache,
+    invalidateFinancialData,
+  } = useAppData();
 
   const [transactions, setTransactions] = useState<TransactionItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -62,22 +69,12 @@ export default function HistoricoPage() {
   const [editCategoryId, setEditCategoryId] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
-  useEffect(() => {
-    loadData();
-    window.addEventListener("financial-entry-saved", loadData);
-
-    return () => {
-      window.removeEventListener("financial-entry-saved", loadData);
-    };
-  }, []);
-
-  async function loadData() {
-    setLoading(true);
+  const loadData = useCallback(async (forceRefresh = false) => {
     setMessage("");
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    if (loadingUser) return;
+
+    const user = cachedUser;
 
     if (!user) {
       router.push("/login");
@@ -85,8 +82,26 @@ export default function HistoricoPage() {
     }
 
     const today = todayDateInput();
+    const cacheKey = `history:${user.id}:${today}`;
+    const cachedHistory = forceRefresh
+      ? null
+      : getFinancialCache<HistoryData>(cacheKey);
 
-    const [transactionsRes, categoriesRes] = await Promise.all([
+    if (cachedHistory) {
+      setTransactions(cachedHistory.transactions);
+      setCategories(cachedHistory.categories);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    const categoriesPromise =
+      categoriesLoaded
+        ? Promise.resolve(cachedCategories)
+        : refreshCategories();
+
+    const [transactionsRes, categoriesResult] = await Promise.all([
       supabase
         .from("transactions")
         .select(
@@ -97,28 +112,40 @@ export default function HistoricoPage() {
         .lte("transaction_date", today)
         .order("transaction_date", { ascending: false })
         .order("created_at", { ascending: false }),
-      supabase
-        .from("categories")
-        .select("id, name, type")
-        .eq("user_id", user.id)
-        .order("is_default", { ascending: false })
-        .order("name", { ascending: true }),
+      categoriesPromise,
     ]);
 
     setLoading(false);
 
-    if (transactionsRes.error || categoriesRes.error) {
+    if (transactionsRes.error) {
       setMessage(
-        `Erro ao carregar histórico: ${
-          transactionsRes.error?.message ?? categoriesRes.error?.message
-        }`
+        `Erro ao carregar histórico: ${transactionsRes.error.message}`
       );
       return;
     }
 
-    setTransactions((transactionsRes.data ?? []) as TransactionItem[]);
-    setCategories((categoriesRes.data ?? []) as Category[]);
-  }
+    const nextHistory: HistoryData = {
+      transactions: (transactionsRes.data ?? []) as TransactionItem[],
+      categories: categoriesResult as Category[],
+    };
+    setTransactions(nextHistory.transactions);
+    setCategories(nextHistory.categories);
+    setFinancialCache(cacheKey, nextHistory);
+  }, [
+    cachedCategories,
+    cachedUser,
+    categoriesLoaded,
+    getFinancialCache,
+    loadingUser,
+    refreshCategories,
+    router,
+    setFinancialCache,
+    supabase,
+  ]);
+
+  useEffect(() => {
+    loadData();
+  }, [financialVersion, loadData]);
 
   async function handleDelete(id: string) {
     const confirmed = window.confirm("Deseja excluir este lançamento?");
@@ -137,6 +164,7 @@ export default function HistoricoPage() {
       return;
     }
 
+    invalidateFinancialData();
     await loadData();
   }
 
@@ -207,6 +235,7 @@ export default function HistoricoPage() {
 
     cancelEdit();
     setMessage("Lançamento atualizado com sucesso.");
+    invalidateFinancialData();
     await loadData();
   }
 
@@ -255,7 +284,7 @@ export default function HistoricoPage() {
         ) : null}
 
         <div className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
-          <Surface className="bg-[linear-gradient(135deg,#ffffff_0%,#eefaf4_100%)]">
+          <Surface className="bg-[var(--hero-gradient)]">
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
                 <p className="text-xs font-bold uppercase text-[var(--muted)]">Valor total</p>
@@ -279,7 +308,7 @@ export default function HistoricoPage() {
             <SectionHeader
               title="Filtros"
               action={
-                <button onClick={clearFilters} className="rounded-xl border border-[var(--line)] bg-white px-3 py-2 text-sm font-bold text-[var(--navy)]">
+                <button onClick={clearFilters} className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm font-bold text-[var(--navy)]">
                   Limpar
                 </button>
               }
@@ -382,7 +411,7 @@ export default function HistoricoPage() {
             {filteredTransactions.map((item) => (
               <article
                 key={item.id}
-                className="rounded-[18px] border border-[var(--line)] bg-white px-4 py-4 shadow-[0_7px_18px_rgba(9,42,32,0.05)] transition hover:border-[rgba(46,158,79,0.35)] hover:shadow-[var(--shadow-soft)]"
+                className="rounded-[18px] border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-4 shadow-[0_7px_18px_rgba(9,42,32,0.05)] transition hover:border-[rgba(46,158,79,0.35)] hover:shadow-[var(--shadow-soft)]"
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>

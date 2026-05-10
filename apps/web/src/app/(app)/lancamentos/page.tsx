@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAppData } from "@/components/app-data-provider";
 import { todayDateInput, toCompetenceMonth } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Surface } from "@/components/ui-kit";
@@ -14,6 +15,14 @@ type Category = {
 export default function LancamentosPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const {
+    user: cachedUser,
+    loadingUser,
+    categoriesLoaded,
+    getCategoriesByType,
+    refreshCategories,
+    invalidateFinancialData,
+  } = useAppData();
 
   const [userId, setUserId] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
@@ -32,40 +41,28 @@ export default function LancamentosPage() {
 
   useEffect(() => {
     loadData();
-  }, [type]);
+  }, [type, loadingUser, cachedUser, categoriesLoaded]);
 
   async function loadData() {
     setLoading(true);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    if (loadingUser) return;
 
-    if (!user) {
+    const currentUser = cachedUser;
+
+    if (!currentUser) {
       router.push("/login");
       return;
     }
 
-    setUserId(user.id);
+    setUserId(currentUser.id);
 
-    const { data, error } = await supabase
-      .from("categories")
-      .select("id, name")
-      .eq("user_id", user.id)
-      .eq("type", type)
-      .order("is_default", { ascending: false })
-      .order("name", { ascending: true });
-
-    setLoading(false);
-
-    if (error) {
-      setMessage(`Erro ao carregar categorias: ${error.message}`);
-      return;
-    }
-
-    const list = (data ?? []) as Category[];
+    const list = categoriesLoaded
+      ? getCategoriesByType(type)
+      : (await refreshCategories()).filter((category) => category.type === type);
     setCategories(list);
     setCategoryId(list[0]?.id ?? "");
+    setLoading(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -108,6 +105,8 @@ export default function LancamentosPage() {
     setAmount("");
     setDescription("");
     setMessage("Lançamento salvo com sucesso.");
+    invalidateFinancialData();
+    window.dispatchEvent(new CustomEvent("financial-entry-saved"));
   }
 
   return (

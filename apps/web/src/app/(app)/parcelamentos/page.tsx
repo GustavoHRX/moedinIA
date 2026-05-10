@@ -1,9 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAppData } from "@/components/app-data-provider";
 import { categoryName, type CategoryRelation } from "@/lib/categories";
 import { addMonthsClamped, isPastOrToday, toCompetenceMonth } from "@/lib/dates";
+import { formatCurrency, formatDate } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
 import { ActionButton, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
 
@@ -31,20 +33,26 @@ type TransactionInstallment = {
   amount: number;
 };
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
-}
-
-function formatDate(date: string) {
-  return new Date(`${date}T00:00:00`).toLocaleDateString("pt-BR");
-}
+type InstallmentsPageData = {
+  categories: Category[];
+  items: InstallmentItem[];
+  transactions: TransactionInstallment[];
+};
 
 export default function ParcelamentosPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const {
+    user: cachedUser,
+    loadingUser,
+    categoriesLoaded,
+    getCategoriesByType,
+    refreshCategories,
+    financialVersion,
+    getFinancialCache,
+    setFinancialCache,
+    invalidateFinancialData,
+  } = useAppData();
 
   const [userId, setUserId] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
@@ -61,17 +69,12 @@ export default function ParcelamentosPage() {
   const [startDate, setStartDate] = useState("");
   const [categoryId, setCategoryId] = useState("");
 
-  useEffect(() => {
-    loadPage();
-  }, []);
-
-  async function loadPage() {
-    setLoading(true);
+  const loadPage = useCallback(async (forceRefresh = false) => {
     setMessage("");
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    if (loadingUser) return;
+
+    const user = cachedUser;
 
     if (!user) {
       router.push("/login");
@@ -79,15 +82,27 @@ export default function ParcelamentosPage() {
     }
 
     setUserId(user.id);
+    const cacheKey = `installments:${user.id}`;
+    const cachedPage = forceRefresh ? null : getFinancialCache<InstallmentsPageData>(cacheKey);
 
-    const [categoriesRes, installmentsRes, txRes] = await Promise.all([
-      supabase
-        .from("categories")
-        .select("id, name")
-        .eq("user_id", user.id)
-        .eq("type", "expense")
-        .order("is_default", { ascending: false })
-        .order("name", { ascending: true }),
+    if (cachedPage) {
+      setCategories(cachedPage.categories);
+      setItems(cachedPage.items);
+      setTransactions(cachedPage.transactions);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    const cachedExpenseCategories = getCategoriesByType("expense");
+    const categoriesPromise =
+      categoriesLoaded
+        ? Promise.resolve(cachedExpenseCategories)
+        : refreshCategories().then((items) => items.filter((category) => category.type === "expense"));
+
+    const [categoriesResult, installmentsRes, txRes] = await Promise.all([
+      categoriesPromise,
       supabase
         .from("installments")
         .select(
@@ -105,10 +120,9 @@ export default function ParcelamentosPage() {
 
     setLoading(false);
 
-    if (categoriesRes.error || installmentsRes.error || txRes.error) {
+    if (installmentsRes.error || txRes.error) {
       setMessage(
         `Erro ao carregar parcelamentos: ${
-          categoriesRes.error?.message ||
           installmentsRes.error?.message ||
           txRes.error?.message
         }`
@@ -116,10 +130,30 @@ export default function ParcelamentosPage() {
       return;
     }
 
-    setCategories((categoriesRes.data ?? []) as Category[]);
-    setItems((installmentsRes.data ?? []) as InstallmentItem[]);
-    setTransactions((txRes.data ?? []) as TransactionInstallment[]);
-  }
+    const nextPage: InstallmentsPageData = {
+      categories: categoriesResult as Category[],
+      items: (installmentsRes.data ?? []) as InstallmentItem[],
+      transactions: (txRes.data ?? []) as TransactionInstallment[],
+    };
+    setCategories(nextPage.categories);
+    setItems(nextPage.items);
+    setTransactions(nextPage.transactions);
+    setFinancialCache(cacheKey, nextPage);
+  }, [
+    categoriesLoaded,
+    cachedUser,
+    getCategoriesByType,
+    getFinancialCache,
+    loadingUser,
+    refreshCategories,
+    router,
+    setFinancialCache,
+    supabase,
+  ]);
+
+  useEffect(() => {
+    loadPage();
+  }, [financialVersion, loadPage]);
 
   async function handleSave(e: FormEvent) {
     e.preventDefault();
@@ -219,7 +253,8 @@ export default function ParcelamentosPage() {
         ? "Parcelamento cadastrado e parcelas vencidas geradas com sucesso."
         : "Parcelamento cadastrado. Parcelas futuras não foram geradas automaticamente."
     );
-    await loadPage();
+    invalidateFinancialData();
+    await loadPage(true);
   }
 
   async function handleToggleStatus(item: InstallmentItem) {
@@ -234,7 +269,8 @@ export default function ParcelamentosPage() {
     }
 
     setMessage("Status atualizado com sucesso.");
-    await loadPage();
+    invalidateFinancialData();
+    await loadPage(true);
   }
 
   async function handleDelete(id: string) {
@@ -249,7 +285,8 @@ export default function ParcelamentosPage() {
     }
 
     setMessage("Parcelamento excluído com sucesso.");
-    await loadPage();
+    invalidateFinancialData();
+    await loadPage(true);
   }
 
   function getInstallmentProgress(item: InstallmentItem) {
@@ -266,6 +303,12 @@ export default function ParcelamentosPage() {
 
   const activeItems = items.filter((item) => item.is_active);
   const totalOpen = activeItems.reduce((acc, item) => acc + Number(item.total_amount), 0);
+  const parsedTotalPreview = Number(totalAmount.replace(",", "."));
+  const parsedInstallmentsPreview = Number(totalInstallments);
+  const installmentPreview =
+    parsedTotalPreview > 0 && parsedInstallmentsPreview > 0
+      ? Number((parsedTotalPreview / parsedInstallmentsPreview).toFixed(2))
+      : null;
 
   return (
     <PageFrame>
@@ -279,10 +322,10 @@ export default function ParcelamentosPage() {
       {message ? <div className="alert-info rounded-2xl px-4 py-3 text-sm">{message}</div> : null}
 
       <section className="grid gap-5 lg:grid-cols-3">
-        <Surface className="!bg-[#1A1A1A] p-6 text-white lg:col-span-2">
-          <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-white/80">Total parcelado ativo</p>
+        <Surface className="bg-[var(--hero-gradient)] p-6 text-[var(--text)] lg:col-span-2">
+          <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Total parcelado ativo</p>
           <p className="mt-2 text-4xl font-black">{formatCurrency(totalOpen)}</p>
-          <p className="mt-2 text-sm font-semibold text-white/88">{activeItems.length} parcelamentos ativos em acompanhamento.</p>
+          <p className="mt-2 text-sm font-semibold text-[var(--muted)]">{activeItems.length} parcelamentos ativos em acompanhamento.</p>
         </Surface>
         <Surface>
           <p className="text-xs font-bold uppercase text-[var(--muted)]">Parcelas geradas</p>
@@ -342,6 +385,12 @@ export default function ParcelamentosPage() {
                 ))}
               </select>
             </div>
+            {installmentPreview !== null ? (
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                Este parcelamento será salvo como {parsedInstallmentsPreview}x de{" "}
+                {formatCurrency(installmentPreview)}, totalizando {formatCurrency(parsedTotalPreview)}.
+              </p>
+            ) : null}
             {categories.length === 0 ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
                 Nenhuma categoria de despesa cadastrada. O parcelamento será salvo sem categoria.

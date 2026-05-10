@@ -34,3 +34,5 @@ __pycache__/
 
 # local data
 .supabase/
+n8n/data/
+n8n/files/

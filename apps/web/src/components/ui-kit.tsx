@@ -14,7 +14,7 @@ export function Surface({
   return (
     <section
       className={cx(
-        "rounded-[24px] border border-[var(--line)] bg-[var(--card)] p-5 shadow-[var(--shadow-soft)] sm:p-6",
+        "rounded-[26px] border border-[var(--line)] bg-[var(--card)] p-5 shadow-[var(--shadow-soft)] backdrop-blur-xl transition hover:border-[rgba(46,158,79,0.22)] sm:p-6",
         className
       )}
     >
@@ -31,8 +31,8 @@ export function PageFrame({
   className?: string;
 }) {
   return (
-    <div className={cx("min-h-screen px-4 py-5 sm:px-6 lg:px-8 lg:py-7", className)}>
-      <div className="mx-auto w-full max-w-[1680px] space-y-5">{children}</div>
+    <div className={cx("min-h-screen px-4 py-5 sm:px-6 lg:px-8 lg:py-8", className)}>
+      <div className="mx-auto w-full max-w-[1720px] space-y-6">{children}</div>
     </div>
   );
 }
@@ -49,17 +49,20 @@ export function PageHeader({
   eyebrow?: string;
 }) {
   return (
-    <header className="flex flex-col gap-4 rounded-[28px] border border-white bg-white/90 px-5 py-5 shadow-[var(--shadow-soft)] backdrop-blur sm:px-7 sm:py-6 lg:flex-row lg:items-center lg:justify-between">
-      <div>
-        {eyebrow ? (
-          <p className="mb-2 font-display text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--brand-strong)]">
-            {eyebrow}
-          </p>
-        ) : null}
-        <h1 className="font-display text-3xl font-black text-[var(--navy)] sm:text-4xl">{title}</h1>
-        <p className="mt-2 max-w-3xl text-base font-medium leading-7 text-[var(--muted)]">{description}</p>
+    <header className="relative overflow-hidden rounded-[30px] border border-[var(--line)] bg-[var(--surface)] px-5 py-5 shadow-[var(--shadow-soft)] backdrop-blur-xl sm:px-7 sm:py-7">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_78%_12%,var(--brand-glow),transparent_30rem)] opacity-70" />
+      <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          {eyebrow ? (
+            <p className="mb-2 font-display text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--brand-strong)]">
+              {eyebrow}
+            </p>
+          ) : null}
+          <h1 className="font-display text-3xl font-black leading-tight text-[var(--navy)] sm:text-5xl">{title}</h1>
+          <p className="mt-2 max-w-3xl text-base font-medium leading-7 text-[var(--muted)]">{description}</p>
+        </div>
+        {actions ? <div className="flex flex-wrap gap-2 sm:justify-end sm:gap-3">{actions}</div> : null}
       </div>
-      {actions ? <div className="flex flex-wrap gap-2 sm:justify-end sm:gap-3">{actions}</div> : null}
     </header>
   );
 }
@@ -79,7 +82,7 @@ export function SectionHeader({
         {eyebrow ? (
           <p className="font-display text-xs font-extrabold uppercase tracking-[0.12em] text-[var(--muted)]">{eyebrow}</p>
         ) : null}
-        <h2 className="font-display text-lg font-black text-[var(--navy)] sm:text-xl">{title}</h2>
+        <h2 className="font-display text-xl font-black text-[var(--navy)] sm:text-2xl">{title}</h2>
       </div>
       {action}
     </div>
@@ -105,17 +108,17 @@ export function StatCard({
     tone === "success"
       ? "text-[var(--success)]"
       : tone === "danger"
-      ? "text-[var(--danger)]"
-      : tone === "brand"
-      ? "text-[var(--brand-strong)]"
-      : "text-[var(--navy)]";
+        ? "text-[var(--danger)]"
+        : tone === "brand"
+          ? "text-[var(--brand-strong)]"
+          : "text-[var(--navy)]";
 
   return (
-    <Surface className={cx("min-h-[128px] p-5", className)}>
+    <Surface className={cx("min-h-[136px] p-5", className)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-display text-xs font-extrabold uppercase tracking-[0.12em] text-[var(--muted)]">{label}</p>
-          <p className={cx("mt-2 truncate font-display text-3xl font-black sm:text-4xl", toneClass)}>{value}</p>
+          <p className={cx("mt-2 truncate font-display text-3xl font-black sm:text-[2.65rem]", toneClass)}>{value}</p>
         </div>
         {icon ? (
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--brand-soft)] text-[var(--brand-strong)] shadow-[inset_0_0_0_1px_rgba(46,158,79,0.12)]">
@@ -123,7 +126,7 @@ export function StatCard({
           </div>
         ) : null}
       </div>
-      {detail ? <p className="mt-3 text-sm font-medium leading-6 text-[var(--muted)]">{detail}</p> : null}
+      {detail ? <p className="mt-3 text-sm font-semibold leading-6 text-[var(--muted)]">{detail}</p> : null}
     </Surface>
   );
 }
@@ -139,10 +142,10 @@ export function Badge({
     tone === "success"
       ? "bg-[var(--brand-soft)] text-[var(--brand-strong)]"
       : tone === "danger"
-      ? "bg-red-100 text-red-700"
-      : tone === "brand"
-      ? "bg-[var(--brand-soft)] text-[var(--brand-strong)] ring-1 ring-[rgba(46,158,79,0.16)]"
-      : "bg-slate-100 text-slate-600";
+        ? "bg-red-100 text-red-700"
+        : tone === "brand"
+          ? "bg-[var(--brand-soft)] text-[var(--brand-strong)] ring-1 ring-[rgba(46,158,79,0.16)]"
+          : "bg-[var(--bg-soft)] text-[var(--muted-strong)]";
 
   return (
     <span className={cx("inline-flex items-center rounded-full px-3 py-1.5 font-display text-xs font-extrabold", style)}>
@@ -164,10 +167,10 @@ export function ActionButton({
     tone === "primary"
       ? "btn-primary"
       : tone === "danger"
-      ? "rounded-[16px] bg-[var(--danger)] text-white shadow-[0_16px_30px_rgba(235,64,75,0.2)] transition hover:bg-[#d93742]"
-      : tone === "ghost"
-      ? "rounded-[16px] text-[var(--navy)] transition hover:bg-[var(--bg-soft)]"
-      : "rounded-[16px] border border-[var(--line)] bg-white text-[var(--navy)] shadow-[0_10px_22px_rgba(26,26,26,0.06)] transition hover:border-[var(--brand)] hover:bg-[var(--brand-soft)]";
+        ? "rounded-[16px] bg-[var(--danger)] text-white shadow-[0_16px_30px_rgba(235,64,75,0.2)] transition hover:brightness-105"
+        : tone === "ghost"
+          ? "rounded-[16px] text-[var(--navy)] transition hover:bg-[var(--bg-soft)]"
+          : "btn-secondary";
 
   return (
     <button {...props} className={cx("inline-flex items-center justify-center gap-2 px-5 py-3 font-display text-sm font-extrabold", style, className)}>

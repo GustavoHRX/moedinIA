@@ -1,8 +1,10 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAppData } from "@/components/app-data-provider";
 import { categoryName, type CategoryRelation } from "@/lib/categories";
+import { formatCurrency } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
 import { ActionButton, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
 
@@ -23,16 +25,25 @@ type FixedExpense = {
   categories: CategoryRelation;
 };
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
-}
+type FixedExpensesPageData = {
+  categories: Category[];
+  items: FixedExpense[];
+};
 
 export default function GastosFixosPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const {
+    user: cachedUser,
+    loadingUser,
+    categoriesLoaded,
+    getCategoriesByType,
+    refreshCategories,
+    financialVersion,
+    getFinancialCache,
+    setFinancialCache,
+    invalidateFinancialData,
+  } = useAppData();
 
   const [userId, setUserId] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
@@ -48,17 +59,12 @@ export default function GastosFixosPage() {
   const [categoryId, setCategoryId] = useState("");
   const [autoCreateTransaction, setAutoCreateTransaction] = useState(false);
 
-  useEffect(() => {
-    loadPage();
-  }, []);
-
-  async function loadPage() {
-    setLoading(true);
+  const loadPage = useCallback(async (forceRefresh = false) => {
     setMessage("");
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    if (loadingUser) return;
+
+    const user = cachedUser;
 
     if (!user) {
       router.push("/login");
@@ -66,15 +72,26 @@ export default function GastosFixosPage() {
     }
 
     setUserId(user.id);
+    const cacheKey = `fixed-expenses:${user.id}`;
+    const cachedPage = forceRefresh ? null : getFinancialCache<FixedExpensesPageData>(cacheKey);
 
-    const [categoriesRes, fixedRes] = await Promise.all([
-      supabase
-        .from("categories")
-        .select("id, name")
-        .eq("user_id", user.id)
-        .eq("type", "expense")
-        .order("is_default", { ascending: false })
-        .order("name", { ascending: true }),
+    if (cachedPage) {
+      setCategories(cachedPage.categories);
+      setItems(cachedPage.items);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    const cachedExpenseCategories = getCategoriesByType("expense");
+    const categoriesPromise =
+      categoriesLoaded
+        ? Promise.resolve(cachedExpenseCategories)
+        : refreshCategories().then((items) => items.filter((category) => category.type === "expense"));
+
+    const [categoriesResult, fixedRes] = await Promise.all([
+      categoriesPromise,
       supabase
         .from("fixed_expenses")
         .select(
@@ -87,16 +104,35 @@ export default function GastosFixosPage() {
 
     setLoading(false);
 
-    if (categoriesRes.error || fixedRes.error) {
+    if (fixedRes.error) {
       setMessage(
-        `Erro ao carregar gastos fixos: ${categoriesRes.error?.message ?? fixedRes.error?.message}`
+        `Erro ao carregar gastos fixos: ${fixedRes.error.message}`
       );
       return;
     }
 
-    setCategories((categoriesRes.data ?? []) as Category[]);
-    setItems((fixedRes.data ?? []) as FixedExpense[]);
-  }
+    const nextPage: FixedExpensesPageData = {
+      categories: categoriesResult as Category[],
+      items: (fixedRes.data ?? []) as FixedExpense[],
+    };
+    setCategories(nextPage.categories);
+    setItems(nextPage.items);
+    setFinancialCache(cacheKey, nextPage);
+  }, [
+    categoriesLoaded,
+    cachedUser,
+    getCategoriesByType,
+    getFinancialCache,
+    loadingUser,
+    refreshCategories,
+    router,
+    setFinancialCache,
+    supabase,
+  ]);
+
+  useEffect(() => {
+    loadPage();
+  }, [financialVersion, loadPage]);
 
   async function handleSave(e: FormEvent) {
     e.preventDefault();
@@ -149,7 +185,8 @@ export default function GastosFixosPage() {
     setCategoryId("");
     setAutoCreateTransaction(false);
     setMessage("Gasto fixo cadastrado com sucesso.");
-    await loadPage();
+    invalidateFinancialData();
+    await loadPage(true);
   }
 
   async function handleToggleStatus(item: FixedExpense) {
@@ -164,7 +201,8 @@ export default function GastosFixosPage() {
     }
 
     setMessage("Status atualizado com sucesso.");
-    await loadPage();
+    invalidateFinancialData();
+    await loadPage(true);
   }
 
   async function handleDelete(id: string) {
@@ -178,7 +216,8 @@ export default function GastosFixosPage() {
     }
 
     setMessage("Gasto fixo excluído com sucesso.");
-    await loadPage();
+    invalidateFinancialData();
+    await loadPage(true);
   }
 
   const activeItems = items.filter((item) => item.is_active);
@@ -195,7 +234,7 @@ export default function GastosFixosPage() {
       <div className="space-y-5">
         {message ? <div className="alert-info rounded-2xl px-4 py-3 text-sm">{message}</div> : null}
 
-        <section className="flex flex-col justify-between gap-5 rounded-[24px] border border-[var(--line)] bg-[linear-gradient(135deg,#ffffff_0%,#eefaf4_100%)] p-5 shadow-[var(--shadow-soft)] lg:flex-row lg:items-center">
+        <section className="flex flex-col justify-between gap-5 rounded-[24px] border border-[var(--line)] bg-[var(--hero-gradient)] p-5 shadow-[var(--shadow-soft)] lg:flex-row lg:items-center">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-[var(--brand-soft)] text-2xl font-bold text-[var(--brand)]">
               ↻

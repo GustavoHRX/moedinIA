@@ -54,24 +54,35 @@ services:
     container_name: moedin_n8n
     image: n8nio/n8n:latest
     ports:
-      - "5678:5678"
+      - "${N8N_PORT:-5678}:5678"
     environment:
-      N8N_HOST: localhost
+      N8N_HOST: ${N8N_HOST:-localhost}
       N8N_PORT: 5678
-      N8N_PROTOCOL: http
-      WEBHOOK_URL: http://localhost:5678
-      GENERIC_TIMEZONE: America/Sao_Paulo
-      TZ: America/Sao_Paulo
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      N8N_EDITOR_BASE_URL: ${N8N_EDITOR_BASE_URL:-http://localhost:5678}
+      WEBHOOK_URL: ${N8N_WEBHOOK_BASE_URL:-http://localhost:5678}
+      GENERIC_TIMEZONE: ${DEFAULT_TIMEZONE:-America/Sao_Paulo}
+      TZ: ${DEFAULT_TIMEZONE:-America/Sao_Paulo}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-moedin_local_change_me_32_chars_key}
       DB_SQLITE_POOL_SIZE: 2
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       N8N_RUNNERS_ENABLED: "true"
       N8N_GIT_NODE_DISABLE_BARE_REPOS: "true"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "false"
+      SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      AI_SERVICE_URL: ${AI_SERVICE_URL:-http://host.docker.internal:8000}
+      WHATSAPP_PROVIDER: ${WHATSAPP_PROVIDER:-evolution}
+      EVOLUTION_API_URL: ${EVOLUTION_API_URL:-}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-}
+      DEFAULT_CURRENCY: ${DEFAULT_CURRENCY:-BRL}
     volumes:
-      - n8n_data:/home/node/.n8n
+      - ./n8n/data:/home/node/.n8n
+      - ./n8n/workflow:/workflows
+      - ./n8n/files:/files
     restart: unless-stopped
 
 volumes:
-  n8n_data:
   web_node_modules:
   web_next_cache:
   api_node_modules:

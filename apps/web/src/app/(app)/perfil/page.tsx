@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAppData, type AppProfile } from "@/components/app-data-provider";
 import { createClient } from "@/lib/supabase/client";
 import { ActionButton, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
 
@@ -17,6 +18,14 @@ type Profile = {
 export default function PerfilPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const {
+    user: cachedUser,
+    loadingUser,
+    profile: cachedProfile,
+    profileLoaded,
+    refreshProfile,
+    updateProfileCache,
+  } = useAppData();
 
   const [userId, setUserId] = useState("");
   const [email, setEmail] = useState("");
@@ -30,22 +39,34 @@ export default function PerfilPage() {
 
   useEffect(() => {
     loadProfile();
-  }, []);
+  }, [loadingUser, cachedUser, profileLoaded, cachedProfile]);
 
   async function loadProfile() {
     setLoading(true);
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    if (loadingUser) return;
 
-    if (authError || !user) {
+    const user = cachedUser;
+
+    if (!user) {
       router.push("/login");
       return;
     }
 
     setUserId(user.id);
     setEmail(user.email || "");
+
+    if (profileLoaded && cachedProfile) {
+      fillForm(cachedProfile);
+      setLoading(false);
+      return;
+    }
+
+    const refreshedProfile = await refreshProfile();
+    if (refreshedProfile) {
+      fillForm(refreshedProfile);
+      setLoading(false);
+      return;
+    }
 
     const { data, error } = await supabase
       .from("profiles")
@@ -60,7 +81,12 @@ export default function PerfilPage() {
       return;
     }
 
-    const profile = data as Profile;
+    if (data) {
+      fillForm(data as Profile);
+    }
+  }
+
+  function fillForm(profile: Profile | AppProfile) {
     setFullName(profile.full_name || "");
     setPhone(profile.phone || "");
     setCurrency(profile.currency || "BRL");
@@ -90,6 +116,14 @@ export default function PerfilPage() {
     }
 
     setMessage("Perfil salvo com sucesso.");
+    updateProfileCache({
+      id: userId,
+      full_name: fullName,
+      email,
+      phone,
+      currency,
+      timezone,
+    });
   }
 
   return (

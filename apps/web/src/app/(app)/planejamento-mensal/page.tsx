@@ -1,9 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAppData } from "@/components/app-data-provider";
 import { categoryName, type CategoryRelation } from "@/lib/categories";
 import { currentMonthRef } from "@/lib/dates";
+import { formatCurrency } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
 import { EmptyState, PageFrame, PageHeader, SectionHeader, StatCard, Surface } from "@/components/ui-kit";
 
@@ -37,12 +39,12 @@ type FixedExpense = {
   amount: number;
 };
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
-}
+type MonthlyPlanningData = {
+  control: MonthlyControl | null;
+  categories: Category[];
+  budgets: BudgetItem[];
+  fixedExpenses: FixedExpense[];
+};
 
 function formatMonthLabel(monthRef: string) {
   return new Date(`${monthRef}T00:00:00`).toLocaleDateString("pt-BR", {
@@ -54,6 +56,17 @@ function formatMonthLabel(monthRef: string) {
 export default function PlanejamentoMensalPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const {
+    user: cachedUser,
+    loadingUser,
+    categoriesLoaded,
+    getCategoriesByType,
+    refreshCategories,
+    financialVersion,
+    getFinancialCache,
+    setFinancialCache,
+    invalidateFinancialData,
+  } = useAppData();
 
   const [userId, setUserId] = useState("");
   const [monthRef, setMonthRef] = useState(currentMonthRef());
@@ -79,18 +92,41 @@ export default function PlanejamentoMensalPage() {
   const [savingBudget, setSavingBudget] = useState(false);
   const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    loadPage();
+  const applyPlanningData = useCallback((data: MonthlyPlanningData) => {
+    setCategories(data.categories);
+    setBudgets(data.budgets);
+    setFixedExpenses(data.fixedExpenses);
+
+    const item = data.control;
+    if (item) {
+      setControlId(item.id);
+      setSalaryAmount(String(item.salary_amount ?? 0));
+      setExtraIncomeAmount(String(item.extra_income_amount ?? 0));
+      setOpeningBalance(String(item.opening_balance ?? 0));
+      setPaydayDay(item.payday_day ? String(item.payday_day) : "");
+      setFoodAllowance(String(item.food_allowance ?? 0));
+      setMealAllowance(String(item.meal_allowance ?? 0));
+      setNotes(item.notes ?? "");
+      return;
+    }
+
+    setControlId(null);
+    setSalaryAmount("");
+    setExtraIncomeAmount("");
+    setOpeningBalance("");
+    setPaydayDay("");
+    setFoodAllowance("");
+    setMealAllowance("");
+    setNotes("");
   }, []);
 
-  async function loadPage(selectedMonth?: string) {
-    setLoading(true);
+  const loadPage = useCallback(async (selectedMonth?: string, forceRefresh = false) => {
     setMessage("");
     const month = selectedMonth || monthRef;
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    if (loadingUser) return;
+
+    const user = cachedUser;
 
     if (!user) {
       router.push("/login");
@@ -98,21 +134,31 @@ export default function PlanejamentoMensalPage() {
     }
 
     setUserId(user.id);
+    const cacheKey = `monthly-planning:${user.id}:${month}`;
+    const cachedPage = forceRefresh ? null : getFinancialCache<MonthlyPlanningData>(cacheKey);
 
-    const [controlRes, categoriesRes, budgetsRes, fixedRes] = await Promise.all([
+    if (cachedPage) {
+      applyPlanningData(cachedPage);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    const cachedExpenseCategories = getCategoriesByType("expense");
+    const categoriesPromise =
+      categoriesLoaded
+        ? Promise.resolve(cachedExpenseCategories)
+        : refreshCategories().then((items) => items.filter((category) => category.type === "expense"));
+
+    const [controlRes, categoriesResult, budgetsRes, fixedRes] = await Promise.all([
       supabase
         .from("monthly_controls")
         .select("*")
         .eq("user_id", user.id)
         .eq("month_ref", month)
         .maybeSingle(),
-      supabase
-        .from("categories")
-        .select("id, name")
-        .eq("user_id", user.id)
-        .eq("type", "expense")
-        .order("is_default", { ascending: false })
-        .order("name", { ascending: true }),
+      categoriesPromise,
       supabase
         .from("budgets")
         .select("id, category_id, month_ref, amount, categories(name)")
@@ -128,11 +174,10 @@ export default function PlanejamentoMensalPage() {
 
     setLoading(false);
 
-    if (controlRes.error || categoriesRes.error || budgetsRes.error || fixedRes.error) {
+    if (controlRes.error || budgetsRes.error || fixedRes.error) {
       setMessage(
         `Erro ao carregar planejamento: ${
           controlRes.error?.message ||
-          categoriesRes.error?.message ||
           budgetsRes.error?.message ||
           fixedRes.error?.message
         }`
@@ -140,31 +185,31 @@ export default function PlanejamentoMensalPage() {
       return;
     }
 
-    setCategories((categoriesRes.data ?? []) as Category[]);
-    setBudgets((budgetsRes.data ?? []) as BudgetItem[]);
-    setFixedExpenses((fixedRes.data ?? []) as FixedExpense[]);
+    const nextPage: MonthlyPlanningData = {
+      control: controlRes.data as MonthlyControl | null,
+      categories: categoriesResult as Category[],
+      budgets: (budgetsRes.data ?? []) as BudgetItem[],
+      fixedExpenses: (fixedRes.data ?? []) as FixedExpense[],
+    };
+    applyPlanningData(nextPage);
+    setFinancialCache(cacheKey, nextPage);
+  }, [
+    applyPlanningData,
+    cachedUser,
+    categoriesLoaded,
+    getCategoriesByType,
+    getFinancialCache,
+    loadingUser,
+    monthRef,
+    refreshCategories,
+    router,
+    setFinancialCache,
+    supabase,
+  ]);
 
-    const item = controlRes.data as MonthlyControl | null;
-    if (item) {
-      setControlId(item.id);
-      setSalaryAmount(String(item.salary_amount ?? 0));
-      setExtraIncomeAmount(String(item.extra_income_amount ?? 0));
-      setOpeningBalance(String(item.opening_balance ?? 0));
-      setPaydayDay(item.payday_day ? String(item.payday_day) : "");
-      setFoodAllowance(String(item.food_allowance ?? 0));
-      setMealAllowance(String(item.meal_allowance ?? 0));
-      setNotes(item.notes ?? "");
-    } else {
-      setControlId(null);
-      setSalaryAmount("");
-      setExtraIncomeAmount("");
-      setOpeningBalance("");
-      setPaydayDay("");
-      setFoodAllowance("");
-      setMealAllowance("");
-      setNotes("");
-    }
-  }
+  useEffect(() => {
+    loadPage();
+  }, [financialVersion, loadPage]);
 
   async function handleChangeMonth(nextMonth: string) {
     const finalMonth = `${nextMonth}-01`;
@@ -201,7 +246,8 @@ export default function PlanejamentoMensalPage() {
     }
 
     setMessage("Planejamento mensal salvo com sucesso.");
-    await loadPage(monthRef);
+    invalidateFinancialData();
+    await loadPage(monthRef, true);
   }
 
   async function handleSaveBudget(e: FormEvent) {
@@ -248,7 +294,8 @@ export default function PlanejamentoMensalPage() {
     setBudgetAmount("");
     setBudgetCategoryId("general");
     setMessage("Orçamento salvo com sucesso.");
-    await loadPage(monthRef);
+    invalidateFinancialData();
+    await loadPage(monthRef, true);
   }
 
   async function handleDeleteBudget(id: string) {
@@ -262,7 +309,8 @@ export default function PlanejamentoMensalPage() {
     }
 
     setMessage("Orçamento excluído com sucesso.");
-    await loadPage(monthRef);
+    invalidateFinancialData();
+    await loadPage(monthRef, true);
   }
 
   const generalBudget = budgets.find((budget) => budget.category_id === null) || null;
@@ -295,21 +343,21 @@ export default function PlanejamentoMensalPage() {
       {message ? <div className="alert-info rounded-2xl px-4 py-3 text-sm">{message}</div> : null}
 
       <section className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-        <Surface className="!bg-[#1A1A1A] p-6 text-white">
-          <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-white/80">Base financeira</p>
+        <Surface className="bg-[var(--hero-gradient)] p-6 text-[var(--text)]">
+          <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Base financeira</p>
           <p className="mt-3 text-4xl font-black">{formatCurrency(plannedIncome)}</p>
-          <p className="mt-2 text-sm font-semibold text-white/88">{formatMonthLabel(monthRef)} com benefícios, saldo inicial e renda extra.</p>
+          <p className="mt-2 text-sm font-semibold text-[var(--muted)]">{formatMonthLabel(monthRef)} com benefícios, saldo inicial e renda extra.</p>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-3">
-              <p className="text-xs font-semibold text-white/84">Benefícios</p>
+            <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-muted)] p-3">
+              <p className="text-xs font-semibold text-[var(--muted)]">Benefícios</p>
               <p className="font-black">{formatCurrency(benefits)}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-3">
-              <p className="text-xs font-semibold text-white/84">Fixos ativos</p>
+            <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-muted)] p-3">
+              <p className="text-xs font-semibold text-[var(--muted)]">Fixos ativos</p>
               <p className="font-black">{formatCurrency(fixedTotal)}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-3">
-              <p className="text-xs font-semibold text-white/84">Saldo após fixos</p>
+            <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-muted)] p-3">
+              <p className="text-xs font-semibold text-[var(--muted)]">Saldo após fixos</p>
               <p className="font-black">{formatCurrency(balanceAfterFixed)}</p>
             </div>
           </div>

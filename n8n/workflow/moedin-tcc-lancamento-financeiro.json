@@ -1,0 +1,304 @@
+{
+  "id": "WJatv8A5SXw8xr8f",
+  "name": "Moedin TCC - Lancamento financeiro por webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "moedin-tcc-lancamento",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "77a16c0a-785b-4706-a1ef-aad1374f51fd",
+      "name": "Webhook - mensagem financeira",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -760,
+        0
+      ],
+      "webhookId": "moedin-tcc-lancamento"
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = $json.body ?? $json;\nconst rawText = String(payload.text ?? payload.message ?? payload.body ?? '').trim();\nconst userId = String(payload.user_id ?? payload.userId ?? '').trim();\nconst externalId = String(payload.external_id ?? payload.externalId ?? payload.id ?? `n8n-${Date.now()}`).trim();\n\nfunction todaySaoPaulo() {\n  return new Intl.DateTimeFormat('en-CA', {\n    timeZone: 'America/Sao_Paulo',\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n  }).format(new Date());\n}\n\nfunction normalizeDate(text, fallback) {\n  const iso = text.match(/\\b(20\\d{2}-\\d{2}-\\d{2})\\b/);\n  if (iso) return iso[1];\n\n  const br = text.match(/\\b(\\d{1,2})\\/(\\d{1,2})\\/(20\\d{2})\\b/);\n  if (br) {\n    const [, day, month, year] = br;\n    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;\n  }\n\n  return fallback;\n}\n\nfunction normalizeAmount(text) {\n  const match = text.match(/(?:r\\$\\s*)?(\\d{1,3}(?:\\.\\d{3})*|\\d+)(?:,(\\d{1,2})|\\.(\\d{1,2}))?/i);\n  if (!match) return 0;\n\n  const integer = match[1].replace(/\\./g, '');\n  const cents = match[2] ?? match[3] ?? '00';\n  return Number(`${integer}.${cents.padEnd(2, '0')}`);\n}\n\nfunction normalizeType(text, explicitType) {\n  const normalizedExplicit = String(explicitType ?? '').toLowerCase();\n  if (['income', 'receita', 'entrada'].includes(normalizedExplicit)) return 'income';\n  if (['expense', 'despesa', 'saida', 'saída'].includes(normalizedExplicit)) return 'expense';\n\n  const lower = text.toLowerCase();\n  if (/\\b(recebi|receita|sal[aá]rio|entrada|ganhei|pix recebido|reembolso)\\b/.test(lower)) {\n    return 'income';\n  }\n\n  return 'expense';\n}\n\nfunction buildDescription(text) {\n  const withoutAmount = text\n    .replace(/(?:r\\$\\s*)?\\d{1,3}(?:\\.\\d{3})*(?:,\\d{1,2})?/ig, '')\n    .replace(/\\b(20\\d{2}-\\d{2}-\\d{2})\\b/g, '')\n    .replace(/\\b\\d{1,2}\\/\\d{1,2}\\/20\\d{2}\\b/g, '')\n    .replace(/\\b(gastei|paguei|comprei|recebi|receita|despesa|entrada|saida|saída)\\b/ig, '')\n    .replace(/\\s+/g, ' ')\n    .trim();\n\n  return withoutAmount || text.slice(0, 120) || 'Lancamento via n8n';\n}\n\nconst transactionDate = normalizeDate(rawText, todaySaoPaulo());\nconst amount = normalizeAmount(rawText);\nconst type = normalizeType(rawText, payload.type);\nconst description = String(payload.description ?? buildDescription(rawText)).slice(0, 255);\nconst competenceMonth = `${transactionDate.slice(0, 7)}-01`;\nconst errors = [];\n\nif (!userId) errors.push('Informe user_id no corpo da requisicao.');\nif (!rawText) errors.push('Informe text com a mensagem financeira.');\nif (!amount || Number.isNaN(amount)) errors.push('Nao consegui identificar o valor da transacao.');\n\nreturn [{\n  json: {\n    valid: errors.length === 0,\n    error: errors.join(' '),\n    raw: payload,\n    message_log: {\n      user_id: userId || null,\n      channel: payload.channel ?? 'whatsapp',\n      direction: 'in',\n      raw_text: rawText,\n      parsed_json: {\n        type,\n        amount,\n        description,\n        transaction_date: transactionDate,\n        competence_month: competenceMonth,\n      },\n      external_id: externalId,\n    },\n    transaction: {\n      user_id: userId,\n      type,\n      amount,\n      description,\n      notes: rawText,\n      transaction_date: transactionDate,\n      competence_month: competenceMonth,\n      source: 'n8n',\n      external_message_id: externalId,\n      origin_type: 'manual',\n      status: 'active',\n    },\n  },\n}];"
+      },
+      "id": "3b73452d-7bbe-494b-8e84-371cf74468cb",
+      "name": "Normalizar mensagem",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -520,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/message_logs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_ROLE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_ROLE_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.message_log}}",
+        "options": {}
+      },
+      "id": "dff03372-fea3-45ba-ad5a-ad0a58e646d4",
+      "name": "Supabase - registrar log",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -280,
+        -120
+      ],
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2e6db3f1-513c-4cc9-b4f3-3b053d427dce",
+              "leftValue": "={{$('Normalizar mensagem').item.json.valid}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "766ef24f-d316-43c0-a520-0ab7ae18ddeb",
+      "name": "Mensagem valida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -40,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/transactions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_ROLE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_ROLE_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$('Normalizar mensagem').item.json.transaction}}",
+        "options": {}
+      },
+      "id": "eb7a1cca-7937-4584-8d09-ee5b00b53bbb",
+      "name": "Supabase - criar lancamento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    ok: true,\n    message: 'Lancamento criado pelo n8n.',\n    parsed: $('Normalizar mensagem').item.json.transaction,\n    supabase: $json,\n  },\n}];"
+      },
+      "id": "cbb8e721-9db5-4b53-8e63-1c1e7c287b04",
+      "name": "Preparar resposta sucesso",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    ok: false,\n    message: $('Normalizar mensagem').item.json.error,\n    example: {\n      user_id: 'uuid-do-usuario',\n      text: 'gastei R$ 35,90 no mercado hoje',\n      external_id: 'msg-001',\n    },\n  },\n}];"
+      },
+      "id": "f7e7079c-96fd-46f8-87f6-e09f385b9a1a",
+      "name": "Preparar resposta erro",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{JSON.stringify($json)}}",
+        "options": {}
+      },
+      "id": "a3865dc1-ec85-496c-b7eb-e1f3250d86e4",
+      "name": "Responder sucesso",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{JSON.stringify($json)}}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "7e3b9c1c-d1ad-424e-ad49-b6e161bb3635",
+      "name": "Responder erro de validacao",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        480,
+        140
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - mensagem financeira": {
+      "main": [
+        [
+          {
+            "node": "Normalizar mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar mensagem": {
+      "main": [
+        [
+          {
+            "node": "Mensagem valida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagem valida?": {
+      "main": [
+        [
+          {
+            "node": "Supabase - registrar log",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar resposta erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - registrar log": {
+      "main": [
+        [
+          {
+            "node": "Supabase - criar lancamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - criar lancamento": {
+      "main": [
+        [
+          {
+            "node": "Preparar resposta sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar resposta sucesso": {
+      "main": [
+        [
+          {
+            "node": "Responder sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar resposta erro": {
+      "main": [
+        [
+          {
+            "node": "Responder erro de validacao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1a7941f5-ded9-4e28-befb-55fb3cc9d44e",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

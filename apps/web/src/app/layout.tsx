@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Montserrat } from "next/font/google";
+import TermsConsentPopup from "@/components/terms-consent-popup";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 const inter = Inter({
@@ -29,9 +31,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${inter.variable} ${montserrat.variable}`}>
-        {children}
+        <ThemeProvider>
+          {children}
+          <TermsConsentPopup />
+        </ThemeProvider>
       </body>
     </html>
   );

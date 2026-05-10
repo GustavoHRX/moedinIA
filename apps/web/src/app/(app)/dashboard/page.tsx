@@ -1,6 +1,6 @@
-"use client";
+      "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Bar,
@@ -17,7 +17,9 @@ import {
 } from "recharts";
 import { categoryName, type CategoryRelation } from "@/lib/categories";
 import { currentMonthRef, todayDateInput } from "@/lib/dates";
+import { formatCurrency, formatDate } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
+import { useAppData } from "@/components/app-data-provider";
 import NewEntryButton from "@/components/new-entry-button";
 import { Badge, EmptyState, PageFrame, PageHeader, SectionHeader, StatCard, Surface } from "@/components/ui-kit";
 
@@ -72,6 +74,14 @@ type CategoryTotal = {
   total: number;
 };
 
+type DashboardData = {
+  transactions: TransactionItem[];
+  goals: GoalItem[];
+  budgets: BudgetItem[];
+  fixedExpenses: FixedExpense[];
+  installments: Installment[];
+};
+
 const CHART_COLORS = [
   "#2E9E4F",
   "#1A1A1A",
@@ -82,20 +92,16 @@ const CHART_COLORS = [
   "#ef5d77",
 ];
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
-}
-
-function formatDate(date: string) {
-  return new Date(`${date}T00:00:00`).toLocaleDateString("pt-BR");
-}
-
 export default function DashboardPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const {
+    user: cachedUser,
+    loadingUser,
+    financialVersion,
+    getFinancialCache,
+    setFinancialCache,
+  } = useAppData();
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -110,87 +116,105 @@ export default function DashboardPage() {
     setChartsReady(true);
   }, []);
 
-  useEffect(() => {
-    async function loadDashboard() {
-      setLoading(true);
-      setMessage("");
+  const applyDashboardData = useCallback((data: DashboardData) => {
+    setTransactions(data.transactions);
+    setGoals(data.goals);
+    setBudgets(data.budgets);
+    setFixedExpenses(data.fixedExpenses);
+    setInstallments(data.installments);
+  }, []);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+  const loadDashboard = useCallback(async (forceRefresh = false) => {
+    setMessage("");
 
-      if (!user) {
-        router.push("/login");
-        return;
-      }
+    if (loadingUser) return;
 
-      const today = todayDateInput();
+    const currentUser = cachedUser;
 
-      const [transactionsRes, goalsRes, budgetsRes, fixedRes, installmentsRes] =
-        await Promise.all([
-          supabase
-            .from("transactions")
-            .select(
-              "id, type, amount, description, transaction_date, created_at, category_id, origin_type, installment_number, installment_total, categories(name)"
-            )
-            .eq("user_id", user.id)
-            .eq("status", "active")
-            .lte("transaction_date", today)
-            .order("transaction_date", { ascending: false })
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("goals")
-            .select("id, title, target_amount, current_amount, status")
-            .eq("user_id", user.id)
-            .neq("status", "cancelled")
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("budgets")
-            .select("id, amount, month_ref, category_id, categories(name)")
-            .eq("user_id", user.id)
-            .order("month_ref", { ascending: false }),
-          supabase
-            .from("fixed_expenses")
-            .select("id, title, amount, due_day, categories(name)")
-            .eq("user_id", user.id)
-            .eq("is_active", true)
-            .order("due_day", { ascending: true }),
-          supabase
-            .from("installments")
-            .select("id, title, installment_amount, total_installments, start_date")
-            .eq("user_id", user.id)
-            .eq("is_active", true)
-            .order("created_at", { ascending: false }),
-        ]);
-
-      setLoading(false);
-
-      const error =
-        transactionsRes.error ||
-        goalsRes.error ||
-        budgetsRes.error ||
-        fixedRes.error ||
-        installmentsRes.error;
-
-      if (error) {
-        setMessage(`Erro ao carregar dashboard: ${error.message}`);
-        return;
-      }
-
-      setTransactions((transactionsRes.data ?? []) as TransactionItem[]);
-      setGoals((goalsRes.data ?? []) as GoalItem[]);
-      setBudgets((budgetsRes.data ?? []) as BudgetItem[]);
-      setFixedExpenses((fixedRes.data ?? []) as FixedExpense[]);
-      setInstallments((installmentsRes.data ?? []) as Installment[]);
+    if (!currentUser) {
+      router.push("/login");
+      return;
     }
 
-    loadDashboard();
-    window.addEventListener("financial-entry-saved", loadDashboard);
+    const today = todayDateInput();
+    const cacheKey = `dashboard:${currentUser.id}:${today}`;
+    const cachedDashboard = forceRefresh
+      ? null
+      : getFinancialCache<DashboardData>(cacheKey);
 
-    return () => {
-      window.removeEventListener("financial-entry-saved", loadDashboard);
+    if (cachedDashboard) {
+      applyDashboardData(cachedDashboard);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    const [transactionsRes, goalsRes, budgetsRes, fixedRes, installmentsRes] =
+      await Promise.all([
+        supabase
+          .from("transactions")
+          .select(
+            "id, type, amount, description, transaction_date, created_at, category_id, origin_type, installment_number, installment_total, categories(name)"
+          )
+          .eq("user_id", currentUser.id)
+          .eq("status", "active")
+          .lte("transaction_date", today)
+          .order("transaction_date", { ascending: false })
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("goals")
+          .select("id, title, target_amount, current_amount, status")
+          .eq("user_id", currentUser.id)
+          .neq("status", "cancelled")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("budgets")
+          .select("id, amount, month_ref, category_id, categories(name)")
+          .eq("user_id", currentUser.id)
+          .order("month_ref", { ascending: false }),
+        supabase
+          .from("fixed_expenses")
+          .select("id, title, amount, due_day, categories(name)")
+          .eq("user_id", currentUser.id)
+          .eq("is_active", true)
+          .order("due_day", { ascending: true }),
+        supabase
+          .from("installments")
+          .select("id, title, installment_amount, total_installments, start_date")
+          .eq("user_id", currentUser.id)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false }),
+      ]);
+
+    setLoading(false);
+
+    const error =
+      transactionsRes.error ||
+      goalsRes.error ||
+      budgetsRes.error ||
+      fixedRes.error ||
+      installmentsRes.error;
+
+    if (error) {
+      setMessage(`Erro ao carregar dashboard: ${error.message}`);
+      return;
+    }
+
+    const nextDashboard: DashboardData = {
+      transactions: (transactionsRes.data ?? []) as TransactionItem[],
+      goals: (goalsRes.data ?? []) as GoalItem[],
+      budgets: (budgetsRes.data ?? []) as BudgetItem[],
+      fixedExpenses: (fixedRes.data ?? []) as FixedExpense[],
+      installments: (installmentsRes.data ?? []) as Installment[],
     };
-  }, [router, supabase]);
+    applyDashboardData(nextDashboard);
+    setFinancialCache(cacheKey, nextDashboard);
+  }, [applyDashboardData, cachedUser, getFinancialCache, loadingUser, router, setFinancialCache, supabase]);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [financialVersion, loadDashboard]);
 
   const monthRef = currentMonthRef();
   const monthlyTransactions = transactions.filter(
@@ -229,16 +253,9 @@ export default function DashboardPage() {
   );
 
   const generalBudget = currentMonthBudgets.find((b) => b.category_id === null);
-  const categoryBudgets = currentMonthBudgets.filter((b) => b.category_id !== null);
   const budgetAmount = Number(generalBudget?.amount ?? 0);
   const budgetProgress =
     budgetAmount > 0 ? Math.min((expenseTotal / budgetAmount) * 100, 100) : 0;
-
-  function spentByCategory(categoryId: string | null) {
-    return monthlyTransactions
-      .filter((item) => item.type === "expense" && item.category_id === categoryId)
-      .reduce((acc, item) => acc + Number(item.amount), 0);
-  }
 
   const budgetRemaining = budgetAmount - expenseTotal;
   const topCategory = expensesByCategory[0];
@@ -259,14 +276,17 @@ export default function DashboardPage() {
         ) : null}
 
         <section className="grid gap-5 xl:grid-cols-[1.18fr_0.82fr]">
-          <Surface className="relative overflow-hidden bg-[linear-gradient(135deg,#ffffff_0%,#eefaf4_58%,#dff4e6_100%)] p-6 text-[#1A1A1A] ring-1 ring-[rgba(46,158,79,0.12)] sm:p-7">
+          <Surface className="relative overflow-hidden bg-[var(--hero-gradient)] p-6 text-[var(--text)] ring-1 ring-[rgba(46,158,79,0.12)] sm:p-7">
             <div className="flex h-full flex-col justify-between gap-6 lg:flex-row lg:items-end">
               <div>
-                <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Saldo do mês</p>
+                <p className="font-display text-5xl font-black leading-none text-[var(--navy)] sm:text-6xl">
+                  Resumo
+                </p>
+                <p className="mt-3 font-display text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Saldo do mês</p>
                 <p className={`mt-3 text-4xl font-black sm:text-5xl ${balance >= 0 ? "text-[var(--navy)]" : "text-[var(--danger)]"}`}>
                   {formatCurrency(balance)}
                 </p>
-                <p className="mt-3 max-w-2xl text-base font-semibold leading-7 text-[#5F6662]">
+                <p className="mt-3 max-w-2xl text-base font-semibold leading-7 text-[var(--muted)]">
                   Uma leitura consolidada do mês atual, com recorrências, parcelamentos e metas no mesmo fluxo.
                 </p>
                 <div className="mt-5 flex flex-wrap gap-2 text-xs font-extrabold">
@@ -279,15 +299,15 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="grid w-full gap-3 sm:grid-cols-2 lg:w-[420px]">
-                <div className="rounded-[20px] border border-[rgba(46,158,79,0.16)] bg-white/76 p-4 shadow-[0_10px_24px_rgba(46,158,79,0.08)]">
-                  <p className="font-display text-xs font-extrabold uppercase tracking-[0.12em] text-[#5F6662]">Lançamentos</p>
+                <div className="rounded-[20px] border border-[rgba(46,158,79,0.16)] bg-[var(--surface-muted)] p-4 shadow-[0_10px_24px_rgba(46,158,79,0.08)]">
+                  <p className="font-display text-xs font-extrabold uppercase tracking-[0.12em] text-[var(--muted)]">Lançamentos</p>
                   <p className="mt-2 text-3xl font-black text-[var(--navy)]">{monthlyTransactions.length}</p>
-                  <p className="mt-1 text-xs text-[#5F6662]">No mês atual</p>
+                  <p className="mt-1 text-xs text-[var(--muted)]">No mês atual</p>
                 </div>
-                <div className="rounded-[20px] border border-[rgba(46,158,79,0.16)] bg-white/76 p-4 shadow-[0_10px_24px_rgba(46,158,79,0.08)]">
-                  <p className="font-display text-xs font-extrabold uppercase tracking-[0.12em] text-[#5F6662]">Top categoria</p>
+                <div className="rounded-[20px] border border-[rgba(46,158,79,0.16)] bg-[var(--surface-muted)] p-4 shadow-[0_10px_24px_rgba(46,158,79,0.08)]">
+                  <p className="font-display text-xs font-extrabold uppercase tracking-[0.12em] text-[var(--muted)]">Top categoria</p>
                   <p className="mt-2 truncate text-2xl font-black text-[var(--navy)]">{topCategory ? topCategory.name : "--"}</p>
-                  <p className="mt-1 text-xs text-[#5F6662]">{topCategory ? formatCurrency(topCategory.total) : "Sem gastos"}</p>
+                  <p className="mt-1 text-xs text-[var(--muted)]">{topCategory ? formatCurrency(topCategory.total) : "Sem gastos"}</p>
                 </div>
               </div>
             </div>
@@ -299,15 +319,15 @@ export default function DashboardPage() {
                 <span className="flex h-full flex-col items-start justify-center gap-2 text-left">
                   <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#21773b] text-2xl text-white">+</span>
                       <span className="font-display text-2xl font-black">Novo lançamento</span>
-                  <span className="text-sm font-semibold text-[#5F6662]">Gasto, receita, fixo ou parcelado em um modal.</span>
+                  <span className="text-sm font-semibold text-[var(--muted)]">Gasto, receita, fixo ou parcelado em um modal.</span>
                 </span>
               }
-              className="min-h-[170px] rounded-[22px] border border-[rgba(46,158,79,0.22)] bg-[linear-gradient(135deg,#ffffff_0%,#eefaf4_100%)] p-5 text-[#1A1A1A] shadow-[0_18px_38px_rgba(46,158,79,0.14)] ring-1 ring-white/70 transition hover:-translate-y-0.5 hover:shadow-[0_20px_42px_rgba(46,158,79,0.2)]"
+              className="min-h-[170px] rounded-[22px] border border-[rgba(46,158,79,0.22)] bg-[var(--hero-gradient)] p-5 text-[var(--text)] shadow-[0_18px_38px_rgba(46,158,79,0.14)] ring-1 ring-[var(--line)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_42px_rgba(46,158,79,0.2)]"
             />
             <button
               type="button"
               onClick={() => router.push("/historico")}
-              className="rounded-[22px] border border-[var(--line)] bg-white/90 p-5 text-left shadow-[var(--shadow-soft)] transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-strong)]"
+              className="rounded-[22px] border border-[var(--line)] bg-[var(--surface)] p-5 text-left shadow-[var(--shadow-soft)] transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-strong)]"
             >
               <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[var(--muted)]">Histórico</p>
               <p className="mt-4 text-lg font-black text-[var(--navy)]">Ver movimentações</p>
@@ -346,7 +366,7 @@ export default function DashboardPage() {
             )}
           </Surface>
 
-          <Surface className="bg-white/92">
+          <Surface>
             <SectionHeader title="Orçamento do mês" eyebrow="Limite de gastos" />
             {generalBudget ? (
               <>
@@ -395,7 +415,7 @@ export default function DashboardPage() {
               ) : expensesByCategory.length === 0 ? (
                 <EmptyState title="Sem despesas no mês" description="Os gastos por categoria aparecem aqui." />
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={320}>
                   <PieChart>
                     <Pie data={expensesByCategory} dataKey="total" nameKey="name" innerRadius={72} outerRadius={112} paddingAngle={2}>
                       {expensesByCategory.map((_, index) => (
@@ -433,7 +453,7 @@ export default function DashboardPage() {
               <SectionHeader title="Receitas x despesas" eyebrow="Comparativo" />
               <div className="h-[220px]">
                 {chartsReady ? (
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
                     <BarChart data={barData}>
                       <CartesianGrid stroke="#edf1ef" vertical={false} />
                       <XAxis dataKey="name" />
@@ -447,7 +467,7 @@ export default function DashboardPage() {
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <p className="text-sm text-[var(--muted)]">Carregando grÃ¡fico...</p>
+                  <p className="text-sm text-[var(--muted)]">Carregando gráfico...</p>
                 )}
               </div>
             </Surface>

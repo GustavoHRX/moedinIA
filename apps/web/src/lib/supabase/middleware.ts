@@ -40,10 +40,6 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const pathname = request.nextUrl.pathname;
   const authRoutes = ["/login", "/cadastro", "/recuperar-senha"];
   const protectedRoutes = [
@@ -55,6 +51,7 @@ export async function middleware(request: NextRequest) {
     "/gastos-fixos",
     "/parcelamentos",
     "/planejamento-mensal",
+    "/planos",
   ];
 
   function redirect(path: string) {
@@ -66,6 +63,26 @@ export async function middleware(request: NextRequest) {
       redirectResponse.cookies.set(cookie);
     });
     return redirectResponse;
+  }
+
+  let user = null;
+
+  try {
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser();
+    user = currentUser;
+  } catch (error) {
+    console.warn(
+      "Supabase auth check failed in middleware:",
+      error instanceof Error ? error.message : error
+    );
+
+    if (protectedRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
+      return redirect("/login");
+    }
+
+    return response;
   }
 
   if (user && authRoutes.some((route) => pathname === route)) {
@@ -92,5 +109,6 @@ export const config = {
     "/gastos-fixos/:path*",
     "/parcelamentos/:path*",
     "/planejamento-mensal/:path*",
+    "/planos/:path*",
   ],
 };

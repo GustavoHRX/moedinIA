@@ -1,0 +1,361 @@
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import type { User } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
+
+export type AppCategory = {
+  id: string;
+  name: string;
+  type: "income" | "expense";
+};
+
+export type AppProfile = {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  currency: string | null;
+  timezone: string | null;
+};
+
+type AppDataContextValue = {
+  user: User | null;
+  profile: AppProfile | null;
+  categories: AppCategory[];
+  loadingUser: boolean;
+  loadingProfile: boolean;
+  loadingCategories: boolean;
+  profileLoaded: boolean;
+  categoriesLoaded: boolean;
+  financialVersion: number;
+  refreshUser: () => Promise<User | null>;
+  refreshProfile: () => Promise<AppProfile | null>;
+  refreshCategories: () => Promise<AppCategory[]>;
+  updateProfileCache: (profile: AppProfile) => void;
+  getFinancialCache: <T>(key: string, maxAgeMs?: number) => T | null;
+  setFinancialCache: <T>(key: string, data: T) => void;
+  clearFinancialCache: (key?: string) => void;
+  invalidateFinancialData: () => void;
+  getCategoriesByType: (type: "income" | "expense") => AppCategory[];
+};
+
+type FinancialCacheEntry = {
+  data: unknown;
+  updatedAt: number;
+};
+
+const AppDataContext = createContext<AppDataContextValue | null>(null);
+const DEFAULT_FINANCIAL_CACHE_TTL = 60_000;
+
+async function ensureDefaultCategories(): Promise<AppCategory[] | null> {
+  const response = await fetch("/api/categories/ensure", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = (await response.json()) as { categories?: AppCategory[] };
+  return payload.categories ?? null;
+}
+
+export function AppDataProvider({ children }: { children: ReactNode }) {
+  const supabase = useMemo(() => createClient(), []);
+  const initializedRef = useRef(false);
+  const userRequestRef = useRef<Promise<User | null> | null>(null);
+  const profileRequestRef = useRef<Promise<AppProfile | null> | null>(null);
+  const categoriesRequestRef = useRef<Promise<AppCategory[]> | null>(null);
+  const ensureAttemptedForUserRef = useRef<string | null>(null);
+  const userRef = useRef<User | null>(null);
+
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<AppProfile | null>(null);
+  const [categories, setCategories] = useState<AppCategory[]>([]);
+  const [loadingUser, setLoadingUser] = useState(true);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
+  const [financialVersion, setFinancialVersion] = useState(0);
+  const [financialCache, setFinancialCacheState] = useState<Record<string, FinancialCacheEntry>>({});
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  const loadUser = useCallback(async () => {
+    if (userRequestRef.current) return userRequestRef.current;
+
+    setLoadingUser(true);
+    userRequestRef.current = supabase.auth
+      .getUser()
+      .then(({ data: { user: currentUser } }) => {
+        setUser(currentUser);
+        return currentUser;
+      })
+      .finally(() => {
+        setLoadingUser(false);
+        userRequestRef.current = null;
+      });
+
+    return userRequestRef.current;
+  }, [supabase]);
+
+  const loadProfile = useCallback(
+    async (fallbackUser?: User | null) => {
+      if (profileRequestRef.current) return profileRequestRef.current;
+
+      const currentUser = fallbackUser ?? userRef.current;
+      if (!currentUser) {
+        setProfile(null);
+        setProfileLoaded(true);
+        setLoadingProfile(false);
+        return null;
+      }
+
+      setLoadingProfile(true);
+      setProfileLoaded(false);
+
+      const request = (async () => {
+        try {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("id, full_name, email, phone, currency, timezone")
+            .eq("id", currentUser.id)
+            .maybeSingle();
+
+          if (error) throw error;
+
+          const nextProfile = (data as AppProfile | null) ?? {
+            id: currentUser.id,
+            full_name: currentUser.user_metadata?.full_name ?? null,
+            email: currentUser.email ?? null,
+            phone: currentUser.user_metadata?.phone ?? null,
+            currency: "BRL",
+            timezone: "America/Sao_Paulo",
+          };
+
+          setProfile(nextProfile);
+          setProfileLoaded(true);
+          return nextProfile;
+        } finally {
+          setLoadingProfile(false);
+          profileRequestRef.current = null;
+        }
+      })();
+
+      profileRequestRef.current = request;
+      return request;
+    },
+    [supabase]
+  );
+
+  const loadCategories = useCallback(
+    async (fallbackUser?: User | null) => {
+      if (categoriesRequestRef.current) return categoriesRequestRef.current;
+
+      const currentUser = fallbackUser ?? userRef.current;
+      if (!currentUser) {
+        setCategories([]);
+        setCategoriesLoaded(true);
+        setLoadingCategories(false);
+        return [];
+      }
+
+      setLoadingCategories(true);
+      setCategoriesLoaded(false);
+
+      const request = (async () => {
+        try {
+          const { data, error } = await supabase
+            .from("categories")
+            .select("id, name, type")
+            .eq("user_id", currentUser.id)
+            .order("is_default", { ascending: false })
+            .order("name", { ascending: true });
+
+          if (error) throw error;
+
+          let nextCategories = (data ?? []) as AppCategory[];
+          const hasIncome = nextCategories.some((category) => category.type === "income");
+          const hasExpense = nextCategories.some((category) => category.type === "expense");
+
+          if ((!hasIncome || !hasExpense) && ensureAttemptedForUserRef.current !== currentUser.id) {
+            ensureAttemptedForUserRef.current = currentUser.id;
+            const ensuredCategories = await ensureDefaultCategories();
+            if (ensuredCategories) {
+              nextCategories = ensuredCategories;
+            }
+          }
+
+          setCategories(nextCategories);
+          setCategoriesLoaded(true);
+          return nextCategories;
+        } finally {
+          setLoadingCategories(false);
+          categoriesRequestRef.current = null;
+        }
+      })();
+
+      categoriesRequestRef.current = request;
+      return request;
+    },
+    [supabase]
+  );
+
+  const refreshUser = useCallback(async () => {
+    const currentUser = await loadUser();
+    if (currentUser) {
+      await Promise.all([loadProfile(currentUser), loadCategories(currentUser)]);
+    } else {
+      setProfile(null);
+      setCategories([]);
+      setProfileLoaded(true);
+      setCategoriesLoaded(true);
+      setFinancialCacheState({});
+    }
+    return currentUser;
+  }, [loadCategories, loadProfile, loadUser]);
+
+  const refreshProfile = useCallback(() => loadProfile(), [loadProfile]);
+  const refreshCategories = useCallback(() => loadCategories(), [loadCategories]);
+  const getCategoriesByType = useCallback(
+    (type: "income" | "expense") =>
+      categories.filter((category) => category.type === type),
+    [categories]
+  );
+
+  useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
+    refreshUser().catch(() => {
+      setUser(null);
+      setProfile(null);
+      setCategories([]);
+      setProfileLoaded(true);
+      setCategoriesLoaded(true);
+      setLoadingUser(false);
+      setLoadingProfile(false);
+      setLoadingCategories(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "INITIAL_SESSION") return;
+
+      const nextUser = session?.user ?? null;
+      setUser(nextUser);
+
+      if (!nextUser) {
+        setProfile(null);
+        setCategories([]);
+        setFinancialCacheState({});
+        setProfileLoaded(true);
+        setCategoriesLoaded(true);
+        setLoadingProfile(false);
+        setLoadingCategories(false);
+        return;
+      }
+
+      void Promise.all([loadProfile(nextUser), loadCategories(nextUser)]).catch(() => {
+        setLoadingProfile(false);
+        setLoadingCategories(false);
+      });
+    });
+
+    return () => subscription.unsubscribe();
+  }, [loadCategories, loadProfile, refreshUser, supabase]);
+
+  const value = useMemo<AppDataContextValue>(
+    () => ({
+      user,
+      profile,
+      categories,
+      loadingUser,
+      loadingProfile,
+      loadingCategories,
+      profileLoaded,
+      categoriesLoaded,
+      financialVersion,
+      refreshUser,
+      refreshProfile,
+      refreshCategories,
+      updateProfileCache: (nextProfile) => {
+        setProfile(nextProfile);
+        setProfileLoaded(true);
+      },
+      getFinancialCache: <T,>(key: string, maxAgeMs = DEFAULT_FINANCIAL_CACHE_TTL) => {
+        const entry = financialCache[key];
+        if (!entry) return null;
+        if (Date.now() - entry.updatedAt > maxAgeMs) return null;
+        return entry.data as T;
+      },
+      setFinancialCache: <T,>(key: string, data: T) => {
+        setFinancialCacheState((current) => ({
+          ...current,
+          [key]: { data, updatedAt: Date.now() },
+        }));
+      },
+      clearFinancialCache: (key) => {
+        if (!key) {
+          setFinancialCacheState({});
+          return;
+        }
+
+        setFinancialCacheState((current) => {
+          const next = { ...current };
+          delete next[key];
+          return next;
+        });
+      },
+      invalidateFinancialData: () => {
+        setFinancialCacheState({});
+        setFinancialVersion((version) => version + 1);
+      },
+      getCategoriesByType,
+    }),
+    [
+      categories,
+      categoriesLoaded,
+      financialCache,
+      financialVersion,
+      getCategoriesByType,
+      loadingCategories,
+      loadingProfile,
+      loadingUser,
+      profile,
+      profileLoaded,
+      refreshCategories,
+      refreshProfile,
+      refreshUser,
+      user,
+    ]
+  );
+
+  return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
+}
+
+export function useAppData() {
+  const context = useContext(AppDataContext);
+  if (!context) {
+    throw new Error("useAppData must be used within AppDataProvider");
+  }
+  return context;
+}

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import FinancialEntryModal from "@/components/financial-entry-modal";
 
 type NewEntryButtonProps = {
@@ -15,7 +14,6 @@ export default function NewEntryButton({
   className = "",
   onSaved,
 }: NewEntryButtonProps) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
 
   return (
@@ -34,7 +32,6 @@ export default function NewEntryButton({
         onSaved={async () => {
           await onSaved?.();
           window.dispatchEvent(new CustomEvent("financial-entry-saved"));
-          router.refresh();
         }}
       />
     </>

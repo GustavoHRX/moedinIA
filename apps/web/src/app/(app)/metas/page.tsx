@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAppData } from "@/components/app-data-provider";
+import { formatCurrency, formatDate } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
 import { ActionButton, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, StatCard, Surface } from "@/components/ui-kit";
 
@@ -15,21 +17,17 @@ type Goal = {
   status: "active" | "completed" | "cancelled";
 };
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
-}
-
-function formatDate(date: string | null) {
-  if (!date) return "Não definido";
-  return new Date(`${date}T00:00:00`).toLocaleDateString("pt-BR");
-}
-
 export default function MetasPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const {
+    user: cachedUser,
+    loadingUser,
+    financialVersion,
+    getFinancialCache,
+    setFinancialCache,
+    invalidateFinancialData,
+  } = useAppData();
 
   const [userId, setUserId] = useState("");
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -41,15 +39,10 @@ export default function MetasPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    loadGoals();
-  }, []);
+  const loadGoals = useCallback(async (forceRefresh = false) => {
+    if (loadingUser) return;
 
-  async function loadGoals() {
-    setLoading(true);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = cachedUser;
 
     if (!user) {
       router.push("/login");
@@ -57,6 +50,16 @@ export default function MetasPage() {
     }
 
     setUserId(user.id);
+    const cacheKey = `goals:${user.id}`;
+    const cachedGoals = forceRefresh ? null : getFinancialCache<Goal[]>(cacheKey);
+
+    if (cachedGoals) {
+      setGoals(cachedGoals);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
 
     const { data, error } = await supabase
       .from("goals")
@@ -71,8 +74,14 @@ export default function MetasPage() {
       return;
     }
 
-    setGoals((data ?? []) as Goal[]);
-  }
+    const nextGoals = (data ?? []) as Goal[];
+    setGoals(nextGoals);
+    setFinancialCache(cacheKey, nextGoals);
+  }, [cachedUser, getFinancialCache, loadingUser, router, setFinancialCache, supabase]);
+
+  useEffect(() => {
+    loadGoals();
+  }, [financialVersion, loadGoals]);
 
   async function handleCreateGoal(e: React.FormEvent) {
     e.preventDefault();
@@ -114,7 +123,8 @@ export default function MetasPage() {
     setTargetAmount("");
     setDeadline("");
     setMessage("Meta criada com sucesso.");
-    await loadGoals();
+    invalidateFinancialData();
+    await loadGoals(true);
   }
 
   async function handleUpdateProgress(goal: Goal) {
@@ -142,7 +152,8 @@ export default function MetasPage() {
       return;
     }
 
-    await loadGoals();
+    invalidateFinancialData();
+    await loadGoals(true);
   }
 
   async function handleCancelGoal(goalId: string) {
@@ -159,7 +170,8 @@ export default function MetasPage() {
       return;
     }
 
-    await loadGoals();
+    invalidateFinancialData();
+    await loadGoals(true);
   }
 
   const totalSaved = goals.reduce((acc, goal) => acc + Number(goal.current_amount), 0);
@@ -182,14 +194,14 @@ export default function MetasPage() {
       ) : null}
 
       <section className="grid gap-5 xl:grid-cols-[1fr_0.95fr]">
-        <Surface className="bg-[linear-gradient(135deg,#ffffff_0%,#eefaf4_100%)] p-6">
+        <Surface className="bg-[var(--hero-gradient)] p-6">
           <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Progresso geral</p>
           <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-4xl font-black text-[var(--navy)]">{globalProgress.toFixed(0)}%</p>
               <p className="mt-1 text-sm text-[var(--muted)]">{formatCurrency(totalSaved)} guardados de {formatCurrency(totalTargets)}</p>
             </div>
-            <div className="h-3 w-full overflow-hidden rounded-full bg-white lg:max-w-[360px]">
+            <div className="h-3 w-full overflow-hidden rounded-full bg-[var(--surface-strong)] lg:max-w-[360px]">
               <div className="h-full rounded-full bg-[var(--brand)]" style={{ width: `${globalProgress}%` }} />
             </div>
           </div>
@@ -263,7 +275,7 @@ export default function MetasPage() {
                       : 0;
 
                   return (
-                    <article key={goal.id} className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4 shadow-[0_7px_18px_rgba(9,42,32,0.04)]">
+                    <article key={goal.id} className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-4 shadow-[0_7px_18px_rgba(9,42,32,0.04)]">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <h3 className="font-semibold text-[var(--text)]">{goal.title}</h3>
                         <Badge

@@ -1,20 +1,26 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import {
   CalendarDays,
   CreditCard,
+  Crown,
   History,
   LayoutDashboard,
+  Menu,
   MessageCircle,
   Repeat2,
   Target,
   UserRound,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import LogoutButton from "@/components/logout-button";
+import { useAppData } from "@/components/app-data-provider";
+import ThemeToggle from "@/components/theme-toggle";
+import ThemedLogo from "@/components/themed-logo";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -27,88 +33,159 @@ const navItems: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: "/gastos-fixos", label: "Gastos fixos", icon: Repeat2 },
   { href: "/parcelamentos", label: "Parcelamentos", icon: CreditCard },
   { href: "/metas", label: "Metas", icon: Target },
+  { href: "/planos", label: "Planos", icon: Crown },
   { href: "/perfil", label: "Conta", icon: UserRound },
 ];
 
+function NavList({
+  pathname,
+  onNavigate,
+}: {
+  pathname: string;
+  onNavigate?: () => void;
+}) {
+  return (
+    <nav className="scrollbar-none flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain px-4 pb-3">
+      {navItems.map((item) => {
+        const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+        const NavIcon = item.icon;
+
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            prefetch
+            onClick={onNavigate}
+            className={
+              isActive
+                ? "flex items-center gap-3 rounded-2xl border border-[rgba(46,158,79,0.32)] bg-[var(--brand-soft)] px-3.5 py-3 font-display text-sm font-extrabold text-[var(--brand-strong)] shadow-[var(--shadow-soft)]"
+                : "flex items-center gap-3 rounded-2xl px-3.5 py-3 font-display text-sm font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-strong)] hover:text-[var(--brand-strong)]"
+            }
+          >
+            <span
+              className={
+                isActive
+                  ? "flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--brand)] text-white shadow-[0_12px_24px_var(--brand-glow)]"
+                  : "flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--bg-soft)] text-[var(--muted-strong)]"
+              }
+            >
+              <NavIcon className="h-4 w-4" strokeWidth={2.4} />
+            </span>
+            {item.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 export default function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const { profile, user } = useAppData();
+  const displayName =
+    profile?.full_name?.trim() ||
+    user?.email?.split("@")[0] ||
+    "Moedin.IA";
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   return (
-    <main className="min-h-screen pb-20 md:pb-0">
-      <aside className="fixed left-0 top-0 z-40 hidden h-screen w-[304px] flex-col border-r border-white/70 bg-[#f2f2f2]/92 shadow-[18px_0_60px_rgba(26,26,26,0.08)] backdrop-blur-xl md:flex">
-        <div className="px-5 pb-5 pt-6">
-          <div className="rounded-[28px] border border-white bg-white/88 p-5 shadow-[var(--shadow-soft)]">
-            <Image
-              src="/moedinha.png"
-              alt="Moedin.IA"
-              width={252}
-              height={62}
-              className="h-14 w-auto object-contain"
-              priority
-            />
+    <main className="min-h-screen bg-[var(--shell-gradient)] pb-20 md:pb-0">
+      <aside className="fixed left-0 top-0 z-40 hidden h-screen w-[308px] flex-col border-r border-[var(--line)] bg-[var(--surface)] shadow-[18px_0_60px_rgba(26,26,26,0.08)] backdrop-blur-xl md:flex">
+        <div className="shrink-0 px-5 pb-5 pt-6">
+          <div className="rounded-[28px] border border-[var(--line)] bg-[var(--surface-strong)] p-5 shadow-[var(--shadow-soft)] ring-1 ring-[rgba(46,158,79,0.08)]">
+            <ThemedLogo className="h-[77px] w-[226px]" priority />
             <p className="mt-3 font-display text-base font-extrabold text-[var(--navy)]">
               Assistente financeiro inteligente
             </p>
             <div className="mt-3 inline-flex rounded-full bg-[var(--brand-soft)] px-3 py-1.5 font-display text-xs font-extrabold uppercase tracking-[0.12em] text-[var(--brand-strong)] ring-1 ring-[rgba(46,158,79,0.16)]">
               Finance + IA
             </div>
+            <p className="mt-3 truncate text-sm font-semibold text-[var(--muted)]">
+              {displayName}
+            </p>
           </div>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1.5 px-4">
-          {navItems.map((item) => {
-            const isActive = pathname.startsWith(item.href);
-            const NavIcon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={
-                  isActive
-                    ? "flex items-center gap-3 rounded-2xl border border-[rgba(46,158,79,0.25)] bg-white px-3.5 py-3 font-display text-sm font-extrabold text-[var(--navy)] shadow-[0_14px_30px_rgba(26,26,26,0.1)]"
-                    : "flex items-center gap-3 rounded-2xl px-3.5 py-3 font-display text-sm font-bold text-[#2d332f] transition hover:bg-white/86 hover:text-[var(--brand-strong)]"
-                }
-              >
-                <span className={isActive ? "flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand-strong)]" : "flex h-9 w-9 items-center justify-center rounded-xl bg-white/72 text-[#17251f]"}>
-                  <NavIcon className="h-4 w-4" strokeWidth={2.4} />
-                </span>
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <NavList pathname={pathname} />
 
-        <div className="border-t border-white/70 p-4">
-          <div className="mb-3 rounded-[20px] border border-[rgba(46,158,79,0.18)] bg-[var(--brand-soft)] p-3">
+        <div className="shrink-0 space-y-3 border-t border-[var(--line)] p-4">
+          <div className="rounded-[20px] border border-[rgba(46,158,79,0.18)] bg-[var(--brand-soft)] p-3">
             <p className="flex items-center gap-2 font-display text-xs font-extrabold uppercase tracking-[0.12em] text-[var(--brand-strong)]">
               <MessageCircle className="h-4 w-4" />
               WhatsApp
             </p>
             <p className="mt-1 text-sm font-bold text-[var(--navy)]">Registre gastos por texto natural.</p>
           </div>
-          <LogoutButton className="flex w-full items-center justify-center rounded-2xl border border-[var(--line)] bg-white px-3 py-3 text-sm font-extrabold text-[#17251f] transition hover:border-red-200 hover:bg-red-50 hover:text-red-700" />
+          <ThemeToggle className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-3 text-sm font-extrabold text-[var(--text)] transition hover:border-[var(--brand)]" />
+          <LogoutButton className="flex w-full items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-3 text-sm font-extrabold text-[var(--text)] transition hover:border-red-200 hover:bg-red-50 hover:text-red-700" />
         </div>
       </aside>
 
-      <div className="md:pl-[304px]">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/70 bg-white/86 px-4 shadow-[0_10px_28px_rgba(8,36,29,0.06)] backdrop-blur sm:px-6 md:hidden">
-          <Image
-            src="/moedinha.png"
-            alt="Moedin.IA"
-            width={178}
-            height={38}
-            className="h-9 w-auto object-contain"
-            priority
-          />
-          <LogoutButton />
+      <div className="md:pl-[308px]">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-[var(--line)] bg-[var(--surface)] px-4 shadow-[0_10px_28px_rgba(8,36,29,0.06)] backdrop-blur sm:px-6 md:hidden">
+          <ThemedLogo className="h-[51px] w-[150px]" priority />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] text-[var(--text)]"
+              aria-label="Abrir menu"
+              aria-expanded={mobileOpen}
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+            <ThemeToggle className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] text-[var(--text)]" showLabel={false} />
+            <LogoutButton />
+          </div>
         </header>
         {children}
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/70 bg-white/94 px-2 py-2 shadow-[0_-12px_30px_rgba(8,36,29,0.08)] backdrop-blur md:hidden">
+      {mobileOpen ? (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            aria-label="Fechar menu"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside className="relative flex h-full w-[min(88vw,340px)] flex-col border-r border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-strong)] backdrop-blur-xl">
+            <div className="shrink-0 px-5 pb-4 pt-5">
+              <div className="flex items-center justify-between gap-4">
+                <ThemedLogo className="h-[65px] w-[190px]" priority />
+                <button
+                  type="button"
+                  onClick={() => setMobileOpen(false)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] text-[var(--text)]"
+                  aria-label="Fechar menu"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <div className="shrink-0 px-5 pb-4">
+              <div className="rounded-2xl border border-[rgba(46,158,79,0.18)] bg-[var(--brand-soft)] px-4 py-3">
+                <p className="font-display text-xs font-extrabold uppercase tracking-[0.12em] text-[var(--brand-strong)]">Finance + IA</p>
+                <p className="mt-1 text-sm font-bold text-[var(--navy)]">Seu painel financeiro inteligente.</p>
+              </div>
+            </div>
+            <NavList pathname={pathname} onNavigate={() => setMobileOpen(false)} />
+            <div className="shrink-0 space-y-3 border-t border-[var(--line)] p-4">
+              <ThemeToggle className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-3 text-sm font-extrabold text-[var(--text)]" />
+              <LogoutButton className="flex w-full items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-3 text-sm font-extrabold text-[var(--text)]" />
+            </div>
+          </aside>
+        </div>
+      ) : null}
+
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--line)] bg-[var(--surface)] px-2 py-2 shadow-[0_-12px_30px_rgba(8,36,29,0.08)] backdrop-blur md:hidden">
         <div className="scrollbar-none flex gap-1 overflow-x-auto">
           {navItems.map((item) => {
-            const isActive = pathname.startsWith(item.href);
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
             const NavIcon = item.icon;
             return (
               <Link
@@ -116,7 +193,7 @@ export default function AppShell({ children }: AppShellProps) {
                 href={item.href}
                 className={
                   isActive
-                    ? "whitespace-nowrap rounded-xl bg-[#1A1A1A] px-3 py-2 font-display text-xs font-extrabold text-white"
+                    ? "whitespace-nowrap rounded-xl bg-[var(--brand)] px-3 py-2 font-display text-xs font-extrabold text-white shadow-[0_8px_18px_var(--brand-glow)]"
                     : "whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold text-[var(--muted)]"
                 }
               >
