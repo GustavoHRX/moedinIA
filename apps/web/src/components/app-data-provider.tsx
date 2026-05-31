@@ -102,12 +102,24 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (userRequestRef.current) return userRequestRef.current;
 
     setLoadingUser(true);
-    userRequestRef.current = supabase.auth
-      .getUser()
-      .then(({ data: { user: currentUser } }) => {
+    userRequestRef.current = (async () => {
+      try {
+        const {
+          data: { user: currentUser },
+        } = await supabase.auth.getUser();
+
         setUser(currentUser);
         return currentUser;
-      })
+      } catch {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const currentUser = session?.user ?? null;
+
+        setUser(currentUser);
+        return currentUser;
+      }
+    })()
       .finally(() => {
         setLoadingUser(false);
         userRequestRef.current = null;
