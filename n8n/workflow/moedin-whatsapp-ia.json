@@ -1,0 +1,2060 @@
+{
+  "name": "Moedin.IA - Lancamento por WhatsApp (IA, Redis, Supabase)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "moedin-whatsapp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2400,
+        400
+      ],
+      "id": "wh-001",
+      "name": "Webhook WhatsApp",
+      "webhookId": "moedin-whatsapp"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "g1",
+              "name": "telefone",
+              "value": "={{ ($json.body.data?.key?.remoteJid || $json.body.telefone || '').toString().split('@')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "g2",
+              "name": "fromMe",
+              "value": "={{ $json.body.data?.key?.fromMe || false }}",
+              "type": "boolean"
+            },
+            {
+              "id": "g3",
+              "name": "isGroup",
+              "value": "={{ ($json.body.data?.key?.remoteJid || '').includes('@g.us') }}",
+              "type": "boolean"
+            },
+            {
+              "id": "g4",
+              "name": "nome",
+              "value": "={{ $json.body.data?.pushName || $json.body.nome || 'Cliente' }}",
+              "type": "string"
+            },
+            {
+              "id": "g5",
+              "name": "tipo",
+              "value": "={{ ({conversation:'texto',extendedTextMessage:'texto',texto:'texto',imageMessage:'imagem',imagem:'imagem',audioMessage:'audio',audio:'audio'})[$json.body.tipo || $json.body.data?.messageType] || 'texto' }}",
+              "type": "string"
+            },
+            {
+              "id": "g6",
+              "name": "text",
+              "value": "={{ $json.body.text || $json.body.data?.message?.conversation || $json.body.data?.message?.extendedTextMessage?.text || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "g7",
+              "name": "msgId",
+              "value": "={{ $json.body.data?.key?.id || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "g8",
+              "name": "host_evo",
+              "value": "={{ $env.EVOLUTION_API_URL }}",
+              "type": "string"
+            },
+            {
+              "id": "g9",
+              "name": "apikey_evo",
+              "value": "={{ $env.EVOLUTION_API_KEY }}",
+              "type": "string"
+            },
+            {
+              "id": "g10",
+              "name": "instancia",
+              "value": "={{ $env.EVOLUTION_INSTANCE }}",
+              "type": "string"
+            },
+            {
+              "id": "g11",
+              "name": "delay",
+              "value": "[800, 1500, 1000]",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2180,
+        400
+      ],
+      "id": "global-001",
+      "name": "global"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c-fromme",
+              "leftValue": "={{ $json.fromMe }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "c-group",
+              "leftValue": "={{ $json.isGroup }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1960,
+        400
+      ],
+      "id": "if-ignore",
+      "name": "Ignorar (proprio/grupo)?"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1740,
+        240
+      ],
+      "id": "noop-ign",
+      "name": "Ignorado"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/resolve_user_by_wa",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"p_wa_id\": {{ JSON.stringify($json.telefone) }}, \"p_phone\": {{ JSON.stringify($json.telefone) }} }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1740,
+        480
+      ],
+      "id": "http-user",
+      "name": "Resolver usuario (Supabase RPC)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c-found",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1520,
+        480
+      ],
+      "id": "if-user",
+      "name": "Usuario cadastrado?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('global').item.json.host_evo }}/message/sendText/{{ $('global').item.json.instancia }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $('global').item.json.apikey_evo }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"number\": \"{{ $('global').item.json.telefone }}\", \"text\": \"👋 *Bem-vindo ao Moedin.IA*\\n\\nEsse WhatsApp ainda não está vinculado à sua conta.\\n\\nPra ativar é rapidinho:\\n\\n1️⃣  Crie sua conta em *moedin.ia.com*\\n\\n2️⃣  No seu *perfil*, copie o seu *código de ativação*\\n\\n3️⃣  Me mande esse código aqui\\n\\nAí eu ativo na hora e você já começa a registrar seus gastos! ✨\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1520,
+        260
+      ],
+      "id": "evo-naocad",
+      "name": "Avisar nao cadastrado (Evolution)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, mensagem: 'Numero nao cadastrado.' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1300,
+        300
+      ],
+      "id": "resp-naocad",
+      "name": "Responder nao cadastrado"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/link_whatsapp_by_code",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"p_code\": {{ JSON.stringify($('global').item.json.text) }}, \"p_wa_id\": {{ JSON.stringify($('global').item.json.telefone) }}, \"p_label\": {{ JSON.stringify($('global').item.json.nome) }} }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1520,
+        120
+      ],
+      "id": "http-link",
+      "name": "Tentar vincular (Supabase RPC)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c-link",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1300,
+        120
+      ],
+      "id": "if-link",
+      "name": "Vinculou?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('global').item.json.host_evo }}/message/sendText/{{ $('global').item.json.instancia }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $('global').item.json.apikey_evo }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"number\": \"{{ $('global').item.json.telefone }}\", \"text\": {{ JSON.stringify('✅ Número ativado com sucesso, ' + ($json.full_name || 'tudo certo') + '! 🎉💰\\n\\nAgora é só me mandar seus gastos (ex: \"gastei 50 no mercado\"), pedir \"quanto gastei esse mês\" ou pedir pra excluir um lançamento.') }} }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1080,
+        40
+      ],
+      "id": "evo-ativado",
+      "name": "Avisar ativado (Evolution)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, ativado: true, full_name: $('Tentar vincular (Supabase RPC)').item.json.full_name }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -860,
+        40
+      ],
+      "id": "resp-ativado",
+      "name": "Responder ativado"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "s-t",
+                    "leftValue": "={{ $('global').item.json.tipo }}",
+                    "rightValue": "texto",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "texto"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "s-i",
+                    "leftValue": "={{ $('global').item.json.tipo }}",
+                    "rightValue": "imagem",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "imagem"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "s-a",
+                    "leftValue": "={{ $('global').item.json.tipo }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "audio"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -1300,
+        560
+      ],
+      "id": "switch-tipo",
+      "name": "Tipo da mensagem"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "tt",
+              "name": "texto",
+              "value": "={{ $('global').item.json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1020,
+        380
+      ],
+      "id": "set-texto",
+      "name": "Texto"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('global').item.json.host_evo }}/chat/getBase64FromMediaMessage/{{ $('global').item.json.instancia }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $('global').item.json.apikey_evo }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"message\": { \"key\": { \"id\": \"{{ $('global').item.json.msgId }}\" } }, \"convertToMp4\": false }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1020,
+        560
+      ],
+      "id": "http-baixar-img",
+      "name": "Baixar imagem (Evolution)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ti",
+              "name": "texto",
+              "value": "={{ 'gastei ' + ($json.valor || 0) + ' em ' + ($json.descricao || 'compra no comprovante') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -360,
+        560
+      ],
+      "id": "set-texto-img",
+      "name": "Texto (imagem)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('global').item.json.host_evo }}/chat/getBase64FromMediaMessage/{{ $('global').item.json.instancia }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $('global').item.json.apikey_evo }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"message\": { \"key\": { \"id\": \"{{ $('global').item.json.msgId }}\" } }, \"convertToMp4\": false }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1020,
+        760
+      ],
+      "id": "http-baixar-audio",
+      "name": "Baixar audio (Evolution)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ta",
+              "name": "texto",
+              "value": "={{ $json.texto_original || ('gastei ' + ($json.valor||0) + ' em ' + ($json.descricao||'audio')) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -360,
+        760
+      ],
+      "id": "set-texto-audio",
+      "name": "Texto (audio)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ma",
+              "name": "mensagem",
+              "value": "={{ $json.texto }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -120,
+        560
+      ],
+      "id": "set-msg",
+      "name": "Mensagem atual"
+    },
+    {
+      "parameters": {
+        "operation": "push",
+        "list": "={{ $('global').item.json.telefone }}",
+        "messageData": "={{ $json.mensagem }}",
+        "tail": true
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        120,
+        560
+      ],
+      "id": "redis-push",
+      "name": "Buffer: salvar (Redis)",
+      "credentials": {
+        "redis": {
+          "id": "moedin-redis",
+          "name": "Redis Moedin"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 4
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        340,
+        560
+      ],
+      "id": "wait-buf",
+      "name": "Aguardar 4s",
+      "webhookId": "moedin-wait-buffer"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "propertyName": "mensagem",
+        "key": "={{ $('global').item.json.telefone }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        560,
+        560
+      ],
+      "id": "redis-get",
+      "name": "Buffer: ler (Redis)",
+      "credentials": {
+        "redis": {
+          "id": "moedin-redis",
+          "name": "Redis Moedin"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c-last",
+              "leftValue": "={{ $json.mensagem.last() }}",
+              "rightValue": "={{ $('Mensagem atual').item.json.mensagem }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        780,
+        560
+      ],
+      "id": "if-last",
+      "name": "E a ultima mensagem?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "jt",
+              "name": "texto",
+              "value": "={{ $('Buffer: ler (Redis)').item.json.mensagem.join(', ') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1000,
+        460
+      ],
+      "id": "set-juntar",
+      "name": "Juntar mensagens"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "={{ $('global').item.json.telefone }}"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        1220,
+        460
+      ],
+      "id": "redis-del",
+      "name": "Buffer: limpar (Redis)",
+      "credentials": {
+        "redis": {
+          "id": "moedin-redis",
+          "name": "Redis Moedin"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AI_SERVICE_URL }}/interpret",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"text\": {{ JSON.stringify($('Juntar mensagens').item.json.texto) }} }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        460
+      ],
+      "id": "http-ia",
+      "name": "Interpretar lancamento (ai-service)"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "i-l",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "lancamento",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "lancamento"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "i-c",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "consulta",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "consulta"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "i-e",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "excluir",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "excluir"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "i-o",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "outro",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "outro"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1660,
+        460
+      ],
+      "id": "switch-intent",
+      "name": "Intencao"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c-ok",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1880,
+        240
+      ],
+      "id": "if-ok",
+      "name": "Interpretou?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/whatsapp_monthly_report",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"p_user_id\": {{ JSON.stringify($('Resolver usuario (Supabase RPC)').item.json.user_id) }}, \"p_ref\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.ref_date) }} }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1880,
+        720
+      ],
+      "id": "http-report",
+      "name": "Relatorio (Supabase RPC)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('global').item.json.host_evo }}/message/sendText/{{ $('global').item.json.instancia }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $('global').item.json.apikey_evo }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"number\": \"{{ $('global').item.json.telefone }}\", \"text\": {{ JSON.stringify($json.mensagem) }} }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2100,
+        720
+      ],
+      "id": "evo-report",
+      "name": "Enviar relatorio (Evolution)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, mensagem: $('Relatorio (Supabase RPC)').item.json.mensagem }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2320,
+        720
+      ],
+      "id": "resp-report",
+      "name": "Responder consulta"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/whatsapp_delete_transaction",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"p_user_id\": {{ JSON.stringify($('Resolver usuario (Supabase RPC)').item.json.user_id) }}, \"p_alvo\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.alvo) }} }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1880,
+        900
+      ],
+      "id": "http-delete",
+      "name": "Excluir (Supabase RPC)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('global').item.json.host_evo }}/message/sendText/{{ $('global').item.json.instancia }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $('global').item.json.apikey_evo }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"number\": \"{{ $('global').item.json.telefone }}\", \"text\": {{ JSON.stringify($json.mensagem) }} }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2100,
+        900
+      ],
+      "id": "evo-delete",
+      "name": "Enviar exclusao (Evolution)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: $('Excluir (Supabase RPC)').item.json.ok, mensagem: $('Excluir (Supabase RPC)').item.json.mensagem }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2320,
+        900
+      ],
+      "id": "resp-delete",
+      "name": "Responder exclusao"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('global').item.json.host_evo }}/message/sendText/{{ $('global').item.json.instancia }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $('global').item.json.apikey_evo }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"number\": \"{{ $('global').item.json.telefone }}\", \"text\": \"Oi! 💰 Eu sou o Moedin.IA. Me conta seus gastos (ex: 'gastei 50 no mercado'), pergunta 'quanto gastei esse mês' ou peça pra excluir um lançamento.\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2100,
+        1060
+      ],
+      "id": "evo-outro",
+      "name": "Enviar saudacao (Evolution)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, mensagem: 'Oi! Sou o Moedin.IA. Me manda um gasto, pergunta quanto gastou no mes ou peca pra excluir.' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2320,
+        1060
+      ],
+      "id": "resp-outro",
+      "name": "Responder saudacao"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('global').item.json.host_evo }}/message/sendText/{{ $('global').item.json.instancia }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $('global').item.json.apikey_evo }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"number\": \"{{ $('global').item.json.telefone }}\", \"text\": {{ JSON.stringify(($json.erro || 'Não consegui entender 🤔. Tenta assim: \"gastei 50 no mercado\".')) }} }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1660,
+        760
+      ],
+      "id": "evo-erro",
+      "name": "Avisar erro (Evolution)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, mensagem: $json.erro || 'Nao consegui interpretar. Ex: gastei 50 no mercado.' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1880,
+        620
+      ],
+      "id": "resp-erro",
+      "name": "Responder erro"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/resolve_category",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"p_user_id\": {{ JSON.stringify($('Resolver usuario (Supabase RPC)').item.json.user_id) }}, \"p_name\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.categoria) }}, \"p_type\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.tipo) }} }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1880,
+        460
+      ],
+      "id": "http-cat",
+      "name": "Resolver categoria (Supabase RPC)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/transactions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"user_id\": {{ JSON.stringify($('Resolver usuario (Supabase RPC)').item.json.user_id) }}, \"type\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.tipo) }}, \"amount\": {{ $('Interpretar lancamento (ai-service)').item.json.valor }}, \"description\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.descricao) }}, \"notes\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.texto_original) }}, \"transaction_date\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.data) }}, \"competence_month\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.competence_month) }}, \"category_id\": {{ JSON.stringify($json.category_id) }}, \"source\": \"whatsapp\", \"status\": \"active\", \"origin_type\": \"manual\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2100,
+        460
+      ],
+      "id": "sb-tx",
+      "name": "Criar transacao (Supabase)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/message_logs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"user_id\": {{ JSON.stringify($('Resolver usuario (Supabase RPC)').item.json.user_id) }}, \"channel\": \"whatsapp\", \"direction\": \"in\", \"raw_text\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.texto_original) }}, \"external_id\": {{ JSON.stringify('wpp-' + $now.toMillis()) }} }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2320,
+        460
+      ],
+      "id": "sb-log",
+      "name": "Registrar log (Supabase)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('global').item.json.host_evo }}/message/sendText/{{ $('global').item.json.instancia }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $('global').item.json.apikey_evo }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"number\": \"{{ $('global').item.json.telefone }}\", \"text\": {{ JSON.stringify('✅ ' + ($('Interpretar lancamento (ai-service)').item.json.tipo === 'income' ? 'Receita' : 'Gasto') + ' de R$ ' + Number($('Interpretar lancamento (ai-service)').item.json.valor).toFixed(2) + ' em ' + ($('Interpretar lancamento (ai-service)').item.json.categoria || 'sem categoria') + ' registrado.\\n\\nPara excluir, diga:  *excluir o último*') }} }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2540,
+        460
+      ],
+      "id": "evo-send",
+      "name": "Enviar confirmacao (Evolution)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, mensagem: '✅ ' + ($('Interpretar lancamento (ai-service)').item.json.tipo === 'income' ? 'Receita' : 'Gasto') + ' de R$ ' + Number($('Interpretar lancamento (ai-service)').item.json.valor).toFixed(2) + ' em ' + ($('Interpretar lancamento (ai-service)').item.json.categoria || 'sem categoria') + ' registrado.', transacao: $('Criar transacao (Supabase)').item.json }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2760,
+        460
+      ],
+      "id": "resp-ok",
+      "name": "Responder sucesso"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AI_SERVICE_URL }}/parse-image",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"image_base64\": {{ JSON.stringify($json.base64) }}, \"mime\": {{ JSON.stringify($json.mimetype || 'image/jpeg') }} }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -800,
+        560
+      ],
+      "id": "ai-img",
+      "name": "Analisar imagem (ai-service)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AI_SERVICE_URL }}/parse-audio",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"audio_base64\": {{ JSON.stringify($json.base64) }}, \"filename\": {{ JSON.stringify($json.fileName || 'audio.ogg') }} }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -800,
+        760
+      ],
+      "id": "ai-aud",
+      "name": "Transcrever audio (ai-service)"
+    },
+    {
+      "parameters": {
+        "content": "# 🐷 Moedin.IA — Fluxo do WhatsApp\nCada bloco colorido abaixo é um SETOR do fluxo. Siga a ordem dos números.",
+        "height": 110,
+        "width": 900,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2480,
+        -160
+      ],
+      "id": "nota-titulo",
+      "name": "nota-titulo"
+    },
+    {
+      "parameters": {
+        "content": "## 📥 1. Recepção\n\n**Webhook** recebe a mensagem do WhatsApp (via Evolution API).\n\n**global** extrai os dados: telefone, tipo (texto/imagem/áudio) e o texto.\n\nIgnora mensagens de **grupo** ou enviadas pelo **próprio bot**.",
+        "height": 470,
+        "width": 900,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2480,
+        120
+      ],
+      "id": "nota-1",
+      "name": "nota-1"
+    },
+    {
+      "parameters": {
+        "content": "## 🔐 2. Identificação & Ativação\n\nDescobre de quem é a mensagem (**resolve_user_by_wa**: pelo vínculo do WhatsApp ou pelo telefone).\n\nSe **não estiver cadastrado**, o bot pede o **código de ativação** (pego no site). Ao receber o código, vincula o WhatsApp à conta e confirma.\n\n✅ À prova de LID / WhatsApp Business.",
+        "height": 650,
+        "width": 1120,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1800,
+        -60
+      ],
+      "id": "nota-2",
+      "name": "nota-2"
+    },
+    {
+      "parameters": {
+        "content": "## 🗂️ 3. Tipo da mensagem\n\nRoteia conforme o tipo:\n• **Texto** → segue direto\n• **Imagem** → baixa e lê o comprovante (ai-service /parse-image)\n• **Áudio** → baixa e transcreve (ai-service /parse-audio)\n\nImagem e áudio viram texto e seguem o mesmo caminho.",
+        "height": 420,
+        "width": 1340,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1380,
+        470
+      ],
+      "id": "nota-3",
+      "name": "nota-3"
+    },
+    {
+      "parameters": {
+        "content": "## ⏳ 4. Buffer (agrupador)\n\nJunta mensagens enviadas em sequência, esperando **4s** antes de processar.\n\nAssim, se a pessoa quebra a frase em vários envios, vira **um lançamento só** (não vários).",
+        "height": 330,
+        "width": 1500,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -180,
+        360
+      ],
+      "id": "nota-4",
+      "name": "nota-4"
+    },
+    {
+      "parameters": {
+        "content": "## 🧠 5. Cérebro (IA)\n\nO **ai-service** (/interpret) usa o **Groq** para classificar a intenção:\n\n**lançar** • **consultar** • **excluir** • **saudação**",
+        "height": 340,
+        "width": 420,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        360
+      ],
+      "id": "nota-5",
+      "name": "nota-5"
+    },
+    {
+      "parameters": {
+        "content": "## 💰 6. Lançamento (grava)\n\nResolve a categoria, **grava no Supabase** (aparece no site na hora), registra o log e **manda a confirmação** no WhatsApp.\n\n(Em cima: trata erro de interpretação.)",
+        "height": 430,
+        "width": 1110,
+        "color": 1
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1840,
+        140
+      ],
+      "id": "nota-6",
+      "name": "nota-6"
+    },
+    {
+      "parameters": {
+        "content": "## 📊 7. Consulta\nMonta o **relatório do mês** (RPC) e envia no WhatsApp.",
+        "height": 170,
+        "width": 720,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1840,
+        690
+      ],
+      "id": "nota-7",
+      "name": "nota-7"
+    },
+    {
+      "parameters": {
+        "content": "## 🗑️ 8. Exclusão\nApaga o lançamento (**soft-delete**, some do site) e confirma.",
+        "height": 170,
+        "width": 720,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1840,
+        870
+      ],
+      "id": "nota-8",
+      "name": "nota-8"
+    },
+    {
+      "parameters": {
+        "content": "## 👋 9. Saudação\nResponde quem manda 'oi' ou algo fora do contexto.",
+        "height": 160,
+        "width": 620,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2060,
+        1020
+      ],
+      "id": "nota-9",
+      "name": "nota-9"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "global",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "global": {
+      "main": [
+        [
+          {
+            "node": "Ignorar (proprio/grupo)?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ignorar (proprio/grupo)?": {
+      "main": [
+        [
+          {
+            "node": "Ignorado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Resolver usuario (Supabase RPC)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolver usuario (Supabase RPC)": {
+      "main": [
+        [
+          {
+            "node": "Usuario cadastrado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Usuario cadastrado?": {
+      "main": [
+        [
+          {
+            "node": "Tipo da mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tentar vincular (Supabase RPC)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tentar vincular (Supabase RPC)": {
+      "main": [
+        [
+          {
+            "node": "Vinculou?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vinculou?": {
+      "main": [
+        [
+          {
+            "node": "Avisar ativado (Evolution)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Avisar nao cadastrado (Evolution)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Avisar ativado (Evolution)": {
+      "main": [
+        [
+          {
+            "node": "Responder ativado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Avisar nao cadastrado (Evolution)": {
+      "main": [
+        [
+          {
+            "node": "Responder nao cadastrado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tipo da mensagem": {
+      "main": [
+        [
+          {
+            "node": "Texto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Baixar imagem (Evolution)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Baixar audio (Evolution)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Texto": {
+      "main": [
+        [
+          {
+            "node": "Mensagem atual",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baixar imagem (Evolution)": {
+      "main": [
+        [
+          {
+            "node": "Analisar imagem (ai-service)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Texto (imagem)": {
+      "main": [
+        [
+          {
+            "node": "Mensagem atual",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baixar audio (Evolution)": {
+      "main": [
+        [
+          {
+            "node": "Transcrever audio (ai-service)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Texto (audio)": {
+      "main": [
+        [
+          {
+            "node": "Mensagem atual",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagem atual": {
+      "main": [
+        [
+          {
+            "node": "Buffer: salvar (Redis)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buffer: salvar (Redis)": {
+      "main": [
+        [
+          {
+            "node": "Aguardar 4s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aguardar 4s": {
+      "main": [
+        [
+          {
+            "node": "Buffer: ler (Redis)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buffer: ler (Redis)": {
+      "main": [
+        [
+          {
+            "node": "E a ultima mensagem?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E a ultima mensagem?": {
+      "main": [
+        [
+          {
+            "node": "Juntar mensagens",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Juntar mensagens": {
+      "main": [
+        [
+          {
+            "node": "Buffer: limpar (Redis)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buffer: limpar (Redis)": {
+      "main": [
+        [
+          {
+            "node": "Interpretar lancamento (ai-service)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpretar lancamento (ai-service)": {
+      "main": [
+        [
+          {
+            "node": "Intencao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Intencao": {
+      "main": [
+        [
+          {
+            "node": "Interpretou?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Relatorio (Supabase RPC)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Excluir (Supabase RPC)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar saudacao (Evolution)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar saudacao (Evolution)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpretou?": {
+      "main": [
+        [
+          {
+            "node": "Resolver categoria (Supabase RPC)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Avisar erro (Evolution)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Avisar erro (Evolution)": {
+      "main": [
+        [
+          {
+            "node": "Responder erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Relatorio (Supabase RPC)": {
+      "main": [
+        [
+          {
+            "node": "Enviar relatorio (Evolution)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar relatorio (Evolution)": {
+      "main": [
+        [
+          {
+            "node": "Responder consulta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Excluir (Supabase RPC)": {
+      "main": [
+        [
+          {
+            "node": "Enviar exclusao (Evolution)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar exclusao (Evolution)": {
+      "main": [
+        [
+          {
+            "node": "Responder exclusao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar saudacao (Evolution)": {
+      "main": [
+        [
+          {
+            "node": "Responder saudacao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolver categoria (Supabase RPC)": {
+      "main": [
+        [
+          {
+            "node": "Criar transacao (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar transacao (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Registrar log (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar log (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Enviar confirmacao (Evolution)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar confirmacao (Evolution)": {
+      "main": [
+        [
+          {
+            "node": "Responder sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analisar imagem (ai-service)": {
+      "main": [
+        [
+          {
+            "node": "Texto (imagem)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcrever audio (ai-service)": {
+      "main": [
+        [
+          {
+            "node": "Texto (audio)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {}
+}

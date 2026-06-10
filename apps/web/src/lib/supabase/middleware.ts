@@ -1,10 +1,60 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import type { User } from "@supabase/supabase-js";
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request,
   });
+  const pathname = request.nextUrl.pathname;
+  const authRoutes = ["/login", "/cadastro", "/recuperar-senha"];
+  const protectedRoutes = [
+    "/dashboard",
+    "/perfil",
+    "/historico",
+    "/metas",
+    "/gastos-fixos",
+    "/parcelamentos",
+    "/planejamento-mensal",
+    "/planos",
+  ];
+  const isAuthRoute = authRoutes.some((route) => pathname === route);
+  const isProtectedRoute = protectedRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+  const hasSupabaseSessionCookie = request.cookies
+    .getAll()
+    .some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"));
+  const hasSupabaseSessionHeader = request.headers
+    .get("cookie")
+    ?.includes("auth-token");
+  const hasSessionCookie = Boolean(hasSupabaseSessionCookie || hasSupabaseSessionHeader);
+
+  function redirect(path: string) {
+    const url = request.nextUrl.clone();
+    url.pathname = path;
+    url.search = "";
+    const redirectResponse = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie);
+    });
+    return redirectResponse;
+  }
+
+  if (!hasSessionCookie) {
+    if (isProtectedRoute) {
+      return redirect("/login");
+    }
+
+    return response;
+  }
+
+  if (isAuthRoute && process.env.NODE_ENV === "development") {
+    return response;
+  }
+
+  if (isProtectedRoute && process.env.NODE_ENV === "development") {
+    return response;
+  }
+
   const key =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
@@ -40,32 +90,7 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const pathname = request.nextUrl.pathname;
-  const authRoutes = ["/login", "/cadastro", "/recuperar-senha"];
-  const protectedRoutes = [
-    "/dashboard",
-    "/perfil",
-    "/lancamentos",
-    "/historico",
-    "/metas",
-    "/gastos-fixos",
-    "/parcelamentos",
-    "/planejamento-mensal",
-    "/planos",
-  ];
-
-  function redirect(path: string) {
-    const url = request.nextUrl.clone();
-    url.pathname = path;
-    url.search = "";
-    const redirectResponse = NextResponse.redirect(url);
-    response.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie);
-    });
-    return redirectResponse;
-  }
-
-  let user = null;
+  let user: User | null = null;
 
   try {
     const {
@@ -73,23 +98,48 @@ export async function middleware(request: NextRequest) {
     } = await supabase.auth.getUser();
     user = currentUser;
   } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session?.user) {
+          console.warn(
+            "Supabase auth check failed in middleware. Using local dev session fallback."
+          );
+          user = session.user;
+        }
+      } catch {
+        user = null;
+      }
+    }
+
+    if (user) {
+      if (isAuthRoute) {
+        return redirect("/dashboard");
+      }
+
+      return response;
+    }
+
     console.warn(
       "Supabase auth check failed in middleware:",
       error instanceof Error ? error.message : error
     );
 
-    if (protectedRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
+    if (isProtectedRoute) {
       return redirect("/login");
     }
 
     return response;
   }
 
-  if (user && authRoutes.some((route) => pathname === route)) {
+  if (user && isAuthRoute) {
     return redirect("/dashboard");
   }
 
-  if (!user && protectedRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
+  if (!user && isProtectedRoute) {
     return redirect("/login");
   }
 
@@ -103,7 +153,6 @@ export const config = {
     "/recuperar-senha",
     "/dashboard/:path*",
     "/perfil/:path*",
-    "/lancamentos/:path*",
     "/historico/:path*",
     "/metas/:path*",
     "/gastos-fixos/:path*",

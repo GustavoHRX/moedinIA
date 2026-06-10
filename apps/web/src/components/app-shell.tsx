@@ -8,7 +8,6 @@ import {
   History,
   LayoutDashboard,
   Menu,
-  MessageCircle,
   Repeat2,
   Target,
   UserRound,
@@ -93,33 +92,25 @@ export default function AppShell({ children }: AppShellProps) {
   }, [pathname]);
 
   return (
-    <main className="min-h-screen bg-[var(--shell-gradient)] pb-20 md:pb-0">
+    <main className="min-h-screen bg-[var(--shell-gradient)]">
       <aside className="fixed left-0 top-0 z-40 hidden h-screen w-[308px] flex-col border-r border-[var(--line)] bg-[var(--surface)] shadow-[18px_0_60px_rgba(26,26,26,0.08)] backdrop-blur-xl md:flex">
-        <div className="shrink-0 px-5 pb-5 pt-6">
-          <div className="rounded-[28px] border border-[var(--line)] bg-[var(--surface-strong)] p-5 shadow-[var(--shadow-soft)] ring-1 ring-[rgba(46,158,79,0.08)]">
-            <ThemedLogo className="h-[77px] w-[226px]" priority />
-            <p className="mt-3 font-display text-base font-extrabold text-[var(--navy)]">
-              Assistente financeiro inteligente
-            </p>
-            <div className="mt-3 inline-flex rounded-full bg-[var(--brand-soft)] px-3 py-1.5 font-display text-xs font-extrabold uppercase tracking-[0.12em] text-[var(--brand-strong)] ring-1 ring-[rgba(46,158,79,0.16)]">
-              Finance + IA
+        <div className="shrink-0 px-5 pb-4 pt-5">
+          <div className="rounded-[22px] border border-[var(--line)] bg-[var(--surface-strong)] p-4 shadow-[var(--shadow-soft)] ring-1 ring-[rgba(46,158,79,0.08)]">
+            <ThemedLogo className="h-[54px] w-[160px]" priority />
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <p className="truncate text-sm font-semibold text-[var(--muted)]">
+                {displayName}
+              </p>
+              <span className="shrink-0 rounded-full bg-[var(--brand-soft)] px-2.5 py-1 font-display text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--brand-strong)] ring-1 ring-[rgba(46,158,79,0.16)]">
+                Finance + IA
+              </span>
             </div>
-            <p className="mt-3 truncate text-sm font-semibold text-[var(--muted)]">
-              {displayName}
-            </p>
           </div>
         </div>
 
         <NavList pathname={pathname} />
 
         <div className="shrink-0 space-y-3 border-t border-[var(--line)] p-4">
-          <div className="rounded-[20px] border border-[rgba(46,158,79,0.18)] bg-[var(--brand-soft)] p-3">
-            <p className="flex items-center gap-2 font-display text-xs font-extrabold uppercase tracking-[0.12em] text-[var(--brand-strong)]">
-              <MessageCircle className="h-4 w-4" />
-              WhatsApp
-            </p>
-            <p className="mt-1 text-sm font-bold text-[var(--navy)]">Registre gastos por texto natural.</p>
-          </div>
           <ThemeToggle className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-3 text-sm font-extrabold text-[var(--text)] transition hover:border-[var(--brand)]" />
           <LogoutButton className="flex w-full items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-3 text-sm font-extrabold text-[var(--text)] transition hover:border-red-200 hover:bg-red-50 hover:text-red-700" />
         </div>
@@ -149,7 +140,7 @@ export default function AppShell({ children }: AppShellProps) {
         <div className="fixed inset-0 z-50 md:hidden">
           <button
             type="button"
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-black/50"
             aria-label="Fechar menu"
             onClick={() => setMobileOpen(false)}
           />
@@ -182,30 +173,6 @@ export default function AppShell({ children }: AppShellProps) {
         </div>
       ) : null}
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--line)] bg-[var(--surface)] px-2 py-2 shadow-[0_-12px_30px_rgba(8,36,29,0.08)] backdrop-blur md:hidden">
-        <div className="scrollbar-none flex gap-1 overflow-x-auto">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-            const NavIcon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={
-                  isActive
-                    ? "whitespace-nowrap rounded-xl bg-[var(--brand)] px-3 py-2 font-display text-xs font-extrabold text-white shadow-[0_8px_18px_var(--brand-glow)]"
-                    : "whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold text-[var(--muted)]"
-                }
-              >
-                <span className="inline-flex items-center gap-1.5">
-                  <NavIcon className="h-3.5 w-3.5" strokeWidth={2.4} />
-                  {item.label}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
     </main>
   );
 }

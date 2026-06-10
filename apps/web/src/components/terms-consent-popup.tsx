@@ -14,7 +14,6 @@ const PRIVACY_VERSION = "1.0";
 const privateRoutes = [
   "/dashboard",
   "/perfil",
-  "/lancamentos",
   "/historico",
   "/metas",
   "/gastos-fixos",
@@ -131,8 +130,8 @@ export default function TermsConsentPopup() {
           setVisible(!localAccepted || isPrivateRoute);
           setMessage(
             error instanceof Error
-              ? `Nao foi possivel verificar o aceite: ${error.message}`
-              : "Nao foi possivel verificar o aceite."
+              ? `Não foi possível verificar o aceite: ${error.message}`
+              : "Não foi possível verificar o aceite."
           );
         }
       } finally {
@@ -194,8 +193,8 @@ export default function TermsConsentPopup() {
     } catch (error) {
       setMessage(
         error instanceof Error
-          ? `Aceite salvo localmente, mas nao foi possivel sincronizar com o Supabase: ${error.message}`
-          : "Aceite salvo localmente, mas nao foi possivel sincronizar com o Supabase."
+          ? `Aceite salvo localmente, mas não foi possível sincronizar com o Supabase: ${error.message}`
+          : "Aceite salvo localmente, mas não foi possível sincronizar com o Supabase."
       );
 
       if (!isPrivateRoute) {
@@ -218,7 +217,7 @@ export default function TermsConsentPopup() {
       >
         <div className="border-b border-[rgba(26,26,26,0.08)] bg-[linear-gradient(135deg,#ffffff_0%,#eefaf4_58%,#dff4e6_100%)] px-5 py-5 sm:px-7 sm:py-6">
           <p className="font-display text-xs font-extrabold uppercase tracking-[0.14em] text-[#2E9E4F]">
-            Consentimento obrigatorio
+            Consentimento obrigatório
           </p>
           <h2 id="terms-consent-title" className="mt-2 font-display text-2xl font-black leading-tight sm:text-3xl">
             Termos de Uso e Privacidade - Moedin.IA
@@ -228,27 +227,27 @@ export default function TermsConsentPopup() {
         <div className="max-h-[62vh] overflow-y-auto px-5 py-5 sm:max-h-[58vh] sm:px-7">
           <div className="space-y-4 text-base font-medium leading-7 text-[#39413c]">
             <p>
-              Ao utilizar o Moedin.IA, voce concorda com o uso da plataforma para apoio no controle financeiro pessoal,
-              incluindo registro de receitas e despesas, categorizacao automatica por Inteligencia Artificial, geracao
-              de relatorios, graficos e alertas.
+              Ao utilizar o Moedin.IA, você concorda com o uso da plataforma para apoio no controle financeiro pessoal,
+              incluindo registro de receitas e despesas, categorização automática por Inteligência Artificial, geração
+              de relatórios, gráficos e alertas.
             </p>
             <p>
-              As informacoes inseridas pelo usuario, como valores, datas, categorias e metas financeiras, serao
-              utilizadas apenas para o funcionamento do sistema e melhoria da experiencia. O Moedin.IA nao realiza
-              pagamentos, transferencias, investimentos ou operacoes bancarias.
+              As informações inseridas pelo usuário, como valores, datas, categorias e metas financeiras, serão
+              utilizadas apenas para o funcionamento do sistema e melhoria da experiência. O Moedin.IA não realiza
+              pagamentos, transferências, investimentos ou operações bancárias.
             </p>
             <p>
-              As respostas e recomendacoes geradas pela Inteligencia Artificial possuem carater informativo e podem
-              conter imprecisoes. Portanto, o usuario e responsavel por revisar seus dados e tomar suas proprias
-              decisoes financeiras.
+              As respostas e recomendações geradas pela Inteligência Artificial possuem caráter informativo e podem
+              conter imprecisões. Portanto, o usuário é responsável por revisar seus dados e tomar suas próprias
+              decisões financeiras.
             </p>
             <p>
-              O sistema tratara dados pessoais conforme a LGPD, adotando medidas de seguranca para proteger as
-              informacoes fornecidas. O uso do Moedin.IA implica a aceitacao dos Termos de Uso e da Politica de
+              O sistema tratará dados pessoais conforme a LGPD, adotando medidas de segurança para proteger as
+              informações fornecidas. O uso do Moedin.IA implica a aceitação dos Termos de Uso e da Política de
               Privacidade.
             </p>
             <p>
-              Versao dos Termos de Uso: {TERMS_VERSION}. Versao da Politica de Privacidade: {PRIVACY_VERSION}.
+              Versão dos Termos de Uso: {TERMS_VERSION}. Versão da Política de Privacidade: {PRIVACY_VERSION}.
             </p>
           </div>
 
@@ -265,7 +264,7 @@ export default function TermsConsentPopup() {
               onChange={(event) => setAccepted(event.target.checked)}
               className="mt-1 h-5 w-5 accent-[#2E9E4F]"
             />
-            <span>Li e aceito os Termos de Uso e a Politica de Privacidade.</span>
+            <span>Li e aceito os Termos de Uso e a Política de Privacidade.</span>
           </label>
         </div>
 

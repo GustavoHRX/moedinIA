@@ -179,6 +179,27 @@ export function ActionButton({
   );
 }
 
+export function Alert({
+  children,
+  type = "info",
+}: {
+  children: ReactNode;
+  type?: "success" | "error" | "info";
+}) {
+  const style =
+    type === "success"
+      ? "border-green-200 bg-green-50 text-green-800"
+      : type === "error"
+        ? "border-red-200 bg-red-50 text-red-700"
+        : "border-[rgba(46,158,79,0.25)] bg-[var(--brand-soft)] text-[var(--brand-strong)]";
+
+  return (
+    <div className={cx("rounded-2xl border px-4 py-3 text-sm font-semibold", style)}>
+      {children}
+    </div>
+  );
+}
+
 export function EmptyState({
   title,
   description,

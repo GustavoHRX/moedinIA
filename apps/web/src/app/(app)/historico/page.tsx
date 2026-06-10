@@ -4,11 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppData } from "@/components/app-data-provider";
 import { categoryName, type CategoryRelation } from "@/lib/categories";
+import { CategoryIcon } from "@/components/category-icon";
+import { useConfirm } from "@/components/confirm-dialog";
+import { SkeletonList } from "@/components/skeleton";
 import { todayDateInput, toCompetenceMonth } from "@/lib/dates";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
 import NewEntryButton from "@/components/new-entry-button";
-import { ActionButton, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
+import { ActionButton, Alert, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
 
 type TransactionItem = {
   id: string;
@@ -35,6 +38,16 @@ type HistoryData = {
   categories: Category[];
 };
 
+const MONTHS_PT = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+function monthLabel(dateStr: string) {
+  const [year, month] = dateStr.slice(0, 7).split("-").map(Number);
+  return `${MONTHS_PT[month - 1]} ${year}`;
+}
+
 export default function HistoricoPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -49,17 +62,27 @@ export default function HistoricoPage() {
     setFinancialCache,
     invalidateFinancialData,
   } = useAppData();
+  const confirm = useConfirm();
 
   const [transactions, setTransactions] = useState<TransactionItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error">("success");
+
+  function showMessage(text: string, type: "success" | "error") {
+    setMessage(text);
+    setMessageType(type);
+  }
 
   const [searchText, setSearchText] = useState("");
   const [filterType, setFilterType] = useState<"all" | "income" | "expense">("all");
   const [filterCategory, setFilterCategory] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+
+  const PAGE_SIZE = 15;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editType, setEditType] = useState<"income" | "expense">("income");
@@ -148,7 +171,11 @@ export default function HistoricoPage() {
   }, [financialVersion, loadData]);
 
   async function handleDelete(id: string) {
-    const confirmed = window.confirm("Deseja excluir este lançamento?");
+    const confirmed = await confirm({
+      title: "Excluir lançamento",
+      message: "Deseja excluir este lançamento? Ele sairá do histórico e dos totais.",
+      confirmLabel: "Excluir",
+    });
     if (!confirmed) return;
 
     const { error } = await supabase
@@ -157,15 +184,16 @@ export default function HistoricoPage() {
         status: "deleted",
         deleted_at: new Date().toISOString(),
       })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", cachedUser!.id);
 
     if (error) {
-      setMessage(`Erro ao excluir: ${error.message}`);
+      showMessage(`Erro ao excluir: ${error.message}`, "error");
       return;
     }
 
     invalidateFinancialData();
-    await loadData();
+    await loadData(true);
   }
 
   function startEdit(item: TransactionItem) {
@@ -200,17 +228,22 @@ export default function HistoricoPage() {
     const parsedAmount = Number(editAmount.replace(",", "."));
     if (!editDescription.trim()) {
       setSavingEdit(false);
-      setMessage("Informe uma descrição.");
+      showMessage("Informe uma descrição.", "error");
       return;
     }
     if (!parsedAmount || parsedAmount <= 0) {
       setSavingEdit(false);
-      setMessage("Informe um valor válido.");
+      showMessage("Informe um valor válido.", "error");
       return;
     }
     if (!editDate) {
       setSavingEdit(false);
-      setMessage("Informe a data.");
+      showMessage("Informe a data.", "error");
+      return;
+    }
+    if (editDate > todayDateInput()) {
+      setSavingEdit(false);
+      showMessage("A data não pode ser no futuro.", "error");
       return;
     }
 
@@ -224,19 +257,20 @@ export default function HistoricoPage() {
         competence_month: toCompetenceMonth(editDate),
         category_id: editCategoryId || null,
       })
-      .eq("id", editingId);
+      .eq("id", editingId)
+      .eq("user_id", cachedUser!.id);
 
     setSavingEdit(false);
 
     if (error) {
-      setMessage(`Erro ao salvar edição: ${error.message}`);
+      showMessage(`Erro ao salvar edição: ${error.message}`, "error");
       return;
     }
 
     cancelEdit();
-    setMessage("Lançamento atualizado com sucesso.");
+    showMessage("Lançamento atualizado com sucesso.", "success");
     invalidateFinancialData();
-    await loadData();
+    await loadData(true);
   }
 
   function clearFilters() {
@@ -267,37 +301,94 @@ export default function HistoricoPage() {
     .filter((item) => item.type === "income")
     .reduce((acc, item) => acc + Number(item.amount), 0);
 
+  // Volta para a 1ª página sempre que um filtro muda
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [searchText, filterType, filterCategory, startDate, endDate]);
+
+  const visibleTransactions = filteredTransactions.slice(0, visibleCount);
+  const hasMore = filteredTransactions.length > visibleCount;
+
+  // Agrupa os visíveis por mês mantendo a ordem (mais recente primeiro)
+  const groupedTransactions = useMemo(() => {
+    const groups: { key: string; label: string; items: TransactionItem[] }[] = [];
+    for (const item of visibleTransactions) {
+      const key = item.transaction_date.slice(0, 7);
+      const last = groups[groups.length - 1];
+      if (!last || last.key !== key) {
+        groups.push({ key, label: monthLabel(item.transaction_date), items: [item] });
+      } else {
+        last.items.push(item);
+      }
+    }
+    return groups;
+  }, [visibleTransactions]);
+
+  function handleExportCsv() {
+    const header = ["Data", "Descrição", "Categoria", "Tipo", "Valor", "Origem"];
+    const lines = filteredTransactions.map((item) => {
+      const origem =
+        item.origin_type === "fixed_expense" ? "Fixo" : item.origin_type === "installment" ? "Parcelado" : "Manual";
+      return [
+        item.transaction_date,
+        `"${item.description.replace(/"/g, '""')}"`,
+        categoryName(item.categories),
+        item.type === "income" ? "Receita" : "Despesa",
+        Number(item.amount).toFixed(2).replace(".", ","),
+        origem,
+      ].join(";");
+    });
+    const csv = [header.join(";"), ...lines].join("\r\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `historico-moedin-${todayDateInput()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <PageFrame>
       <PageHeader
         title="Histórico"
-        description="Consulta de movimentações já ocorridas, com filtros rápidos e origem bem identificada."
+        description="Tudo que rolou nas suas finanças, fácil de filtrar e achar."
         eyebrow="Movimentações"
         actions={
-          <NewEntryButton className="btn-primary px-5 py-3" label="+ Novo lançamento" />
+          <>
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              disabled={filteredTransactions.length === 0}
+              className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-5 py-3 text-sm font-extrabold text-[var(--navy)] transition hover:border-[var(--brand)] disabled:opacity-50"
+            >
+              Exportar CSV
+            </button>
+            <NewEntryButton className="btn-primary px-5 py-3" label="+ Novo lançamento" />
+          </>
         }
       />
 
       <div className="space-y-5">
-        {message ? (
-          <div className="alert-info rounded-2xl px-4 py-3 text-sm">{message}</div>
-        ) : null}
+        {message ? <Alert type={messageType}>{message}</Alert> : null}
 
         <div className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
           <Surface className="bg-[var(--hero-gradient)]">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div>
-                <p className="text-xs font-bold uppercase text-[var(--muted)]">Valor total</p>
-                <p className="mt-1 text-3xl font-extrabold text-[var(--navy)]">{formatCurrency(filteredExpenses)}</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">Saídas no filtro atual</p>
+            <div className="divide-y divide-[var(--line)]">
+              <div className="flex items-center justify-between gap-3 pb-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase text-[var(--muted)]">Saídas (filtro)</p>
+                  <p className="text-[11px] text-[var(--muted)]">Total de gastos no filtro atual</p>
+                </div>
+                <p className="shrink-0 text-xl font-extrabold leading-tight tracking-tight text-[var(--navy)] tabular-nums">{formatCurrency(filteredExpenses)}</p>
               </div>
-              <div>
+              <div className="flex items-center justify-between gap-3 py-3">
                 <p className="text-xs font-bold uppercase text-[var(--muted)]">Entradas</p>
-                <p className="mt-1 text-2xl font-extrabold text-[var(--success)]">{formatCurrency(filteredIncome)}</p>
+                <p className="shrink-0 text-xl font-extrabold leading-tight tracking-tight text-[var(--success)] tabular-nums">{formatCurrency(filteredIncome)}</p>
               </div>
-              <div>
+              <div className="flex items-center justify-between gap-3 pt-3">
                 <p className="text-xs font-bold uppercase text-[var(--muted)]">Saldo filtrado</p>
-                <p className={`mt-1 text-2xl font-extrabold ${filteredBalance >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+                <p className={`shrink-0 text-xl font-extrabold leading-tight tracking-tight tabular-nums ${filteredBalance >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
                   {formatCurrency(filteredBalance)}
                 </p>
               </div>
@@ -400,23 +491,33 @@ export default function HistoricoPage() {
 
       <Surface>
         {loading ? (
-          <p className="text-sm text-[var(--muted)]">Carregando histórico...</p>
+<SkeletonList rows={6} />
         ) : filteredTransactions.length === 0 ? (
           <EmptyState
             title="Nenhum resultado"
             description="Ajuste os filtros ou registre um novo lançamento."
           />
         ) : (
-          <div className="space-y-3">
-            {filteredTransactions.map((item) => (
+          <div className="space-y-5">
+            {groupedTransactions.map((group) => (
+              <div key={group.key} className="space-y-3">
+                <div className="flex items-center gap-3 pt-1">
+                  <h3 className="font-display text-sm font-extrabold uppercase tracking-[0.12em] text-[var(--muted)]">
+                    {group.label}
+                  </h3>
+                  <span className="h-px flex-1 bg-[var(--line)]" />
+                </div>
+                {group.items.map((item) => (
               <article
                 key={item.id}
                 className="rounded-[18px] border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-4 shadow-[0_7px_18px_rgba(9,42,32,0.05)] transition hover:border-[rgba(46,158,79,0.35)] hover:shadow-[var(--shadow-soft)]"
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
+                  <div className="flex items-center gap-3">
+                    <CategoryIcon name={categoryName(item.categories, "")} />
+                    <div>
                     <h3 className="font-bold text-[var(--navy)]">
-                      {item.description} <span className="font-semibold text-[var(--muted)]">#{item.id.slice(0, 6)}</span>
+                      {item.description}
                     </h3>
                     <p className="mt-1 text-sm text-[var(--muted)]">
                       {categoryName(item.categories)} - {formatDate(item.transaction_date)}
@@ -426,6 +527,7 @@ export default function HistoricoPage() {
                         ? ` - parcela ${item.installment_number}/${item.installment_total}`
                         : ""}
                     </p>
+                    </div>
                   </div>
                   <div className="text-left sm:text-right">
                     <p className={`font-bold ${item.type === "income" ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
@@ -463,7 +565,24 @@ export default function HistoricoPage() {
                   </ActionButton>
                 </div>
               </article>
+                ))}
+              </div>
             ))}
+
+            <div className="flex flex-col items-center gap-2 pt-2">
+              <p className="text-xs text-[var(--muted)]">
+                Mostrando {visibleTransactions.length} de {filteredTransactions.length} lançamentos
+              </p>
+              {hasMore ? (
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((current) => current + PAGE_SIZE)}
+                  className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-5 py-3 text-sm font-extrabold text-[var(--navy)] transition hover:border-[var(--brand)] hover:text-[var(--brand-strong)]"
+                >
+                  Exibir mais
+                </button>
+              ) : null}
+            </div>
           </div>
         )}
       </Surface>

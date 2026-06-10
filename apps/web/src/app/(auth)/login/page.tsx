@@ -18,18 +18,26 @@ export default function LoginPage() {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
+
     setLoading(true);
     setMessage("");
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    }).catch((error: unknown) => ({
+      error: error instanceof Error ? error : new Error("Nao foi possivel conectar ao Supabase."),
+    }));
 
+    setLoading(false);
     if (error) {
       setMessage(error.message);
       return;
     }
 
-    router.push("/dashboard");
+    router.replace("/dashboard");
+    router.refresh();
   }
 
   return (

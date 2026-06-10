@@ -27,12 +27,18 @@ pnpm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+.claude/
 
 # python cache
 __pycache__/
 *.pyc
+venv/
+apps/*/venv/
 
 # local data
 .supabase/
 n8n/data/
 n8n/files/
+*.sqlite
+*.sqlite-*
+n8n/qrcode*.png

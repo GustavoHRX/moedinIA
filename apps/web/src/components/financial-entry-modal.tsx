@@ -117,11 +117,9 @@ export default function FinancialEntryModal({
   const [expenseCategories, setExpenseCategories] = useState<Category[]>([]);
   const [incomeCategories, setIncomeCategories] = useState<Category[]>([]);
 
-  const today = todayDateInput();
-
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(() => todayDateInput());
   const [categoryId, setCategoryId] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -190,7 +188,7 @@ export default function FinancialEntryModal({
   function resetForm() {
     setTitle("");
     setAmount("");
-    setDate(today);
+    setDate(todayDateInput());
     setCategoryId("");
     setNotes("");
     setInstallmentTotal("");
@@ -527,7 +525,11 @@ export default function FinancialEntryModal({
 
           <div className="max-h-[calc(92vh-88px)] overflow-y-auto bg-[var(--bg-soft)] px-5 py-5 sm:px-6">
             {message ? (
-              <div className="alert-info mb-4 rounded-2xl px-4 py-3 text-sm">
+              <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-semibold ${
+                message.startsWith("Erro") || message.startsWith("Informe") || message.startsWith("Usuário")
+                  ? "border-red-200 bg-red-50 text-red-700"
+                  : "border-green-200 bg-green-50 text-green-800"
+              }`}>
                 {message}
               </div>
             ) : null}

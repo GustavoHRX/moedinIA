@@ -12,7 +12,6 @@ export const config = {
     "/recuperar-senha",
     "/dashboard/:path*",
     "/perfil/:path*",
-    "/lancamentos/:path*",
     "/historico/:path*",
     "/metas/:path*",
     "/gastos-fixos/:path*",

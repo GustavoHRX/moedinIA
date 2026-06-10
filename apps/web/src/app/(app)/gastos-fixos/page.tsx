@@ -3,10 +3,12 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppData } from "@/components/app-data-provider";
+import { useConfirm } from "@/components/confirm-dialog";
+import { SkeletonList } from "@/components/skeleton";
 import { categoryName, type CategoryRelation } from "@/lib/categories";
 import { formatCurrency } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
-import { ActionButton, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
+import { ActionButton, Alert, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
 
 type Category = {
   id: string;
@@ -44,13 +46,19 @@ export default function GastosFixosPage() {
     setFinancialCache,
     invalidateFinancialData,
   } = useAppData();
+  const confirm = useConfirm();
 
-  const [userId, setUserId] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<FixedExpense[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error">("success");
+
+  function showMessage(text: string, type: "success" | "error") {
+    setMessage(text);
+    setMessageType(type);
+  }
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -71,7 +79,6 @@ export default function GastosFixosPage() {
       return;
     }
 
-    setUserId(user.id);
     const cacheKey = `fixed-expenses:${user.id}`;
     const cachedPage = forceRefresh ? null : getFinancialCache<FixedExpensesPageData>(cacheKey);
 
@@ -139,24 +146,31 @@ export default function GastosFixosPage() {
     setSaving(true);
     setMessage("");
 
+    const userId = cachedUser?.id;
+    if (!userId) {
+      showMessage("Usuário não autenticado.", "error");
+      setSaving(false);
+      return;
+    }
+
     const parsedAmount = Number(amount.replace(",", "."));
     const parsedDueDay = Number(dueDay);
 
     if (!title.trim()) {
       setSaving(false);
-      setMessage("Informe o nome do gasto fixo.");
+      showMessage("Informe o nome do gasto fixo.", "error");
       return;
     }
 
     if (!parsedAmount || parsedAmount <= 0) {
       setSaving(false);
-      setMessage("Informe um valor válido.");
+      showMessage("Informe um valor válido.", "error");
       return;
     }
 
     if (!parsedDueDay || parsedDueDay < 1 || parsedDueDay > 31) {
       setSaving(false);
-      setMessage("Informe um dia de vencimento válido.");
+      showMessage("Informe um dia de vencimento válido.", "error");
       return;
     }
 
@@ -174,7 +188,7 @@ export default function GastosFixosPage() {
     setSaving(false);
 
     if (error) {
-      setMessage(`Erro ao salvar gasto fixo: ${error.message}`);
+      showMessage(`Erro ao salvar gasto fixo: ${error.message}`, "error");
       return;
     }
 
@@ -184,7 +198,7 @@ export default function GastosFixosPage() {
     setDueDay("");
     setCategoryId("");
     setAutoCreateTransaction(false);
-    setMessage("Gasto fixo cadastrado com sucesso.");
+    showMessage("Gasto fixo cadastrado com sucesso.", "success");
     invalidateFinancialData();
     await loadPage(true);
   }
@@ -193,29 +207,39 @@ export default function GastosFixosPage() {
     const { error } = await supabase
       .from("fixed_expenses")
       .update({ is_active: !item.is_active })
-      .eq("id", item.id);
+      .eq("id", item.id)
+      .eq("user_id", cachedUser!.id);
 
     if (error) {
-      setMessage(`Erro ao atualizar status: ${error.message}`);
+      showMessage(`Erro ao atualizar status: ${error.message}`, "error");
       return;
     }
 
-    setMessage("Status atualizado com sucesso.");
+    showMessage("Status atualizado com sucesso.", "success");
     invalidateFinancialData();
     await loadPage(true);
   }
 
   async function handleDelete(id: string) {
-    const confirmed = window.confirm("Deseja excluir este gasto fixo?");
+    const confirmed = await confirm({
+      title: "Excluir gasto fixo",
+      message: "Deseja excluir este gasto fixo? As transações já geradas não serão removidas.",
+      confirmLabel: "Excluir",
+    });
     if (!confirmed) return;
 
-    const { error } = await supabase.from("fixed_expenses").delete().eq("id", id);
+    const { error } = await supabase
+      .from("fixed_expenses")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", cachedUser!.id);
+
     if (error) {
-      setMessage(`Erro ao excluir gasto fixo: ${error.message}`);
+      showMessage(`Erro ao excluir gasto fixo: ${error.message}`, "error");
       return;
     }
 
-    setMessage("Gasto fixo excluído com sucesso.");
+    showMessage("Gasto fixo excluído com sucesso.", "success");
     invalidateFinancialData();
     await loadPage(true);
   }
@@ -227,12 +251,12 @@ export default function GastosFixosPage() {
     <PageFrame>
       <PageHeader
         title="Gastos fixos"
-        description="Contas recorrentes com status claro e controle por categoria."
+        description="Aquelas contas que voltam todo mês, sempre no seu controle."
         eyebrow="Recorrências"
       />
 
       <div className="space-y-5">
-        {message ? <div className="alert-info rounded-2xl px-4 py-3 text-sm">{message}</div> : null}
+        {message ? <Alert type={messageType}>{message}</Alert> : null}
 
         <section className="flex flex-col justify-between gap-5 rounded-[24px] border border-[var(--line)] bg-[var(--hero-gradient)] p-5 shadow-[var(--shadow-soft)] lg:flex-row lg:items-center">
           <div className="flex items-center gap-4">
@@ -256,52 +280,67 @@ export default function GastosFixosPage() {
           </div>
         </section>
 
-      <section className="grid gap-5 xl:grid-cols-[0.72fr_1.28fr]">
+      <section className="grid items-start gap-5 xl:grid-cols-[0.72fr_1.28fr]">
         <Surface>
           <SectionHeader title="Novo gasto fixo" eyebrow="Recorrência" />
-          <form onSubmit={handleSave} className="mt-4 space-y-3">
-            <input
-              className="control"
-              type="text"
-              placeholder="Nome do gasto fixo"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-            <textarea
-              className="control min-h-[96px]"
-              placeholder="Descrição (opcional)"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-            <div className="grid gap-3 sm:grid-cols-3">
+          <form onSubmit={handleSave} className="mt-4 space-y-4">
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold text-[var(--text)]">Nome do gasto fixo</span>
               <input
                 className="control"
                 type="text"
-                placeholder="Valor"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                placeholder="Ex: Aluguel"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
               />
-              <input
-                className="control"
-                type="number"
-                min={1}
-                max={31}
-                placeholder="Dia venc."
-                value={dueDay}
-                onChange={(e) => setDueDay(e.target.value)}
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold text-[var(--text)]">Descrição (opcional)</span>
+              <textarea
+                className="control min-h-[96px]"
+                placeholder="Detalhes extras"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
               />
-              <select
-                className="control"
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-              >
-                <option value="">Sem categoria</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
+            </label>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-[var(--text)]">Valor</span>
+                <input
+                  className="control"
+                  type="text"
+                  placeholder="0,00"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-[var(--text)]">Dia venc.</span>
+                <input
+                  className="control"
+                  type="number"
+                  min={1}
+                  max={31}
+                  placeholder="Ex: 10"
+                  value={dueDay}
+                  onChange={(e) => setDueDay(e.target.value)}
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-[var(--text)]">Categoria</span>
+                <select
+                  className="control"
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                >
+                  <option value="">Sem categoria</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
             {categories.length === 0 ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
@@ -332,7 +371,7 @@ export default function GastosFixosPage() {
 
           <div className="mt-4">
             {loading ? (
-              <p className="text-sm text-[var(--muted)]">Carregando...</p>
+<SkeletonList rows={3} />
             ) : items.length === 0 ? (
               <EmptyState
                 title="Nenhum gasto fixo cadastrado"

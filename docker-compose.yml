@@ -48,6 +48,67 @@ services:
       - "8000:8000"
     environment:
       PYTHONUNBUFFERED: 1
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+    restart: unless-stopped
+
+  redis:
+    container_name: moedin_redis
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  evolution_db:
+    container_name: moedin_evolution_db
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: evolution
+      POSTGRES_DB: evolution
+    volumes:
+      - evolution_db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  evolution:
+    container_name: moedin_evolution
+    image: evoapicloud/evolution-api:v2.3.7
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_URL: http://localhost:8080
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:-moedin_evo_key_change_me}
+      AUTHENTICATION_TYPE: apikey
+      # Versão do WhatsApp Web (evita QR travado em "connecting")
+      CONFIG_SESSION_PHONE_VERSION: ${EVOLUTION_WA_VERSION:-2.3000.1023204200}
+      # Banco (Postgres dedicado da Evolution)
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:evolution@evolution_db:5432/evolution?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME: evolution
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
+      DATABASE_SAVE_MESSAGE_UPDATE: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "true"
+      DATABASE_SAVE_DATA_CHATS: "false"
+      # Cache no Redis (reaproveita o redis do projeto, db 6)
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379/6
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_REDIS_SAVE_INSTANCES: "false"
+      CACHE_LOCAL_ENABLED: "false"
+      DEL_INSTANCE: "false"
+      QRCODE_LIMIT: "30"
+      QRCODE_COLOR: "#198754"
+      LOG_LEVEL: ERROR,WARN
+      LOG_BAILEYS: error
+    depends_on:
+      - evolution_db
+      - redis
+    volumes:
+      - evolution_instances:/evolution/instances
     restart: unless-stopped
 
   n8n:
@@ -65,17 +126,29 @@ services:
       TZ: ${DEFAULT_TIMEZONE:-America/Sao_Paulo}
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-moedin_local_change_me_32_chars_key}
       DB_SQLITE_POOL_SIZE: 2
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
+      EXECUTIONS_DATA_SAVE_ON_ERROR: all
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       N8N_RUNNERS_ENABLED: "true"
       N8N_GIT_NODE_DISABLE_BARE_REPOS: "true"
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "false"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      EXTERNAL_FRONTEND_HOOKS_URLS: ""
+      N8N_DIAGNOSTICS_CONFIG_FRONTEND: ""
+      N8N_DIAGNOSTICS_CONFIG_BACKEND: ""
       SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
-      AI_SERVICE_URL: ${AI_SERVICE_URL:-http://host.docker.internal:8000}
+      AI_SERVICE_URL: "http://ai:8000"
       WHATSAPP_PROVIDER: ${WHATSAPP_PROVIDER:-evolution}
       EVOLUTION_API_URL: ${EVOLUTION_API_URL:-}
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-}
+      EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE:-moedin}
       DEFAULT_CURRENCY: ${DEFAULT_CURRENCY:-BRL}
+    depends_on:
+      - redis
+      - ai
     volumes:
       - ./n8n/data:/home/node/.n8n
       - ./n8n/workflow:/workflows
@@ -86,3 +159,5 @@ volumes:
   web_node_modules:
   web_next_cache:
   api_node_modules:
+  evolution_db_data:
+  evolution_instances:

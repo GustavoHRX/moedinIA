@@ -3,9 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppData } from "@/components/app-data-provider";
+import { useConfirm } from "@/components/confirm-dialog";
+import { SkeletonList } from "@/components/skeleton";
+import { todayDateInput } from "@/lib/dates";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
-import { ActionButton, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, StatCard, Surface } from "@/components/ui-kit";
+import { ActionButton, Alert, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, StatCard, Surface } from "@/components/ui-kit";
 
 type Goal = {
   id: string;
@@ -16,6 +19,13 @@ type Goal = {
   deadline: string | null;
   status: "active" | "completed" | "cancelled";
 };
+
+// Calcula dias restantes até o prazo (negativo = vencido)
+function daysUntil(deadline: string) {
+  const today = new Date(`${todayDateInput()}T00:00:00`);
+  const target = new Date(`${deadline.slice(0, 10)}T00:00:00`);
+  return Math.round((target.getTime() - today.getTime()) / 86400000);
+}
 
 export default function MetasPage() {
   const supabase = useMemo(() => createClient(), []);
@@ -28,8 +38,8 @@ export default function MetasPage() {
     setFinancialCache,
     invalidateFinancialData,
   } = useAppData();
+  const confirm = useConfirm();
 
-  const [userId, setUserId] = useState("");
   const [goals, setGoals] = useState<Goal[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -38,6 +48,11 @@ export default function MetasPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error">("success");
+
+  const [updatingGoalId, setUpdatingGoalId] = useState<string | null>(null);
+  const [progressInput, setProgressInput] = useState("");
+  const [savingProgress, setSavingProgress] = useState(false);
 
   const loadGoals = useCallback(async (forceRefresh = false) => {
     if (loadingUser) return;
@@ -49,7 +64,6 @@ export default function MetasPage() {
       return;
     }
 
-    setUserId(user.id);
     const cacheKey = `goals:${user.id}`;
     const cachedGoals = forceRefresh ? null : getFinancialCache<Goal[]>(cacheKey);
 
@@ -83,21 +97,33 @@ export default function MetasPage() {
     loadGoals();
   }, [financialVersion, loadGoals]);
 
+  function showMessage(text: string, type: "success" | "error") {
+    setMessage(text);
+    setMessageType(type);
+  }
+
   async function handleCreateGoal(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setMessage("");
 
+    const userId = cachedUser?.id;
+    if (!userId) {
+      showMessage("Usuário não autenticado.", "error");
+      setSaving(false);
+      return;
+    }
+
     const parsedTarget = Number(targetAmount.replace(",", "."));
 
     if (!title.trim()) {
       setSaving(false);
-      setMessage("Informe o título da meta.");
+      showMessage("Informe o título da meta.", "error");
       return;
     }
     if (!parsedTarget || parsedTarget <= 0) {
       setSaving(false);
-      setMessage("Informe um valor alvo válido.");
+      showMessage("Informe um valor alvo válido.", "error");
       return;
     }
 
@@ -114,7 +140,7 @@ export default function MetasPage() {
     setSaving(false);
 
     if (error) {
-      setMessage(`Erro ao criar meta: ${error.message}`);
+      showMessage(`Erro ao criar meta: ${error.message}`, "error");
       return;
     }
 
@@ -122,54 +148,76 @@ export default function MetasPage() {
     setDescription("");
     setTargetAmount("");
     setDeadline("");
-    setMessage("Meta criada com sucesso.");
+    showMessage("Meta criada com sucesso.", "success");
     invalidateFinancialData();
     await loadGoals(true);
   }
 
-  async function handleUpdateProgress(goal: Goal) {
-    const value = window.prompt(
-      `Digite o novo valor acumulado para "${goal.title}":`,
-      String(goal.current_amount)
-    );
-    if (value === null) return;
+  function startUpdateProgress(goal: Goal) {
+    setUpdatingGoalId(goal.id);
+    setProgressInput(String(goal.current_amount));
+    setMessage("");
+  }
 
-    const parsed = Number(value.replace(",", "."));
+  function cancelUpdateProgress() {
+    setUpdatingGoalId(null);
+    setProgressInput("");
+  }
+
+  async function saveProgress(goal: Goal) {
+    const parsed = Number(progressInput.replace(",", "."));
     if (Number.isNaN(parsed) || parsed < 0) {
-      setMessage("Valor inválido.");
+      showMessage("Valor inválido. Digite um número maior ou igual a zero.", "error");
       return;
     }
 
+    setSavingProgress(true);
     const nextStatus = parsed >= Number(goal.target_amount) ? "completed" : "active";
 
     const { error } = await supabase
       .from("goals")
       .update({ current_amount: parsed, status: nextStatus })
-      .eq("id", goal.id);
+      .eq("id", goal.id)
+      .eq("user_id", cachedUser!.id);
+
+    setSavingProgress(false);
 
     if (error) {
-      setMessage(`Erro ao atualizar progresso: ${error.message}`);
+      showMessage(`Erro ao atualizar progresso: ${error.message}`, "error");
       return;
     }
 
+    setUpdatingGoalId(null);
+    setProgressInput("");
+    showMessage(
+      nextStatus === "completed" ? "Meta concluída! Parabéns." : "Progresso atualizado.",
+      "success"
+    );
     invalidateFinancialData();
     await loadGoals(true);
   }
 
   async function handleCancelGoal(goalId: string) {
-    const confirmed = window.confirm("Deseja cancelar esta meta?");
+    const confirmed = await confirm({
+      title: "Cancelar meta",
+      message: "Deseja cancelar esta meta? Ela ficará marcada como cancelada.",
+      confirmLabel: "Cancelar meta",
+      cancelLabel: "Voltar",
+    });
     if (!confirmed) return;
 
     const { error } = await supabase
       .from("goals")
       .update({ status: "cancelled" })
-      .eq("id", goalId);
+      .eq("id", goalId)
+      .eq("user_id", cachedUser!.id);
 
     if (error) {
-      setMessage(`Erro ao cancelar meta: ${error.message}`);
+      showMessage(`Erro ao cancelar meta: ${error.message}`, "error");
       return;
     }
 
+    showMessage("Meta cancelada.", "success");
     invalidateFinancialData();
     await loadGoals(true);
   }
@@ -182,16 +230,12 @@ export default function MetasPage() {
     <PageFrame>
       <PageHeader
         title="Metas"
-        description="Defina objetivos, acompanhe progresso e mantenha foco no acumulado."
+        description="Crie objetivos e acompanhe seu progresso até realizar cada um."
         eyebrow="Objetivos financeiros"
       />
       <div className="space-y-5">
 
-      {message ? (
-        <div className="alert-info rounded-2xl px-4 py-3 text-sm">
-          {message}
-        </div>
-      ) : null}
+      {message ? <Alert type={messageType}>{message}</Alert> : null}
 
       <section className="grid gap-5 xl:grid-cols-[1fr_0.95fr]">
         <Surface className="bg-[var(--hero-gradient)] p-6">
@@ -212,37 +256,49 @@ export default function MetasPage() {
         </div>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[0.78fr_1.22fr]">
+      <section className="grid items-start gap-5 xl:grid-cols-[0.78fr_1.22fr]">
         <Surface>
           <SectionHeader title="Nova meta" eyebrow="Objetivo" />
-          <form onSubmit={handleCreateGoal} className="mt-4 space-y-3">
-            <input
-              className="w-full rounded-2xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
-              type="text"
-              placeholder="Titulo da meta"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-            <textarea
-              className="min-h-[100px] w-full rounded-2xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
-              placeholder="Descrição (opcional)"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-            <div className="grid gap-3 sm:grid-cols-2">
+          <form onSubmit={handleCreateGoal} className="mt-4 space-y-4">
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold text-[var(--text)]">Título da meta</span>
               <input
-                className="rounded-2xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
+                className="w-full rounded-2xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
                 type="text"
-                placeholder="Valor alvo"
-                value={targetAmount}
-                onChange={(e) => setTargetAmount(e.target.value)}
+                placeholder="Ex: Reserva de emergência"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
               />
-              <input
-                className="rounded-2xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
-                type="date"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold text-[var(--text)]">Descrição (opcional)</span>
+              <textarea
+                className="min-h-[100px] w-full rounded-2xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
+                placeholder="Detalhes da meta"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
               />
+            </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-[var(--text)]">Valor alvo</span>
+                <input
+                  className="w-full rounded-2xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
+                  type="text"
+                  placeholder="0,00"
+                  value={targetAmount}
+                  onChange={(e) => setTargetAmount(e.target.value)}
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-[var(--text)]">Prazo (opcional)</span>
+                <input
+                  className="w-full rounded-2xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
+                  type="date"
+                  value={deadline}
+                  onChange={(e) => setDeadline(e.target.value)}
+                />
+              </label>
             </div>
             <ActionButton
               type="submit"
@@ -257,7 +313,7 @@ export default function MetasPage() {
           <SectionHeader title="Suas metas" eyebrow="Carteira de objetivos" />
           <div className="mt-4">
             {loading ? (
-              <p className="text-sm text-[var(--muted)]">Carregando metas...</p>
+<SkeletonList rows={3} />
             ) : goals.length === 0 ? (
               <EmptyState
                 title="Nenhuma meta cadastrada"
@@ -301,6 +357,24 @@ export default function MetasPage() {
                         {formatCurrency(Number(goal.current_amount))} de{" "}
                         {formatCurrency(Number(goal.target_amount))} - prazo {formatDate(goal.deadline)}
                       </p>
+                      {goal.status === "active" && goal.deadline
+                        ? (() => {
+                            const dias = daysUntil(goal.deadline);
+                            const vencido = dias < 0;
+                            const proximo = dias >= 0 && dias <= 30;
+                            const cor = vencido ? "var(--danger)" : proximo ? "#e0a128" : "var(--muted)";
+                            const texto = vencido
+                              ? `Prazo vencido há ${Math.abs(dias)} dia${Math.abs(dias) === 1 ? "" : "s"}`
+                              : dias === 0
+                              ? "Vence hoje"
+                              : `Faltam ${dias} dia${dias === 1 ? "" : "s"}`;
+                            return (
+                              <p className="mt-1 text-xs font-extrabold" style={{ color: cor }}>
+                                {texto}
+                              </p>
+                            );
+                          })()
+                        : null}
                       <div className="mt-2">
                         <div className="mb-1 flex items-center justify-between text-sm">
                           <span className="text-[var(--muted)]">Progresso</span>
@@ -313,24 +387,54 @@ export default function MetasPage() {
                           />
                         </div>
                       </div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <ActionButton
-                          onClick={() => handleUpdateProgress(goal)}
-                          tone="secondary"
-                          className="px-3 py-2"
-                        >
-                          Atualizar progresso
-                        </ActionButton>
-                        {goal.status !== "cancelled" && goal.status !== "completed" ? (
+                      {updatingGoalId === goal.id ? (
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            className="w-36 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
+                            placeholder="Valor acumulado"
+                            value={progressInput}
+                            onChange={(e) => setProgressInput(e.target.value)}
+                            autoFocus
+                          />
                           <ActionButton
-                            onClick={() => handleCancelGoal(goal.id)}
-                            tone="danger"
+                            onClick={() => saveProgress(goal)}
+                            disabled={savingProgress}
+                            className="px-3 py-2"
+                          >
+                            {savingProgress ? "Salvando..." : "Salvar"}
+                          </ActionButton>
+                          <ActionButton
+                            onClick={cancelUpdateProgress}
+                            tone="secondary"
                             className="px-3 py-2"
                           >
                             Cancelar
                           </ActionButton>
-                        ) : null}
-                      </div>
+                        </div>
+                      ) : (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {goal.status === "active" ? (
+                            <ActionButton
+                              onClick={() => startUpdateProgress(goal)}
+                              tone="secondary"
+                              className="px-3 py-2"
+                            >
+                              Atualizar progresso
+                            </ActionButton>
+                          ) : null}
+                          {goal.status !== "cancelled" && goal.status !== "completed" ? (
+                            <ActionButton
+                              onClick={() => handleCancelGoal(goal.id)}
+                              tone="danger"
+                              className="px-3 py-2"
+                            >
+                              Cancelar
+                            </ActionButton>
+                          ) : null}
+                        </div>
+                      )}
                     </article>
                   );
                 })}

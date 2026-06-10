@@ -102,12 +102,24 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (userRequestRef.current) return userRequestRef.current;
 
     setLoadingUser(true);
-    userRequestRef.current = supabase.auth
-      .getUser()
-      .then(({ data: { user: currentUser } }) => {
+    userRequestRef.current = (async () => {
+      try {
+        const {
+          data: { user: currentUser },
+        } = await supabase.auth.getUser();
+
         setUser(currentUser);
         return currentUser;
-      })
+      } catch {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const currentUser = session?.user ?? null;
+
+        setUser(currentUser);
+        return currentUser;
+      }
+    })()
       .finally(() => {
         setLoadingUser(false);
         userRequestRef.current = null;
@@ -282,6 +294,29 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, [loadCategories, loadProfile, refreshUser, supabase]);
+
+  // Realtime: atualiza o site automaticamente quando lançamentos mudam
+  // (ex: registro/exclusão feitos pelo WhatsApp), sem precisar recarregar.
+  useEffect(() => {
+    const userId = user?.id;
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`rt-transactions-${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "transactions", filter: `user_id=eq.${userId}` },
+        () => {
+          setFinancialCacheState({});
+          setFinancialVersion((version) => version + 1);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [supabase, user?.id]);
 
   const value = useMemo<AppDataContextValue>(
     () => ({

@@ -3,11 +3,13 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppData } from "@/components/app-data-provider";
+import { useConfirm } from "@/components/confirm-dialog";
+import { SkeletonList } from "@/components/skeleton";
 import { categoryName, type CategoryRelation } from "@/lib/categories";
 import { addMonthsClamped, isPastOrToday, toCompetenceMonth } from "@/lib/dates";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
-import { ActionButton, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
+import { ActionButton, Alert, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
 
 type InstallmentItem = {
   id: string;
@@ -53,14 +55,20 @@ export default function ParcelamentosPage() {
     setFinancialCache,
     invalidateFinancialData,
   } = useAppData();
+  const confirm = useConfirm();
 
-  const [userId, setUserId] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<InstallmentItem[]>([]);
   const [transactions, setTransactions] = useState<TransactionInstallment[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error">("success");
+
+  function showMessage(text: string, type: "success" | "error") {
+    setMessage(text);
+    setMessageType(type);
+  }
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -81,7 +89,6 @@ export default function ParcelamentosPage() {
       return;
     }
 
-    setUserId(user.id);
     const cacheKey = `installments:${user.id}`;
     const cachedPage = forceRefresh ? null : getFinancialCache<InstallmentsPageData>(cacheKey);
 
@@ -184,6 +191,13 @@ export default function ParcelamentosPage() {
       return;
     }
 
+    const userId = cachedUser?.id;
+    if (!userId) {
+      setSaving(false);
+      showMessage("Usuário não autenticado.", "error");
+      return;
+    }
+
     const installmentAmount = Number((parsedTotal / parsedInstallments).toFixed(2));
 
     const { data: installment, error } = await supabase
@@ -204,7 +218,7 @@ export default function ParcelamentosPage() {
 
     if (error || !installment) {
       setSaving(false);
-      setMessage(`Erro ao salvar parcelamento: ${error?.message ?? "registro não retornado"}`);
+      showMessage(`Erro ao salvar parcelamento: ${error?.message ?? "registro não retornado"}`, "error");
       return;
     }
 
@@ -235,7 +249,7 @@ export default function ParcelamentosPage() {
 
       if (txError) {
         setSaving(false);
-        setMessage(`Parcelamento salvo, mas houve erro ao gerar parcelas vencidas: ${txError.message}`);
+        showMessage(`Parcelamento salvo, mas houve erro ao gerar parcelas vencidas: ${txError.message}`, "error");
         return;
       }
     }
@@ -248,10 +262,11 @@ export default function ParcelamentosPage() {
     setTotalInstallments("");
     setStartDate("");
     setCategoryId("");
-    setMessage(
+    showMessage(
       dueTransactions.length > 0
         ? "Parcelamento cadastrado e parcelas vencidas geradas com sucesso."
-        : "Parcelamento cadastrado. Parcelas futuras não foram geradas automaticamente."
+        : "Parcelamento cadastrado. Parcelas futuras não foram geradas automaticamente.",
+      "success"
     );
     invalidateFinancialData();
     await loadPage(true);
@@ -261,30 +276,39 @@ export default function ParcelamentosPage() {
     const { error } = await supabase
       .from("installments")
       .update({ is_active: !item.is_active })
-      .eq("id", item.id);
+      .eq("id", item.id)
+      .eq("user_id", cachedUser!.id);
 
     if (error) {
-      setMessage(`Erro ao atualizar status: ${error.message}`);
+      showMessage(`Erro ao atualizar status: ${error.message}`, "error");
       return;
     }
 
-    setMessage("Status atualizado com sucesso.");
+    showMessage("Status atualizado com sucesso.", "success");
     invalidateFinancialData();
     await loadPage(true);
   }
 
   async function handleDelete(id: string) {
-    const confirmed = window.confirm("Deseja excluir este parcelamento?");
+    const confirmed = await confirm({
+      title: "Excluir parcelamento",
+      message: "Deseja excluir este parcelamento? As parcelas já lançadas não serão removidas.",
+      confirmLabel: "Excluir",
+    });
     if (!confirmed) return;
 
-    const { error } = await supabase.from("installments").delete().eq("id", id);
+    const { error } = await supabase
+      .from("installments")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", cachedUser!.id);
 
     if (error) {
-      setMessage(`Erro ao excluir parcelamento: ${error.message}`);
+      showMessage(`Erro ao excluir parcelamento: ${error.message}`, "error");
       return;
     }
 
-    setMessage("Parcelamento excluído com sucesso.");
+    showMessage("Parcelamento excluído com sucesso.", "success");
     invalidateFinancialData();
     await loadPage(true);
   }
@@ -314,12 +338,12 @@ export default function ParcelamentosPage() {
     <PageFrame>
       <PageHeader
         title="Parcelamentos"
-        description="Acompanhe compras parceladas com progresso, valor pago e saldo restante."
+        description="Suas compras parceladas com o progresso e o que ainda falta pagar."
         eyebrow="Compras em parcelas"
       />
 
       <div className="space-y-5">
-      {message ? <div className="alert-info rounded-2xl px-4 py-3 text-sm">{message}</div> : null}
+      {message ? <Alert type={messageType}>{message}</Alert> : null}
 
       <section className="grid gap-5 lg:grid-cols-3">
         <Surface className="bg-[var(--hero-gradient)] p-6 text-[var(--text)] lg:col-span-2">
@@ -334,56 +358,74 @@ export default function ParcelamentosPage() {
         </Surface>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[0.72fr_1.28fr]">
+      <section className="grid items-start gap-5 xl:grid-cols-[0.72fr_1.28fr]">
         <Surface>
           <SectionHeader title="Novo parcelamento" eyebrow="Compra parcelada" />
-          <form onSubmit={handleSave} className="mt-4 space-y-3">
-            <input
-              className="control"
-              type="text"
-              placeholder="Nome"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-            <textarea
-              className="control min-h-[96px]"
-              placeholder="Descrição (opcional)"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-            <div className="grid gap-3 sm:grid-cols-2">
+          <form onSubmit={handleSave} className="mt-4 space-y-4">
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold text-[var(--text)]">Nome</span>
               <input
                 className="control"
                 type="text"
-                placeholder="Valor total"
-                value={totalAmount}
-                onChange={(e) => setTotalAmount(e.target.value)}
+                placeholder="Ex: Notebook"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
               />
-              <input
-                className="control"
-                type="number"
-                placeholder="Quantidade de parcelas"
-                value={totalInstallments}
-                onChange={(e) => setTotalInstallments(e.target.value)}
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold text-[var(--text)]">Descrição (opcional)</span>
+              <textarea
+                className="control min-h-[96px]"
+                placeholder="Detalhes extras"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
               />
-              <input
-                className="control"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-              <select
-                className="control"
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-              >
-                <option value="">Sem categoria</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
+            </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-[var(--text)]">Valor total</span>
+                <input
+                  className="control"
+                  type="text"
+                  placeholder="0,00"
+                  value={totalAmount}
+                  onChange={(e) => setTotalAmount(e.target.value)}
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-[var(--text)]">Quantidade de parcelas</span>
+                <input
+                  className="control"
+                  type="number"
+                  placeholder="Ex: 12"
+                  value={totalInstallments}
+                  onChange={(e) => setTotalInstallments(e.target.value)}
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-[var(--text)]">Data da 1ª parcela</span>
+                <input
+                  className="control"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-[var(--text)]">Categoria</span>
+                <select
+                  className="control"
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                >
+                  <option value="">Sem categoria</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
             {installmentPreview !== null ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
@@ -409,7 +451,7 @@ export default function ParcelamentosPage() {
           <SectionHeader title={`Parcelamentos cadastrados (${items.length})`} eyebrow="Progresso" />
           <div className="mt-4">
             {loading ? (
-              <p className="text-sm text-[var(--muted)]">Carregando...</p>
+<SkeletonList rows={3} />
             ) : items.length === 0 ? (
               <EmptyState
                 title="Sem parcelamentos cadastrados"

@@ -3,11 +3,13 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppData } from "@/components/app-data-provider";
+import { useConfirm } from "@/components/confirm-dialog";
+import { SkeletonList } from "@/components/skeleton";
 import { categoryName, type CategoryRelation } from "@/lib/categories";
 import { currentMonthRef } from "@/lib/dates";
 import { formatCurrency } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
-import { EmptyState, PageFrame, PageHeader, SectionHeader, StatCard, Surface } from "@/components/ui-kit";
+import { Alert, EmptyState, PageFrame, PageHeader, SectionHeader, StatCard, Surface } from "@/components/ui-kit";
 
 type MonthlyControl = {
   id: string;
@@ -67,8 +69,14 @@ export default function PlanejamentoMensalPage() {
     setFinancialCache,
     invalidateFinancialData,
   } = useAppData();
+  const confirm = useConfirm();
 
-  const [userId, setUserId] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error">("success");
+
+  function showMessage(text: string, type: "success" | "error") {
+    setMessage(text);
+    setMessageType(type);
+  }
   const [monthRef, setMonthRef] = useState(currentMonthRef());
 
   const [controlId, setControlId] = useState<string | null>(null);
@@ -133,7 +141,6 @@ export default function PlanejamentoMensalPage() {
       return;
     }
 
-    setUserId(user.id);
     const cacheKey = `monthly-planning:${user.id}:${month}`;
     const cachedPage = forceRefresh ? null : getFinancialCache<MonthlyPlanningData>(cacheKey);
 
@@ -222,6 +229,13 @@ export default function PlanejamentoMensalPage() {
     setSavingControl(true);
     setMessage("");
 
+    const userId = cachedUser?.id;
+    if (!userId) {
+      showMessage("Usuário não autenticado.", "error");
+      setSavingControl(false);
+      return;
+    }
+
     const payload = {
       user_id: userId,
       month_ref: monthRef,
@@ -241,11 +255,11 @@ export default function PlanejamentoMensalPage() {
     setSavingControl(false);
 
     if (response.error) {
-      setMessage(`Erro ao salvar controle mensal: ${response.error.message}`);
+      showMessage(`Erro ao salvar controle mensal: ${response.error.message}`, "error");
       return;
     }
 
-    setMessage("Planejamento mensal salvo com sucesso.");
+    showMessage("Planejamento mensal salvo com sucesso.", "success");
     invalidateFinancialData();
     await loadPage(monthRef, true);
   }
@@ -255,10 +269,17 @@ export default function PlanejamentoMensalPage() {
     setSavingBudget(true);
     setMessage("");
 
+    const userId = cachedUser?.id;
+    if (!userId) {
+      showMessage("Usuário não autenticado.", "error");
+      setSavingBudget(false);
+      return;
+    }
+
     const parsedAmount = Number(budgetAmount.replace(",", "."));
     if (!parsedAmount || parsedAmount <= 0) {
       setSavingBudget(false);
-      setMessage("Informe um valor de orçamento válido.");
+      showMessage("Informe um valor de orçamento válido.", "error");
       return;
     }
 
@@ -274,7 +295,7 @@ export default function PlanejamentoMensalPage() {
 
     if (existing.error) {
       setSavingBudget(false);
-      setMessage(`Erro ao verificar orçamento existente: ${existing.error.message}`);
+      showMessage(`Erro ao verificar orçamento existente: ${existing.error.message}`, "error");
       return;
     }
 
@@ -287,28 +308,32 @@ export default function PlanejamentoMensalPage() {
     setSavingBudget(false);
 
     if (response.error) {
-      setMessage(`Erro ao salvar orçamento: ${response.error.message}`);
+      showMessage(`Erro ao salvar orçamento: ${response.error.message}`, "error");
       return;
     }
 
     setBudgetAmount("");
     setBudgetCategoryId("general");
-    setMessage("Orçamento salvo com sucesso.");
+    showMessage("Orçamento salvo com sucesso.", "success");
     invalidateFinancialData();
     await loadPage(monthRef, true);
   }
 
   async function handleDeleteBudget(id: string) {
-    const confirmed = window.confirm("Deseja excluir este orçamento?");
+    const confirmed = await confirm({
+      title: "Excluir orçamento",
+      message: "Deseja excluir este orçamento do mês?",
+      confirmLabel: "Excluir",
+    });
     if (!confirmed) return;
 
-    const { error } = await supabase.from("budgets").delete().eq("id", id);
+    const { error } = await supabase.from("budgets").delete().eq("id", id).eq("user_id", cachedUser!.id);
     if (error) {
-      setMessage(`Erro ao excluir orçamento: ${error.message}`);
+      showMessage(`Erro ao excluir orçamento: ${error.message}`, "error");
       return;
     }
 
-    setMessage("Orçamento excluído com sucesso.");
+    showMessage("Orçamento excluído com sucesso.", "success");
     invalidateFinancialData();
     await loadPage(monthRef, true);
   }
@@ -324,7 +349,7 @@ export default function PlanejamentoMensalPage() {
     <PageFrame>
       <PageHeader
         title="Planejamento mensal"
-        description="Entradas, benefícios e limites do mês organizados para decisão rápida."
+        description="Planeje seu mês com calma: renda, benefícios e quanto dá pra gastar."
         eyebrow="Plano do mês"
         actions={
           <div className="w-full sm:w-auto">
@@ -340,7 +365,7 @@ export default function PlanejamentoMensalPage() {
       />
 
       <div className="space-y-5">
-      {message ? <div className="alert-info rounded-2xl px-4 py-3 text-sm">{message}</div> : null}
+      {message ? <Alert type={messageType}>{message}</Alert> : null}
 
       <section className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
         <Surface className="bg-[var(--hero-gradient)] p-6 text-[var(--text)]">
@@ -371,59 +396,80 @@ export default function PlanejamentoMensalPage() {
       <section className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
         <Surface>
           <SectionHeader title="Entradas e benefícios" eyebrow={`Base financeira de ${formatMonthLabel(monthRef)}`} />
-          <form onSubmit={handleSaveControl} className="mt-4 space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input
-                className="control"
-                type="text"
-                placeholder="Salário mensal"
-                value={salaryAmount}
-                onChange={(e) => setSalaryAmount(e.target.value)}
-              />
-              <input
-                className="control"
-                type="text"
-                placeholder="Renda extra"
-                value={extraIncomeAmount}
-                onChange={(e) => setExtraIncomeAmount(e.target.value)}
-              />
-              <input
-                className="control"
-                type="text"
-                placeholder="Saldo inicial"
-                value={openingBalance}
-                onChange={(e) => setOpeningBalance(e.target.value)}
-              />
-              <input
-                className="control"
-                type="number"
-                min={1}
-                max={31}
-                placeholder="Dia do pagamento"
-                value={paydayDay}
-                onChange={(e) => setPaydayDay(e.target.value)}
-              />
-              <input
-                className="control"
-                type="text"
-                placeholder="Vale alimentação"
-                value={foodAllowance}
-                onChange={(e) => setFoodAllowance(e.target.value)}
-              />
-              <input
-                className="control"
-                type="text"
-                placeholder="Vale refeição"
-                value={mealAllowance}
-                onChange={(e) => setMealAllowance(e.target.value)}
-              />
+          <form onSubmit={handleSaveControl} className="mt-4 space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-[var(--text)]">Salário mensal</span>
+                <input
+                  className="control"
+                  type="text"
+                  placeholder="0,00"
+                  value={salaryAmount}
+                  onChange={(e) => setSalaryAmount(e.target.value)}
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-[var(--text)]">Renda extra</span>
+                <input
+                  className="control"
+                  type="text"
+                  placeholder="0,00"
+                  value={extraIncomeAmount}
+                  onChange={(e) => setExtraIncomeAmount(e.target.value)}
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-[var(--text)]">Saldo inicial</span>
+                <input
+                  className="control"
+                  type="text"
+                  placeholder="0,00"
+                  value={openingBalance}
+                  onChange={(e) => setOpeningBalance(e.target.value)}
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-[var(--text)]">Dia do pagamento</span>
+                <input
+                  className="control"
+                  type="number"
+                  min={1}
+                  max={31}
+                  placeholder="Ex: 5"
+                  value={paydayDay}
+                  onChange={(e) => setPaydayDay(e.target.value)}
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-[var(--text)]">Vale alimentação</span>
+                <input
+                  className="control"
+                  type="text"
+                  placeholder="0,00"
+                  value={foodAllowance}
+                  onChange={(e) => setFoodAllowance(e.target.value)}
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-[var(--text)]">Vale refeição</span>
+                <input
+                  className="control"
+                  type="text"
+                  placeholder="0,00"
+                  value={mealAllowance}
+                  onChange={(e) => setMealAllowance(e.target.value)}
+                />
+              </label>
             </div>
-            <textarea
-              className="control min-h-[108px]"
-              placeholder="Observações"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold text-[var(--text)]">Observações</span>
+              <textarea
+                className="control min-h-[108px]"
+                placeholder="Anotações do mês (opcional)"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </label>
             <button
               type="submit"
               disabled={savingControl}
@@ -437,31 +483,37 @@ export default function PlanejamentoMensalPage() {
         <div className="space-y-4">
           <Surface>
             <SectionHeader title="Orçamentos do mês" eyebrow="Limites" />
-            <form onSubmit={handleSaveBudget} className="mt-4 space-y-3">
-              <select
-                className="control"
-                value={budgetCategoryId}
-                onChange={(e) => setBudgetCategoryId(e.target.value)}
-              >
-                <option value="general">Geral do mês</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    Categoria: {category.name}
-                  </option>
-                ))}
-              </select>
+            <form onSubmit={handleSaveBudget} className="mt-4 space-y-4">
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-[var(--text)]">Aplicar em</span>
+                <select
+                  className="control"
+                  value={budgetCategoryId}
+                  onChange={(e) => setBudgetCategoryId(e.target.value)}
+                >
+                  <option value="general">Geral do mês</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      Categoria: {category.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
               {categories.length === 0 ? (
                 <p className="text-sm leading-6 text-[var(--muted)]">
                   Nenhuma categoria de despesa cadastrada. Ainda é possível criar o orçamento geral do mês.
                 </p>
               ) : null}
-              <input
-                className="control"
-                type="text"
-                placeholder="Valor do orçamento"
-                value={budgetAmount}
-                onChange={(e) => setBudgetAmount(e.target.value)}
-              />
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-[var(--text)]">Valor do orçamento</span>
+                <input
+                  className="control"
+                  type="text"
+                  placeholder="0,00"
+                  value={budgetAmount}
+                  onChange={(e) => setBudgetAmount(e.target.value)}
+                />
+              </label>
               <button
                 type="submit"
                 disabled={savingBudget}
@@ -476,7 +528,7 @@ export default function PlanejamentoMensalPage() {
             <SectionHeader title="Limites cadastrados" eyebrow={`Mês selecionado: ${formatMonthLabel(monthRef)}`} />
             <div className="mt-4">
               {loading ? (
-                <p className="text-sm text-[var(--muted)]">Carregando...</p>
+<SkeletonList rows={2} />
               ) : budgets.length === 0 ? (
                 <EmptyState
                   title="Sem limites cadastrados"
