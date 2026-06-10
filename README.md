@@ -1,11 +1,11 @@
 # Moedin.IA
 
-Moedin.IA é uma plataforma de gestão financeira pessoal com dashboard web, histórico de lançamentos, planejamento mensal, gastos fixos, parcelamentos, metas, perfil, planos e base técnica para integrações futuras com IA, WhatsApp e automações via n8n.
+Moedin.IA é uma plataforma de gestão financeira pessoal com dashboard web, histórico de lançamentos, planejamento mensal, gastos fixos, parcelamentos, metas, perfil, planos e integração com IA, WhatsApp, n8n, Evolution API e Supabase.
 
-Este repositório está na branch principal de desenvolvimento da nova versão:
+Esta versão está publicada na branch:
 
 ```bash
-git checkout newVersion
+git checkout versionjune26
 ```
 
 ## Sumário
@@ -249,6 +249,14 @@ http://localhost:5678
 ### Automação
 
 - n8n
+- Evolution API
+- Redis
+
+### Inteligência artificial
+
+- Groq para interpretação de texto
+- OpenAI para imagem, áudio e fallback de texto
+- Parser local por regex quando nenhuma chave de IA estiver configurada
 
 ## Pré-requisitos
 
@@ -269,10 +277,10 @@ Para rodar com Docker:
 
 ## Configuração rápida
 
-Clone a branch `newVersion`:
+Clone a branch `versionjune26`:
 
 ```bash
-git clone -b newVersion https://github.com/GustavoHRX/moedinIA.git
+git clone -b versionjune26 https://github.com/GustavoHRX/moedinIA.git
 cd moedinIA
 ```
 
@@ -321,11 +329,19 @@ NEXT_PUBLIC_N8N_URL=http://localhost:5678
 ```env
 SUPABASE_SERVICE_ROLE_KEY=
 AI_SERVICE_URL=http://localhost:8000
+
+GROQ_API_KEY=
+GROQ_MODEL=llama-3.1-8b-instant
+
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o-mini
+
 N8N_WEBHOOK_BASE_URL=http://localhost:5678
 N8N_ENCRYPTION_KEY=change-me-in-production
 WHATSAPP_PROVIDER=evolution
-EVOLUTION_API_URL=
-EVOLUTION_API_KEY=
+EVOLUTION_API_URL=http://evolution:8080
+EVOLUTION_API_KEY=troque-por-uma-chave-forte
+EVOLUTION_INSTANCE=moedin
 JWT_SECRET=change-me-in-production
 DEFAULT_TIMEZONE=America/Sao_Paulo
 DEFAULT_CURRENCY=BRL
@@ -353,6 +369,12 @@ Ordem atual:
 003_auth_bootstrap_policies.sql
 003_auth_profile_bootstrap.sql
 004_user_settings_consent.sql
+005_whatsapp_rpcs.sql
+006_normalize_phone.sql
+007_resolve_category_create.sql
+008_whatsapp_consulta.sql
+009_whatsapp_onboarding.sql
+010_realtime_transactions.sql
 ```
 
 ### Como aplicar pelo SQL Editor
@@ -421,6 +443,14 @@ supabase db push
   - `terms_version`
   - `privacy_version`
 - Cria índice auxiliar para consulta por versão.
+
+`005_whatsapp_rpcs.sql` até `010_realtime_transactions.sql`
+
+- Criam funções RPC usadas pelo WhatsApp/n8n.
+- Normalizam telefone e vínculo do WhatsApp com o usuário.
+- Resolvem categorias por usuário.
+- Permitem consulta mensal e exclusão pelo fluxo do WhatsApp.
+- Ativam atualização em tempo real da tabela `transactions`.
 
 ### Verificar consentimento no banco
 
@@ -717,14 +747,27 @@ Arquivos importantes:
 
 ```text
 n8n/README.md
-n8n/workflow/moedin-tcc-lancamento-financeiro.json
+n8n/TESTE-WHATSAPP-IA.md
+n8n/workflow/moedin-whatsapp-ia.json
+n8n/workflow/moedin-whatsapp-lite.json
 ```
 
 Endpoint local documentado:
 
 ```text
-POST http://localhost:5678/webhook/moedin-tcc-lancamento
+POST http://localhost:5678/webhook/moedin-whatsapp
 ```
+
+Fluxo principal:
+
+- WhatsApp envia mensagem pela Evolution API.
+- n8n recebe o webhook.
+- O workflow identifica o remetente e resolve o usuário no Supabase.
+- O serviço de IA interpreta texto, imagem ou áudio.
+- A transação é gravada em `transactions`.
+- O site atualiza os dados pelo Supabase.
+
+O workflow completo usa IA, Redis, Supabase e Evolution API. O workflow `lite` é uma versão mais simples para texto e banco.
 
 Atenção:
 
@@ -764,8 +807,8 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 ```bash
 git status
-git checkout newVersion
-git pull origin newVersion
+git checkout versionjune26
+git pull origin versionjune26
 ```
 
 ## Validação antes de commit/deploy
@@ -803,6 +846,12 @@ node_modules
 *.tsbuildinfo
 n8n/data
 n8n/files
+n8n/qrcode*.png
+apps/ai-service/venv
+apps/ai-service/__pycache__
+.claude
+*.sqlite
+*.sqlite-*
 ```
 
 ## Deploy
