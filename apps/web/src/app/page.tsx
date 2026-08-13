@@ -20,6 +20,26 @@ import {
   WalletCards,
 } from "lucide-react";
 import ThemedLogo from "@/components/themed-logo";
+import LandingMotion from "@/components/landing-motion";
+import LandingSkeleton from "@/components/landing-skeleton";
+import { Hominho, HOMINHO_LABEL, type HominhoName } from "@/components/hominhos";
+import { categoryVisual } from "@/lib/categories";
+
+const TEAM: HominhoName[] = ["alefe", "gustavo", "marcinho", "joao", "timachi"];
+
+// Categorias reais do sistema, cada uma com sua cor da paleta da marca.
+const SHOWCASE_CATEGORIES = [
+  "Mercado",
+  "Alimentação",
+  "Transporte",
+  "Moradia",
+  "Lazer",
+  "Saúde",
+  "Contas",
+  "Educação",
+  "Salário",
+  "Freelance",
+];
 
 const trustItems = ["Texto", "Áudio", "Imagem", "Painel"];
 
@@ -113,6 +133,8 @@ const entries = [
 export default function LandingPage() {
   return (
     <main className="min-h-screen overflow-hidden text-[var(--text)]">
+      <LandingSkeleton />
+      <LandingMotion />
       <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--surface)]/95 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-[1180px] items-center justify-between px-5 py-3 sm:px-8">
           <Link href="/" className="inline-flex min-w-0 items-center" aria-label="Moedin.IA">
@@ -146,29 +168,58 @@ export default function LandingPage() {
         <div className="premium-grid pointer-events-none absolute inset-x-0 top-0 h-[640px]" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-44 bg-gradient-to-b from-transparent to-[var(--bg)]" />
 
+        {/* Moedas flutuando — o símbolo da marca como padrão gráfico (book pág. 06) */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden motion-reduce:hidden">
+          {[
+            { top: "14%", left: "6%", size: 56, delay: "0s", opacity: 0.34 },
+            { top: "62%", left: "10%", size: 38, delay: "1.4s", opacity: 0.26 },
+            { top: "24%", right: "8%", size: 46, delay: "2.1s", opacity: 0.3 },
+            { top: "72%", right: "14%", size: 30, delay: "0.7s", opacity: 0.22 },
+          ].map((coin: { top: string; left?: string; right?: string; size: number; delay: string; opacity: number }, index) => (
+            <span
+              key={index}
+              className="coin-float absolute block"
+              style={{
+                top: coin.top,
+                left: coin.left,
+                right: coin.right,
+                width: coin.size,
+                height: coin.size,
+                opacity: coin.opacity,
+                animationDelay: coin.delay,
+              }}
+            >
+              <ThemedLogo variant="symbol" className="h-full w-full" />
+            </span>
+          ))}
+        </div>
+
         <div className="relative mx-auto grid w-full max-w-[1180px] gap-10 px-5 pb-16 pt-10 sm:px-8 lg:min-h-[710px] lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:pb-20 lg:pt-14">
           <div className="min-w-0">
-            <h1 className="max-w-3xl font-display text-4xl font-black leading-[1.02] text-[var(--navy)] sm:text-5xl lg:text-6xl">
-              Controle seu dinheiro pelo WhatsApp, sem planilha complicada.
+            <h1 data-hero-title className="max-w-3xl font-display text-4xl font-bold leading-[1.05] text-[var(--navy)] sm:text-5xl lg:text-6xl" style={{ textWrap: "balance" }}>
+              Seu dinheiro, <span className="text-[var(--primary)]">sem mistério.</span>
             </h1>
-            <p className="mt-6 max-w-xl text-base font-medium leading-8 text-[var(--muted)] sm:text-lg">
-              O Moedin.IA ajuda você a registrar gastos em segundos, organizar tudo com IA e acompanhar o mês em um
-              painel simples, bonito e feito para a rotina real.
+            <p data-hero-sub className="mt-6 max-w-xl text-base font-medium leading-8 text-[var(--muted)] sm:text-lg">
+              Manda um &ldquo;gastei 30 no mercado&rdquo; no WhatsApp e pronto: o Moedin.IA organiza, categoriza e te
+              mostra pra onde seu dinheiro vai.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/cadastro" className="btn-primary inline-flex items-center justify-center gap-2 px-6 py-4 text-sm">
-                Criar conta
+            <div data-hero-cta className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href="/cadastro"
+                className="btn-primary inline-flex animate-[glow-pulse_2.4s_ease-in-out_infinite] items-center justify-center gap-2 px-6 py-4 text-sm motion-reduce:animate-none"
+              >
+                Começar grátis
                 <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
               </Link>
-              <Link href="/login" className="btn-secondary inline-flex items-center justify-center px-6 py-4 text-sm">
-                Já tenho conta
-              </Link>
+              <a href="#como-funciona" className="btn-secondary inline-flex items-center justify-center px-6 py-4 text-sm">
+                Ver como funciona
+              </a>
             </div>
 
-            <div className="mt-8 flex flex-wrap gap-2">
+            <div data-hero-chips className="mt-8 flex flex-wrap gap-2">
               {trustItems.map((item) => (
-                <span key={item} className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-4 py-2 text-xs font-black uppercase tracking-[0.1em] text-[var(--muted-strong)] shadow-[var(--shadow-soft)]">
+                <span key={item} className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-4 py-2 text-xs font-bold uppercase tracking-[0.1em] text-[var(--muted-strong)] shadow-[var(--shadow-soft)]">
                   {item}
                 </span>
               ))}
@@ -179,19 +230,19 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="relative min-w-0">
+          <div data-hero-mock className="relative min-w-0">
             <div className="mx-auto grid max-w-[650px] gap-4 sm:grid-cols-[0.9fr_1.1fr] sm:items-end">
               <div className="order-2 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-4 shadow-[var(--shadow-strong)] sm:order-1">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.12em] text-[var(--brand-strong)]">Resumo do mês</p>
-                    <h2 className="mt-1 font-display text-2xl font-black text-[var(--navy)]">R$ 3.840</h2>
+                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--brand-strong)]">Resumo do mês</p>
+                    <h2 data-countup="3840" className="money mt-1 text-2xl text-[var(--navy)]">R$ 3.840</h2>
                   </div>
                   <PieChart className="h-9 w-9 text-[var(--brand)]" strokeWidth={2.2} />
                 </div>
 
                 <div className="mt-5 h-3 overflow-hidden rounded-full bg-[var(--surface-muted)] ring-1 ring-[var(--line)]">
-                  <div className="h-full w-[64%] rounded-full bg-[var(--brand)]" />
+                  <div data-budget-bar className="h-full w-[64%] rounded-full bg-[var(--brand)]" />
                 </div>
                 <div className="mt-2 flex justify-between text-xs font-bold text-[var(--muted)]">
                   <span>Orçamento usado</span>
@@ -202,10 +253,10 @@ export default function LandingPage() {
                   {entries.map((entry) => (
                     <div key={entry.label} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-3">
                       <div>
-                        <p className="text-sm font-black text-[var(--navy)]">{entry.label}</p>
+                        <p className="text-sm font-bold text-[var(--navy)]">{entry.label}</p>
                         <p className="text-xs font-bold text-[var(--muted)]">{entry.detail}</p>
                       </div>
-                      <p className={`text-sm font-black ${entry.positive ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+                      <p className={`text-sm font-bold ${entry.positive ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
                         {entry.value}
                       </p>
                     </div>
@@ -220,7 +271,7 @@ export default function LandingPage() {
                       <MessageCircle className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="font-black">Moedin.IA</p>
+                      <p className="font-bold">Moedin.IA</p>
                       <p className="text-xs font-bold text-white/70">online agora</p>
                     </div>
                   </div>
@@ -229,6 +280,7 @@ export default function LandingPage() {
                     {chatMessages.map((message) => (
                       <div
                         key={message.text}
+                        data-chat-msg
                         className={`max-w-[86%] rounded-2xl px-4 py-3 text-sm font-bold leading-6 shadow-sm ${
                           message.fromUser
                             ? "ml-auto rounded-tr-sm bg-[#dcf8c6] text-[#1a1a1a]"
@@ -238,6 +290,11 @@ export default function LandingPage() {
                         {message.text}
                       </div>
                     ))}
+                    <div data-chat-msg className="inline-flex items-center gap-1.5 rounded-2xl rounded-tl-sm bg-white px-4 py-3 text-[#0d6b45] shadow-sm">
+                      <span className="typing-dot" />
+                      <span className="typing-dot" />
+                      <span className="typing-dot" />
+                    </div>
                   </div>
 
                   <div className="mt-5 flex items-center gap-2 rounded-full bg-white px-3 py-2 shadow-sm">
@@ -260,7 +317,7 @@ export default function LandingPage() {
                 return (
                   <div key={label as string} className="flex items-center gap-2">
                     <ItemIcon className="h-4 w-4 text-[var(--brand)]" />
-                    <span className="text-sm font-black text-[var(--navy)]">{label as string}</span>
+                    <span className="text-sm font-bold text-[var(--navy)]">{label as string}</span>
                   </div>
                 );
               })}
@@ -269,24 +326,24 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="mx-auto grid w-full max-w-[1180px] gap-4 px-5 py-12 sm:px-8 md:grid-cols-4">
+      <section data-reveal className="mx-auto grid w-full max-w-[1180px] gap-4 px-5 py-12 sm:px-8 md:grid-cols-4">
         {quickBenefits.map((benefit) => {
           const Icon = benefit.icon;
           return (
-            <div key={benefit.title} className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-soft)]">
+            <div key={benefit.title} data-reveal-item className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-soft)] transition-colors hover:border-[rgba(16,185,129,0.32)]">
               <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand-strong)]">
                 <Icon className="h-5 w-5" strokeWidth={2.4} />
               </div>
-              <h3 className="mt-5 font-display text-lg font-black text-[var(--navy)]">{benefit.title}</h3>
+              <h3 className="mt-5 font-display text-lg font-bold text-[var(--navy)]">{benefit.title}</h3>
               <p className="mt-2 text-sm font-medium leading-6 text-[var(--muted)]">{benefit.description}</p>
             </div>
           );
         })}
       </section>
 
-      <section id="como-funciona" className="mx-auto grid w-full max-w-[1180px] gap-10 px-5 py-14 sm:px-8 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
-        <div>
-          <h2 className="font-display text-3xl font-black leading-tight text-[var(--navy)] sm:text-4xl">
+      <section id="como-funciona" data-pin-section className="mx-auto grid w-full max-w-[1180px] gap-10 px-5 py-14 sm:px-8 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
+        <div data-pin-title>
+          <h2 className="font-display text-3xl font-bold leading-tight text-[var(--navy)] sm:text-4xl">
             Seu controle financeiro em 3 passos.
           </h2>
           <p className="mt-4 text-base font-medium leading-7 text-[var(--muted)]">
@@ -295,18 +352,18 @@ export default function LandingPage() {
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div data-pin-steps data-reveal className="grid gap-4 md:grid-cols-3">
           {flow.map((step, index) => {
             const Icon = step.icon;
             return (
-              <div key={step.title} className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-5 shadow-[var(--shadow-soft)]">
+              <div key={step.title} data-reveal-item className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-5 shadow-[var(--shadow-soft)] transition-colors hover:border-[rgba(16,185,129,0.32)]">
                 <div className="flex items-center justify-between gap-4">
-                  <span className="font-display text-sm font-black text-[var(--muted)]">0{index + 1}</span>
+                  <span className="font-display text-sm font-bold text-[var(--muted)]">0{index + 1}</span>
                   <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand-strong)]">
                     <Icon className="h-5 w-5" strokeWidth={2.4} />
                   </div>
                 </div>
-                <h3 className="mt-8 font-display text-xl font-black text-[var(--navy)]">{step.title}</h3>
+                <h3 className="mt-8 font-display text-xl font-bold text-[var(--navy)]">{step.title}</h3>
                 <p className="mt-2 text-sm font-medium leading-6 text-[var(--muted)]">{step.description}</p>
               </div>
             );
@@ -314,10 +371,44 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section data-reveal className="mx-auto w-full max-w-[1180px] px-5 py-14 sm:px-8">
+        <div className="grid gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
+          <div data-reveal-item>
+            <h2 className="font-display text-3xl font-bold leading-tight text-[var(--navy)] sm:text-4xl">
+              Cada gasto ganha uma <span className="text-[var(--primary)]">cor</span>.
+            </h2>
+            <p className="mt-4 text-base font-medium leading-7 text-[var(--muted)]">
+              A IA já classifica o lançamento na categoria certa — e cada categoria tem sua cor,
+              do jeito que você reconhece num piscar. Você pode criar as suas e escolher a cor de cada uma.
+            </p>
+          </div>
+
+          <div data-reveal-item className="flex flex-wrap gap-2.5">
+            {SHOWCASE_CATEGORIES.map((name) => {
+              const { Icon, color } = categoryVisual(name);
+              return (
+                <span
+                  key={name}
+                  className="inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-semibold"
+                  style={{
+                    color,
+                    borderColor: `${color}55`,
+                    backgroundColor: `${color}14`,
+                  }}
+                >
+                  <Icon className="h-4 w-4" strokeWidth={2.2} />
+                  {name}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
       <section id="recursos" className="border-y border-[var(--line)] bg-[var(--surface-muted)]">
         <div className="mx-auto w-full max-w-[1180px] px-5 py-16 sm:px-8">
           <div className="mb-9 max-w-3xl">
-            <h2 className="font-display text-3xl font-black leading-tight text-[var(--navy)] sm:text-4xl">
+            <h2 className="font-display text-3xl font-bold leading-tight text-[var(--navy)] sm:text-4xl">
               Tudo para cuidar do mês em um só lugar.
             </h2>
             <p className="mt-4 text-base font-medium leading-7 text-[var(--muted)]">
@@ -326,15 +417,15 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div data-reveal className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {features.map((feature) => {
               const Icon = feature.icon;
               return (
-                <div key={feature.title} className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-6 shadow-[var(--shadow-soft)]">
+                <div key={feature.title} data-reveal-item className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-6 shadow-[var(--shadow-soft)] transition-colors hover:border-[rgba(16,185,129,0.32)]">
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand-strong)]">
                     <Icon className="h-5 w-5" strokeWidth={2.4} />
                   </div>
-                  <h3 className="mt-5 font-display text-xl font-black text-[var(--navy)]">{feature.title}</h3>
+                  <h3 className="mt-5 font-display text-xl font-bold text-[var(--navy)]">{feature.title}</h3>
                   <p className="mt-2 text-sm font-medium leading-6 text-[var(--muted)]">{feature.description}</p>
                 </div>
               );
@@ -346,7 +437,7 @@ export default function LandingPage() {
       <section id="seguranca" className="mx-auto grid w-full max-w-[1180px] gap-8 px-5 py-16 sm:px-8 lg:grid-cols-[1fr_0.9fr] lg:items-center">
         <div>
           <LockKeyhole className="h-10 w-10 text-[var(--brand)]" strokeWidth={2.4} />
-          <h2 className="mt-5 font-display text-3xl font-black leading-tight text-[var(--navy)] sm:text-4xl">
+          <h2 className="mt-5 font-display text-3xl font-bold leading-tight text-[var(--navy)] sm:text-4xl">
             Clareza para você. Cuidado com seus dados.
           </h2>
           <p className="mt-4 max-w-2xl text-base font-medium leading-7 text-[var(--muted)]">
@@ -364,7 +455,7 @@ export default function LandingPage() {
           ].map((item) => (
             <div key={item} className="flex items-center gap-3 border-t border-[var(--line)] py-4 first:border-t-0 first:pt-0 last:pb-0">
               <CheckCircle2 className="h-5 w-5 shrink-0 text-[var(--brand)]" />
-              <p className="font-display text-base font-black text-[var(--navy)]">{item}</p>
+              <p className="font-display text-base font-bold text-[var(--navy)]">{item}</p>
             </div>
           ))}
         </div>
@@ -373,7 +464,7 @@ export default function LandingPage() {
       <section className="mx-auto w-full max-w-[1180px] px-5 pb-16 sm:px-8">
         <div className="grid gap-8 rounded-2xl border border-[var(--line)] bg-[var(--hero-gradient)] p-7 shadow-[var(--shadow-strong)] sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center">
           <div className="min-w-0">
-            <h2 className="font-display text-3xl font-black leading-tight text-[var(--navy)]">
+            <h2 className="font-display text-3xl font-bold leading-tight text-[var(--navy)]">
               Organize seu dinheiro sem complicar sua rotina.
             </h2>
             <p className="mt-3 max-w-2xl text-base font-medium leading-7 text-[var(--muted)]">
@@ -388,6 +479,22 @@ export default function LandingPage() {
             <Link href="/login" className="btn-secondary inline-flex items-center justify-center px-6 py-4 text-sm">
               Entrar
             </Link>
+          </div>
+        </div>
+      </section>
+
+      <section data-reveal className="mx-auto w-full max-w-[1180px] px-5 pb-14 sm:px-8">
+        <div className="flex flex-col items-center gap-6 rounded-[24px] border border-[var(--line)] bg-[var(--surface)] px-6 py-8 text-center">
+          <p className="max-w-md text-base font-medium leading-7 text-[var(--muted)]">
+            Feito por gente de verdade — a equipe Moedin, desenhada no traço da nossa moeda.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-8">
+            {TEAM.map((name) => (
+              <div key={name} data-reveal-item className="anim-coin-flip flex flex-col items-center gap-2">
+                <Hominho name={name} size={64} />
+                <span className="text-xs font-semibold text-[var(--text-soft)]">{HOMINHO_LABEL[name]}</span>
+              </div>
+            ))}
           </div>
         </div>
       </section>

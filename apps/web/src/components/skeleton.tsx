@@ -1,5 +1,5 @@
 export function Skeleton({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse rounded-xl bg-[var(--bg-soft)] ${className}`} />;
+  return <div className={`skeleton-shimmer rounded-xl ${className}`} />;
 }
 
 // Lista de "cards" de lançamento/registro enquanto carrega

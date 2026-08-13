@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-# Carrega o .env geral do monorepo (moedinha2 FIM/.env) quando rodando local.
+# Carrega o .env geral do monorepo (moedinha codigo/.env) quando rodando local.
 # No Docker as variáveis vêm do docker-compose (env_file), então isto é opcional
 # e nunca deve quebrar a inicialização.
 _here = Path(__file__).resolve()
@@ -94,6 +94,16 @@ INCOME_HINTS = [
 ]
 
 app = FastAPI(title="Moedin.IA - AI Service")
+
+# CORS: o dashboard (Next.js) chama /insight direto do navegador.
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 _openai_client = None
 _groq_client = None
@@ -499,6 +509,19 @@ class AudioIn(BaseModel):
     filename: str = "audio.ogg"
 
 
+class CategoryTotalIn(BaseModel):
+    name: str
+    total: float
+
+
+class InsightIn(BaseModel):
+    month_label: str
+    income_total: float
+    expense_total: float
+    budget_amount: float = 0
+    categories: list[CategoryTotalIn] = []
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -567,3 +590,65 @@ def parse_audio(body: AudioIn):
         }
     parsed = parse_text_with_llm(texto) or fallback_parse(texto)
     return normalize_result(parsed, "audio", texto)
+
+
+INSIGHT_SYSTEM_PROMPT = (
+    "Você é o Moedin.IA, um amigo que entende de grana. Receberá um resumo do mês "
+    "financeiro de uma pessoa. Responda com UMA observação curta (máx. 2 frases, "
+    "até 220 caracteres) em português do dia a dia: direta, acolhedora, sem "
+    "julgamento, sem economês, sem emoji. Aponte o padrão mais útil (categoria "
+    "que pesou, ritmo vs. orçamento, saldo) e, se couber, uma sugestão leve. "
+    "Fale com 'você'. Nunca use tom alarmista."
+)
+
+
+def _chat_insight(client, model: str, resumo: str):
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": INSIGHT_SYSTEM_PROMPT},
+                {"role": "user", "content": resumo},
+            ],
+            temperature=0.5,
+            max_tokens=140,
+        )
+        texto = (resp.choices[0].message.content or "").strip()
+        return texto or None
+    except Exception:
+        return None
+
+
+@app.post("/insight")
+def insight(body: InsightIn):
+    """Gera 1 insight amigável do mês via LLM. Sem chave de IA, retorna ok=False
+    e o front continua com as heurísticas locais (nunca quebra)."""
+    saldo = body.income_total - body.expense_total
+    linhas = [
+        f"Mês: {body.month_label}",
+        f"Receitas: R$ {body.income_total:.2f}",
+        f"Despesas: R$ {body.expense_total:.2f}",
+        f"Saldo: R$ {saldo:.2f}",
+    ]
+    if body.budget_amount > 0:
+        linhas.append(f"Orçamento geral de despesas: R$ {body.budget_amount:.2f}")
+    if body.categories:
+        top = sorted(body.categories, key=lambda c: c.total, reverse=True)[:5]
+        linhas.append(
+            "Maiores despesas por categoria: "
+            + "; ".join(f"{c.name} R$ {c.total:.2f}" for c in top)
+        )
+    resumo = "\n".join(linhas)
+
+    texto = None
+    groq = get_groq_client()
+    if groq is not None:
+        texto = _chat_insight(groq, GROQ_MODEL, resumo)
+    if texto is None:
+        openai = get_openai_client()
+        if openai is not None:
+            texto = _chat_insight(openai, OPENAI_MODEL, resumo)
+
+    if texto is None:
+        return {"ok": False, "erro": "Nenhum provedor de IA configurado."}
+    return {"ok": True, "insight": texto}

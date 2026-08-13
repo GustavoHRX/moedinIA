@@ -68,16 +68,16 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       {mounted && options
         ? createPortal(
             <div
-              className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
+              className="anim-modal-backdrop fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
               onClick={() => close(false)}
             >
               <div
-                className="w-full max-w-md rounded-[24px] border border-[var(--line)] bg-[var(--surface-strong)] p-6 shadow-[0_28px_70px_rgba(9,42,32,0.28)]"
+                className="anim-modal-card w-full max-w-md rounded-[24px] border border-[var(--line)] bg-[var(--surface-strong)] p-6 shadow-[0_28px_70px_rgba(9,42,32,0.28)]"
                 onClick={(e) => e.stopPropagation()}
                 role="alertdialog"
                 aria-modal="true"
               >
-                <h2 className="font-display text-xl font-black text-[var(--navy)]">
+                <h2 className="font-display text-xl font-bold text-[var(--navy)]">
                   {options.title ?? "Confirmar ação"}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{options.message}</p>
@@ -92,7 +92,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                   <button
                     type="button"
                     onClick={() => close(true)}
-                    className={`rounded-2xl px-5 py-3 font-display font-extrabold transition ${confirmClass}`}
+                    className={`rounded-2xl px-5 py-3 font-display font-semibold transition ${confirmClass}`}
                   >
                     {options.confirmLabel ?? "Confirmar"}
                   </button>

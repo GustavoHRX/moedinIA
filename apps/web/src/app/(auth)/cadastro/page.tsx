@@ -4,7 +4,9 @@ import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import AuthShell from "@/components/auth-shell";
+import GoogleSignInButton from "@/components/google-signin-button";
 import { createClient } from "@/lib/supabase/client";
+import { translateAuthError } from "@/lib/auth-errors";
 
 export default function CadastroPage() {
   const supabase = createClient();
@@ -43,7 +45,7 @@ export default function CadastroPage() {
     setLoading(false);
 
     if (error) {
-      setMessage(error.message);
+      setMessage(translateAuthError(error.message));
       setIsError(true);
       return;
     }
@@ -64,12 +66,23 @@ export default function CadastroPage() {
       features={["Registro pelo WhatsApp", "Orçamentos e metas", "Histórico limpo"]}
       formMaxWidth="max-w-2xl"
       formSide="left"
+      hominho="gustavo"
     >
-      <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Nova conta</p>
-      <h1 className="mt-3 font-display text-4xl font-black text-[var(--navy)]">Criar conta</h1>
+      <p className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Nova conta</p>
+      <h1 className="mt-3 font-display text-4xl font-bold text-[var(--navy)]">Criar conta</h1>
       <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Comece seu controle financeiro em poucos minutos.</p>
 
-      <form onSubmit={handleRegister} className="mt-7 space-y-4">
+      <div className="mt-7">
+        <GoogleSignInButton label="Criar conta com Google" />
+      </div>
+
+      <div className="my-6 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">
+        <span className="h-px flex-1 bg-[var(--line)]" />
+        ou
+        <span className="h-px flex-1 bg-[var(--line)]" />
+      </div>
+
+      <form onSubmit={handleRegister} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="mb-2 block text-sm font-semibold text-[var(--text)]">Nome</label>
@@ -98,7 +111,7 @@ export default function CadastroPage() {
           {loading ? "Criando conta..." : "Criar conta"}
         </button>
         {message ? (
-          <div className={isError ? "rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" : "alert-info rounded-2xl px-4 py-3 text-sm font-semibold"}>
+          <div className={isError ? "alert-error rounded-2xl px-4 py-3 text-sm font-semibold" : "alert-info rounded-2xl px-4 py-3 text-sm font-semibold"}>
             {message}
           </div>
         ) : null}

@@ -6,9 +6,12 @@ import { useAppData } from "@/components/app-data-provider";
 import { useConfirm } from "@/components/confirm-dialog";
 import { SkeletonList } from "@/components/skeleton";
 import { todayDateInput } from "@/lib/dates";
-import { formatCurrency, formatDate } from "@/lib/formatters";
+import { formatCurrency, formatDate, formatMoneyInputValue, parseMoneyInput } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
 import { ActionButton, Alert, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, StatCard, Surface } from "@/components/ui-kit";
+import { HominhoTip } from "@/components/hominho-tip";
+import { CelebrateBurst } from "@/components/celebrate";
+import { metasTips } from "@/lib/tips";
 
 type Goal = {
   id: string;
@@ -51,6 +54,7 @@ export default function MetasPage() {
   const [messageType, setMessageType] = useState<"success" | "error">("success");
 
   const [updatingGoalId, setUpdatingGoalId] = useState<string | null>(null);
+  const [celebrateGoalId, setCelebrateGoalId] = useState<string | null>(null);
   const [progressInput, setProgressInput] = useState("");
   const [savingProgress, setSavingProgress] = useState(false);
 
@@ -114,7 +118,7 @@ export default function MetasPage() {
       return;
     }
 
-    const parsedTarget = Number(targetAmount.replace(",", "."));
+    const parsedTarget = parseMoneyInput(targetAmount);
 
     if (!title.trim()) {
       setSaving(false);
@@ -155,7 +159,7 @@ export default function MetasPage() {
 
   function startUpdateProgress(goal: Goal) {
     setUpdatingGoalId(goal.id);
-    setProgressInput(String(goal.current_amount));
+    setProgressInput(formatMoneyInputValue(goal.current_amount));
     setMessage("");
   }
 
@@ -165,7 +169,7 @@ export default function MetasPage() {
   }
 
   async function saveProgress(goal: Goal) {
-    const parsed = Number(progressInput.replace(",", "."));
+    const parsed = parseMoneyInput(progressInput);
     if (Number.isNaN(parsed) || parsed < 0) {
       showMessage("Valor inválido. Digite um número maior ou igual a zero.", "error");
       return;
@@ -193,6 +197,10 @@ export default function MetasPage() {
       nextStatus === "completed" ? "Meta concluída! Parabéns." : "Progresso atualizado.",
       "success"
     );
+    if (nextStatus === "completed") {
+      setCelebrateGoalId(goal.id);
+      setTimeout(() => setCelebrateGoalId(null), 1800);
+    }
     invalidateFinancialData();
     await loadGoals(true);
   }
@@ -234,15 +242,23 @@ export default function MetasPage() {
         eyebrow="Objetivos financeiros"
       />
       <div className="space-y-5">
+        <HominhoTip
+          page="metas"
+          hominho="marcinho"
+          tips={useMemo(
+            () => metasTips({ goals, todayISO: new Date().toISOString().slice(0, 10) }),
+            [goals]
+          )}
+        />
 
       {message ? <Alert type={messageType}>{message}</Alert> : null}
 
       <section className="grid gap-5 xl:grid-cols-[1fr_0.95fr]">
-        <Surface className="bg-[var(--hero-gradient)] p-6">
-          <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Progresso geral</p>
+        <Surface className="min-w-0 bg-[var(--hero-gradient)] p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Progresso geral</p>
           <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-4xl font-black text-[var(--navy)]">{globalProgress.toFixed(0)}%</p>
+              <p className="text-4xl font-bold text-[var(--navy)]">{globalProgress.toFixed(0)}%</p>
               <p className="mt-1 text-sm text-[var(--muted)]">{formatCurrency(totalSaved)} guardados de {formatCurrency(totalTargets)}</p>
             </div>
             <div className="h-3 w-full overflow-hidden rounded-full bg-[var(--surface-strong)] lg:max-w-[360px]">
@@ -250,14 +266,14 @@ export default function MetasPage() {
             </div>
           </div>
         </Surface>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2">
           <StatCard label="Total acumulado" value={formatCurrency(totalSaved)} tone="success" />
           <StatCard label="Total das metas" value={formatCurrency(totalTargets)} tone="brand" />
         </div>
       </section>
 
       <section className="grid items-start gap-5 xl:grid-cols-[0.78fr_1.22fr]">
-        <Surface>
+        <Surface className="min-w-0">
           <SectionHeader title="Nova meta" eyebrow="Objetivo" />
           <form onSubmit={handleCreateGoal} className="mt-4 space-y-4">
             <label className="block space-y-1.5">
@@ -288,6 +304,7 @@ export default function MetasPage() {
                   placeholder="0,00"
                   value={targetAmount}
                   onChange={(e) => setTargetAmount(e.target.value)}
+                  onBlur={(e) => setTargetAmount(formatMoneyInputValue(e.target.value))}
                 />
               </label>
               <label className="block space-y-1.5">
@@ -309,7 +326,7 @@ export default function MetasPage() {
           </form>
         </Surface>
 
-        <Surface>
+        <Surface className="min-w-0">
           <SectionHeader title="Suas metas" eyebrow="Carteira de objetivos" />
           <div className="mt-4">
             {loading ? (
@@ -331,7 +348,13 @@ export default function MetasPage() {
                       : 0;
 
                   return (
-                    <article key={goal.id} className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-4 shadow-[0_7px_18px_rgba(9,42,32,0.04)]">
+                    <article
+                      key={goal.id}
+                      className={`relative rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-4 shadow-[0_7px_18px_rgba(9,42,32,0.04)] ${
+                        celebrateGoalId === goal.id ? "anim-card-pulse" : ""
+                      }`}
+                    >
+                      <CelebrateBurst trigger={celebrateGoalId === goal.id ? goal.id : null} />
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <h3 className="font-semibold text-[var(--text)]">{goal.title}</h3>
                         <Badge
@@ -362,14 +385,14 @@ export default function MetasPage() {
                             const dias = daysUntil(goal.deadline);
                             const vencido = dias < 0;
                             const proximo = dias >= 0 && dias <= 30;
-                            const cor = vencido ? "var(--danger)" : proximo ? "#e0a128" : "var(--muted)";
+                            const cor = vencido ? "var(--danger)" : proximo ? "var(--warning)" : "var(--muted)";
                             const texto = vencido
                               ? `Prazo vencido há ${Math.abs(dias)} dia${Math.abs(dias) === 1 ? "" : "s"}`
                               : dias === 0
                               ? "Vence hoje"
                               : `Faltam ${dias} dia${dias === 1 ? "" : "s"}`;
                             return (
-                              <p className="mt-1 text-xs font-extrabold" style={{ color: cor }}>
+                              <p className="mt-1 text-xs font-semibold" style={{ color: cor }}>
                                 {texto}
                               </p>
                             );
@@ -396,6 +419,7 @@ export default function MetasPage() {
                             placeholder="Valor acumulado"
                             value={progressInput}
                             onChange={(e) => setProgressInput(e.target.value)}
+                            onBlur={(e) => setProgressInput(formatMoneyInputValue(e.target.value))}
                             autoFocus
                           />
                           <ActionButton

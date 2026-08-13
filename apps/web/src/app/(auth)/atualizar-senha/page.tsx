@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import AuthShell from "@/components/auth-shell";
 import { createClient } from "@/lib/supabase/client";
+import { translateAuthError } from "@/lib/auth-errors";
 
 export default function AtualizarSenhaPage() {
   const supabase = createClient();
@@ -32,7 +33,7 @@ export default function AtualizarSenhaPage() {
     setLoading(false);
 
     if (error) {
-      setMessage(error.message);
+      setMessage(translateAuthError(error.message));
       setIsError(true);
       return;
     }
@@ -49,12 +50,13 @@ export default function AtualizarSenhaPage() {
       features={["Senha renovada", "Conta protegida", "Retorno ao login"]}
       spotlightTitle="Segurança"
       spotlightText="Depois de salvar a nova senha, você será levado para entrar novamente no Moedin.IA."
+      hominho="timachi"
     >
       <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--brand-soft)] text-[var(--brand-strong)]">
         <KeyRound className="h-6 w-6" />
       </div>
-      <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Atualização de senha</p>
-      <h1 className="mt-3 font-display text-4xl font-black text-[var(--navy)]">Atualizar senha</h1>
+      <p className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Atualização de senha</p>
+      <h1 className="mt-3 font-display text-4xl font-bold text-[var(--navy)]">Atualizar senha</h1>
       <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Defina uma nova senha para continuar usando sua conta.</p>
 
       <form onSubmit={handleUpdate} className="mt-7 space-y-4">
@@ -70,7 +72,7 @@ export default function AtualizarSenhaPage() {
           {loading ? "Salvando..." : "Salvar nova senha"}
         </button>
         {message ? (
-          <div className={isError ? "rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" : "alert-info rounded-2xl px-4 py-3 text-sm font-semibold"}>
+          <div className={isError ? "alert-error rounded-2xl px-4 py-3 text-sm font-semibold" : "alert-info rounded-2xl px-4 py-3 text-sm font-semibold"}>
             {message}
           </div>
         ) : null}

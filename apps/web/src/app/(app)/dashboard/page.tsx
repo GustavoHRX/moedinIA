@@ -2,24 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { categoryName, categoryVisual, type CategoryRelation } from "@/lib/categories";
+import dynamic from "next/dynamic";
+import { categoryName, type CategoryRelation } from "@/lib/categories";
 import { CategoryIcon } from "@/components/category-icon";
+import { useCategoryVisual } from "@/components/use-category-visual";
+import { HominhoTip } from "@/components/hominho-tip";
+import { AnimatedMoney } from "@/components/animated-money";
+import { dashboardTips } from "@/lib/tips";
 import { ArrowLeftRight, Lightbulb, TrendingUp, TriangleAlert } from "lucide-react";
-import { SkeletonBlock, SkeletonList } from "@/components/skeleton";
-import { currentMonthRef, todayDateInput } from "@/lib/dates";
+import { Skeleton, SkeletonBlock, SkeletonList } from "@/components/skeleton";
+import { addMonthsClamped, currentMonthRef, todayDateInput } from "@/lib/dates";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
 import { useAppData } from "@/components/app-data-provider";
@@ -37,6 +29,8 @@ type TransactionItem = {
   origin_type?: "manual" | "fixed_expense" | "installment";
   installment_number?: number | null;
   installment_total?: number | null;
+  fixed_expense_id?: string | null;
+  installment_id?: string | null;
   categories: CategoryRelation;
 };
 
@@ -76,23 +70,40 @@ type DashboardData = {
   installments: Installment[];
 };
 
+// Sequência de cores de gráficos do Brand Book v1.3 (pág. 15)
 const CHART_COLORS = [
-  "#2E9E4F",
-  "#1A1A1A",
-  "#6E746F",
-  "#8BCB9C",
-  "#B8DFC3",
-  "#e0a128",
-  "#ef5d77",
+  "#10B981",
+  "#6EE7B7",
+  "#14B8A6",
+  "#FBBF24",
+  "#60A5FA",
+  "#F87171",
 ];
+
+// Gráficos (Recharts) carregados sob demanda — fora do bundle inicial.
+const chartFallback = () => <div className="skeleton-shimmer h-full w-full rounded-lg" />;
+const CategoryDonut = dynamic(
+  () => import("@/components/dashboard-charts").then((m) => m.CategoryDonut),
+  { ssr: false, loading: chartFallback }
+);
+const IncomeExpenseBars = dynamic(
+  () => import("@/components/dashboard-charts").then((m) => m.IncomeExpenseBars),
+  { ssr: false, loading: chartFallback }
+);
+const MonthlyBars = dynamic(
+  () => import("@/components/dashboard-charts").then((m) => m.MonthlyBars),
+  { ssr: false, loading: chartFallback }
+);
 
 export default function DashboardPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const resolveCategoryVisual = useCategoryVisual();
   const {
     user: cachedUser,
     loadingUser,
     financialVersion,
+    lastRealtimeArrival,
     getFinancialCache,
     setFinancialCache,
   } = useAppData();
@@ -106,7 +117,11 @@ export default function DashboardPage() {
   const [chartsReady, setChartsReady] = useState(false);
 
   useEffect(() => {
-    setChartsReady(true);
+    // Espera o navegador pintar o layout antes de montar os gráficos. Sem
+    // isso o ResizeObserver do Recharts mede o container antes dele ter
+    // tamanho real e loga "width(-1) height(-1)" no console (QA 11/ago/2026).
+    const frame = requestAnimationFrame(() => setChartsReady(true));
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   const applyDashboardData = useCallback((data: DashboardData) => {
@@ -147,7 +162,7 @@ export default function DashboardPage() {
         supabase
           .from("transactions")
           .select(
-            "id, type, amount, description, transaction_date, created_at, category_id, origin_type, installment_number, installment_total, categories(name)"
+            "id, type, amount, description, transaction_date, created_at, category_id, origin_type, installment_number, installment_total, fixed_expense_id, installment_id, categories(name)"
           )
           .eq("user_id", currentUser.id)
           .eq("status", "active")
@@ -224,6 +239,41 @@ export default function DashboardPage() {
   const balance = incomeTotal - expenseTotal;
   const recentTransactions = useMemo(() => transactions.slice(0, 6), [transactions]);
 
+  // Projeção de saldo até o fim do mês: saldo atual menos os gastos fixos e
+  // parcelas que ainda vão vencer neste mês (ainda não viraram lançamento).
+  const isCurrentMonth = monthRef.slice(0, 7) === currentMonthRef().slice(0, 7);
+  const projectedBalance = useMemo(() => {
+    if (!isCurrentMonth) return null;
+
+    const fixedDoneIds = new Set(
+      monthlyTransactions
+        .filter((t) => t.origin_type === "fixed_expense" && t.fixed_expense_id)
+        .map((t) => t.fixed_expense_id)
+    );
+    const pendingFixedTotal = fixedExpenses
+      .filter((fe) => !fixedDoneIds.has(fe.id))
+      .reduce((sum, fe) => sum + Number(fe.amount), 0);
+
+    const paidCountByInstallment = new Map<string, number>();
+    for (const t of transactions) {
+      if (t.origin_type === "installment" && t.installment_id) {
+        paidCountByInstallment.set(
+          t.installment_id,
+          (paidCountByInstallment.get(t.installment_id) ?? 0) + 1
+        );
+      }
+    }
+    const pendingInstallmentTotal = installments.reduce((sum, item) => {
+      const paidCount = paidCountByInstallment.get(item.id) ?? 0;
+      if (paidCount >= item.total_installments) return sum;
+      const nextDueDate = addMonthsClamped(item.start_date, paidCount);
+      if (nextDueDate.slice(0, 7) !== monthRef.slice(0, 7)) return sum;
+      return sum + Number(item.installment_amount);
+    }, 0);
+
+    return balance - pendingFixedTotal - pendingInstallmentTotal;
+  }, [isCurrentMonth, monthlyTransactions, fixedExpenses, transactions, installments, monthRef, balance]);
+
   const expensesByCategory = useMemo<CategoryTotal[]>(
     () =>
       Object.values(
@@ -257,6 +307,105 @@ export default function DashboardPage() {
 
   const budgetRemaining = budgetAmount - expenseTotal;
   const topCategory = expensesByCategory[0];
+
+  // Insight de IA real (ai-service /insight). Cai em silêncio para as
+  // heurísticas locais se o serviço estiver fora ou sem chave configurada.
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  useEffect(() => {
+    if (loading || monthlyTransactions.length === 0) return;
+
+    const monthKey = monthRef.slice(0, 7);
+    const cacheKey = `moedin-ai-insight:${cachedUser?.id}:${monthKey}:${Math.round(expenseTotal)}`;
+    try {
+      const cached = window.sessionStorage.getItem(cacheKey);
+      if (cached) {
+        setAiInsight(cached);
+        return;
+      }
+    } catch {}
+
+    const aiUrl = process.env.NEXT_PUBLIC_AI_URL || "http://localhost:8000";
+    const controller = new AbortController();
+
+    fetch(`${aiUrl}/insight`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        month_label: monthName,
+        income_total: incomeTotal,
+        expense_total: expenseTotal,
+        budget_amount: budgetAmount,
+        categories: expensesByCategory.slice(0, 8).map((item) => ({
+          name: item.name,
+          total: item.total,
+        })),
+      }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { ok?: boolean; insight?: string } | null) => {
+        if (data?.ok && data.insight) {
+          setAiInsight(data.insight);
+          try {
+            window.sessionStorage.setItem(cacheKey, data.insight);
+          } catch {}
+        }
+      })
+      .catch(() => {});
+
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, monthRef, Math.round(expenseTotal), Math.round(incomeTotal)]);
+
+  // Orçamentos por categoria do mês, com gasto e uso calculados localmente
+  const categoryBudgets = useMemo(() => {
+    const monthKey = monthRef.slice(0, 7);
+    return budgets
+      .filter((item) => item.category_id !== null && item.month_ref.slice(0, 7) === monthKey)
+      .map((item) => {
+        const name = categoryName(item.categories);
+        const spent = monthlyTransactions
+          .filter((tx) => tx.type === "expense" && tx.category_id === item.category_id)
+          .reduce((sum, tx) => sum + Number(tx.amount), 0);
+        return { id: item.id, name, limit: Number(item.amount), spent };
+      })
+      .sort(
+        (a, b) => b.spent / Math.max(b.limit, 1) - a.spent / Math.max(a.limit, 1)
+      );
+  }, [budgets, monthlyTransactions, monthRef]);
+
+  const hominhoTips = useMemo(
+    () =>
+      dashboardTips({
+        monthKey: monthRef.slice(0, 7),
+        expenseTotal,
+        incomeTotal,
+        budgetAmount,
+        topCategory: topCategory ? { name: topCategory.name, total: topCategory.total } : null,
+        transactionsCount: monthlyTransactions.length,
+      }),
+    [monthRef, expenseTotal, incomeTotal, budgetAmount, topCategory, monthlyTransactions.length]
+  );
+
+  // Dados com a cor já resolvida — os componentes de gráfico (lazy) recebem prontos.
+  const pieData = useMemo(
+    () =>
+      expensesByCategory.map((entry, index) => ({
+        name: entry.name,
+        total: entry.total,
+        fill: resolveCategoryVisual(entry.name).color || CHART_COLORS[index % CHART_COLORS.length],
+      })),
+    [expensesByCategory, resolveCategoryVisual]
+  );
+  const comparativoData = useMemo(
+    () =>
+      barData.map((entry) => ({
+        name: entry.name,
+        total: entry.total,
+        fill: entry.name === "Receitas" ? "#34D399" : "#F87171",
+      })),
+    [barData]
+  );
 
   // Série dos últimos 6 meses (receitas x despesas) a partir das transações já carregadas
   const monthlySeries = useMemo(() => {
@@ -324,9 +473,9 @@ export default function DashboardPage() {
   }, [budgetAmount, expenseTotal, topCategory, monthlySeries, incomeTotal, balance]);
 
   const insightStyle: Record<string, { Icon: typeof Lightbulb; color: string }> = {
-    warning: { Icon: TriangleAlert, color: "#ef5d77" },
-    tip: { Icon: TrendingUp, color: "#2E9E4F" },
-    info: { Icon: Lightbulb, color: "#e0a128" },
+    warning: { Icon: TriangleAlert, color: "#F87171" },
+    tip: { Icon: TrendingUp, color: "#34D399" },
+    info: { Icon: Lightbulb, color: "#FBBF24" },
   };
 
   // Persiste os insights do mês na tabela ai_insights (uma vez por mês/sessão)
@@ -380,85 +529,127 @@ export default function DashboardPage() {
 
       <div className="space-y-5">
         {message ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="alert-error rounded-2xl px-4 py-3 text-sm font-semibold">
             {message}
           </div>
         ) : null}
 
-        <Surface className="relative overflow-hidden bg-[var(--hero-gradient)] p-6 text-[var(--text)] ring-1 ring-[rgba(46,158,79,0.12)] sm:p-7">
+        <Surface className="relative min-w-0 overflow-hidden bg-[var(--hero-gradient)] p-6 text-[var(--text)] ring-1 ring-[rgba(16,185,129,0.12)] sm:p-7">
+          {loading ? (
+            // Enquanto carrega, mostra esqueleto em vez de "R$ 0,00" — evita
+            // confundir "ainda carregando" com "saldo realmente zerado".
+            <div className="flex h-full flex-col justify-between gap-6 lg:flex-row lg:items-stretch">
+              <div className="min-w-0 flex-1">
+                <Skeleton className="h-12 w-40" />
+                <Skeleton className="mt-4 h-3 w-28" />
+                <Skeleton className="mt-3 h-10 w-56" />
+                <Skeleton className="mt-4 h-4 w-full max-w-md" />
+                <Skeleton className="mt-2 h-4 w-2/3 max-w-sm" />
+                <div className="mt-5 flex gap-2">
+                  <Skeleton className="h-7 w-28 rounded-full" />
+                  <Skeleton className="h-7 w-28 rounded-full" />
+                </div>
+              </div>
+              <div className="flex w-full flex-col gap-4 lg:w-[340px]">
+                <Skeleton className="h-[92px] w-full rounded-[22px]" />
+                <Skeleton className="h-[92px] w-full rounded-[22px]" />
+              </div>
+            </div>
+          ) : (
             <div className="flex h-full flex-col justify-between gap-6 lg:flex-row lg:items-stretch">
               <div>
-                <p className="font-display text-5xl font-black leading-none text-[var(--navy)] sm:text-6xl">
+                <p className="font-display text-5xl font-bold leading-none text-[var(--navy)] sm:text-6xl">
                   Resumo
                 </p>
-                <p className="mt-3 font-display text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Saldo do mês</p>
-                <p className={`mt-3 text-4xl font-black sm:text-5xl ${balance >= 0 ? "text-[var(--navy)]" : "text-[var(--danger)]"}`}>
-                  {formatCurrency(balance)}
+                <p className="mt-3 font-display text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Saldo do mês</p>
+                <p className={`mt-3 text-4xl sm:text-5xl ${balance >= 0 ? "text-[var(--navy)]" : "text-[var(--danger)]"}`}>
+                  <AnimatedMoney value={balance} />
                 </p>
                 <p className="mt-3 max-w-2xl text-base font-semibold leading-7 text-[var(--muted)]">
                   Uma leitura consolidada de {monthName}, com recorrências, parcelamentos e metas no mesmo fluxo.
                 </p>
-                <div className="mt-5 flex flex-wrap gap-2 text-xs font-extrabold">
-                  <span className="rounded-full bg-[var(--brand-soft)] px-3 py-1.5 text-[var(--brand-strong)] ring-1 ring-[rgba(46,158,79,0.16)]">
-                    Entradas {formatCurrency(incomeTotal)}
+                <div className="mt-5 flex flex-wrap gap-2 text-xs font-semibold">
+                  <span className="rounded-full bg-[var(--brand-soft)] px-3 py-1.5 text-[var(--brand-strong)] ring-1 ring-[rgba(16,185,129,0.16)]">
+                    Entradas <AnimatedMoney value={incomeTotal} />
                   </span>
-                  <span className="rounded-full bg-red-50 px-3 py-1.5 text-[var(--danger)] ring-1 ring-red-100">
-                    Saídas {formatCurrency(expenseTotal)}
+                  <span className="rounded-full bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] px-3 py-1.5 text-[var(--danger)] ring-1 ring-[color-mix(in_srgb,var(--danger)_25%,transparent)]">
+                    Saídas <AnimatedMoney value={expenseTotal} />
                   </span>
+                  {projectedBalance !== null ? (
+                    <span className="rounded-full bg-[var(--bg-soft)] px-3 py-1.5 text-[var(--muted-strong)] ring-1 ring-[var(--line)]">
+                      Previsão fim do mês <AnimatedMoney value={projectedBalance} />
+                    </span>
+                  ) : null}
                 </div>
               </div>
               <div className="flex w-full flex-col gap-4 lg:w-[340px]">
-                <div className="flex flex-1 items-center gap-4 rounded-[22px] border border-[rgba(46,158,79,0.16)] bg-[var(--surface-muted)] p-6 shadow-[0_10px_24px_rgba(46,158,79,0.08)]">
+                <div className="flex flex-1 items-center gap-4 rounded-[22px] border border-[rgba(16,185,129,0.16)] bg-[var(--surface-muted)] p-6 shadow-[0_10px_24px_rgba(16,185,129,0.08)]">
                   <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--brand-soft)] text-[var(--brand-strong)]">
                     <ArrowLeftRight className="h-6 w-6" />
                   </span>
                   <div className="min-w-0">
-                    <p className="font-display text-xs font-extrabold uppercase tracking-[0.12em] text-[var(--muted)]">Lançamentos</p>
-                    <p className="font-display text-4xl font-black leading-none text-[var(--navy)]">{monthlyTransactions.length}</p>
+                    <p className="font-display text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">Lançamentos</p>
+                    <p className="font-display text-4xl font-bold leading-none text-[var(--navy)]">{monthlyTransactions.length}</p>
                     <p className="mt-1.5 text-xs text-[var(--muted)]">Em {monthName}</p>
                   </div>
                 </div>
-                <div className="flex flex-1 items-center gap-4 rounded-[22px] border border-[rgba(46,158,79,0.16)] bg-[var(--surface-muted)] p-6 shadow-[0_10px_24px_rgba(46,158,79,0.08)]">
+                <div className="flex flex-1 items-center gap-4 rounded-[22px] border border-[rgba(16,185,129,0.16)] bg-[var(--surface-muted)] p-6 shadow-[0_10px_24px_rgba(16,185,129,0.08)]">
                   {topCategory ? (
                     <CategoryIcon name={topCategory.name} box={56} size={26} />
                   ) : (
                     <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--bg-soft)] text-[var(--muted)]">--</span>
                   )}
                   <div className="min-w-0">
-                    <p className="font-display text-xs font-extrabold uppercase tracking-[0.12em] text-[var(--muted)]">Top categoria</p>
-                    <p className="truncate font-display text-2xl font-black leading-tight text-[var(--navy)]">{topCategory ? topCategory.name : "--"}</p>
+                    <p className="font-display text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">Top categoria</p>
+                    <p className="truncate font-display text-2xl font-bold leading-tight text-[var(--navy)]">{topCategory ? topCategory.name : "--"}</p>
                     <p className="mt-1.5 text-xs text-[var(--muted)]">{topCategory ? `${formatCurrency(topCategory.total)} no mês` : "Sem gastos ainda"}</p>
                   </div>
                 </div>
               </div>
             </div>
+          )}
         </Surface>
 
         <section className="grid gap-5 sm:grid-cols-2">
           <NewEntryButton
             label={
               <span className="flex h-full flex-col items-start justify-center gap-2 text-left">
-                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#21773b] text-2xl text-white">+</span>
-                <span className="font-display text-2xl font-black">Novo lançamento</span>
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--primary)] text-2xl text-[var(--on-primary)]">+</span>
+                <span className="font-display text-2xl font-bold">Novo lançamento</span>
                 <span className="text-sm font-semibold text-[var(--muted)]">Gasto, receita, fixo ou parcelado em um modal.</span>
               </span>
             }
-            className="flex min-h-[150px] flex-col justify-center rounded-[22px] border border-[rgba(46,158,79,0.22)] bg-[var(--hero-gradient)] p-5 text-[var(--text)] shadow-[0_18px_38px_rgba(46,158,79,0.14)] ring-1 ring-[var(--line)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_42px_rgba(46,158,79,0.2)]"
+            className="flex min-h-[150px] flex-col justify-center rounded-[22px] border border-[rgba(16,185,129,0.22)] bg-[var(--hero-gradient)] p-5 text-[var(--text)] shadow-[0_18px_38px_rgba(16,185,129,0.14)] ring-1 ring-[var(--line)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_42px_rgba(16,185,129,0.2)]"
           />
           <button
             type="button"
             onClick={() => router.push("/historico")}
             className="flex min-h-[150px] flex-col justify-center rounded-[22px] border border-[var(--line)] bg-[var(--surface)] p-5 text-left shadow-[var(--shadow-soft)] transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-strong)]"
           >
-            <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[var(--muted)]">Histórico</p>
-            <p className="mt-2 text-lg font-black text-[var(--navy)]">Ver movimentações</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">Histórico</p>
+            <p className="mt-2 text-lg font-bold text-[var(--navy)]">Ver movimentações</p>
             <p className="mt-1 text-sm text-[var(--muted)]">Lista limpa apenas com lançamentos ocorridos.</p>
           </button>
         </section>
 
-        {!loading && insights.length > 0 ? (
+        {!loading ? <HominhoTip page="dashboard" hominho="joao" tips={hominhoTips} /> : null}
+
+        {!loading && (insights.length > 0 || aiInsight) ? (
           <Surface>
             <SectionHeader title="Insights" eyebrow="Análise automática do mês" />
+            {aiInsight ? (
+              <div className="anim-pop-in mb-3 flex items-start gap-3 rounded-2xl border border-[rgba(16,185,129,0.3)] bg-[var(--primary-soft)] px-4 py-3.5 shadow-[var(--glow)]">
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-sm text-[var(--on-primary)]">
+                  ✦
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--mint)]">
+                    ✦ Insight da IA
+                  </p>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-[var(--text)]">{aiInsight}</p>
+                </div>
+              </div>
+            ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
               {insights.map((ins, index) => {
                 const { Icon, color } = insightStyle[ins.tone];
@@ -479,7 +670,7 @@ export default function DashboardPage() {
         ) : null}
 
         <section className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-          <Surface>
+          <Surface className="min-w-0">
             <SectionHeader title="Gastos por categoria" eyebrow="Distribuição" />
             <div className="h-[320px]">
               {loading || !chartsReady ? (
@@ -487,23 +678,14 @@ export default function DashboardPage() {
               ) : expensesByCategory.length === 0 ? (
                 <EmptyState title="Sem despesas no mês" description="Os gastos por categoria aparecem aqui." />
               ) : (
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={320}>
-                  <PieChart>
-                    <Pie data={expensesByCategory} dataKey="total" nameKey="name" innerRadius={70} outerRadius={112} paddingAngle={1} stroke="none">
-                      {expensesByCategory.map((entry, index) => (
-                        <Cell key={`pie-${index}`} fill={categoryVisual(entry.name).color || CHART_COLORS[index % CHART_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => formatCurrency(Number(value ?? 0))} />
-                  </PieChart>
-                </ResponsiveContainer>
+                <CategoryDonut data={pieData} />
               )}
             </div>
             {expensesByCategory.length > 0 ? (
               <div className="mt-4 space-y-3">
                 {expensesByCategory.slice(0, 6).map((item) => {
                   const percent = expenseTotal > 0 ? (item.total / expenseTotal) * 100 : 0;
-                  const color = categoryVisual(item.name).color;
+                  const color = resolveCategoryVisual(item.name).color;
                   return (
                     <div key={item.name}>
                       <div className="mb-1 flex items-center justify-between gap-2 text-xs">
@@ -523,24 +705,12 @@ export default function DashboardPage() {
             ) : null}
           </Surface>
 
-          <div className="grid gap-4">
+          <div className="grid min-w-0 gap-4">
             <Surface>
               <SectionHeader title="Receitas x despesas" eyebrow="Comparativo" />
               <div className="h-[220px]">
                 {chartsReady ? (
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
-                    <BarChart data={barData}>
-                      <CartesianGrid stroke="#edf1ef" vertical={false} />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => formatCurrency(Number(value ?? 0))} />
-                      <Bar dataKey="total" radius={[12, 12, 0, 0]}>
-                        {barData.map((entry, index) => (
-                          <Cell key={`bar-${index}`} fill={entry.name === "Receitas" ? "#2E9E4F" : "#ff4f55"} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <IncomeExpenseBars data={comparativoData} />
                 ) : (
                   <SkeletonBlock className="h-full" />
                 )}
@@ -559,13 +729,49 @@ export default function DashboardPage() {
                     <div className={`h-full ${budgetProgress >= 100 ? "bg-[var(--danger)]" : budgetProgress >= 80 ? "bg-[var(--warning)]" : "bg-[var(--brand)]"}`} style={{ width: `${budgetProgress}%` }} />
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-[var(--muted)]">Usado <span className="font-extrabold text-[var(--navy)]">{formatCurrency(expenseTotal)}</span></span>
-                    <span className="text-[var(--muted)]">Resta <span className={`font-extrabold ${budgetRemaining >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>{formatCurrency(budgetRemaining)}</span></span>
+                    <span className="text-[var(--muted)]">Usado <span className="font-semibold text-[var(--navy)]">{formatCurrency(expenseTotal)}</span></span>
+                    <span className="text-[var(--muted)]">Resta <span className={`font-semibold ${budgetRemaining >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>{formatCurrency(budgetRemaining)}</span></span>
                   </div>
                 </div>
               ) : (
                 <EmptyState title="Sem orçamento geral" description="Configure um limite mensal em planejamento." />
               )}
+
+              {categoryBudgets.length > 0 ? (
+                <div className="mt-5 space-y-3 border-t border-[var(--line)] pt-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-soft)]">
+                    Por categoria
+                  </p>
+                  {categoryBudgets.slice(0, 5).map((item) => {
+                    const percent = item.limit > 0 ? Math.min((item.spent / item.limit) * 100, 100) : 0;
+                    const over = item.limit > 0 && item.spent > item.limit;
+                    const color = resolveCategoryVisual(item.name).color;
+                    return (
+                      <div key={item.id}>
+                        <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                            <span className="truncate font-bold text-[var(--navy)]">{item.name}</span>
+                          </span>
+                          <span className={`shrink-0 font-semibold ${over ? "text-[var(--danger)]" : "text-[var(--muted)]"}`}>
+                            {formatCurrency(item.spent)} de {formatCurrency(item.limit)}
+                          </span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-[var(--bg-soft)]">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${percent}%`,
+                              backgroundColor: over ? "var(--danger)" : color,
+                              transition: "width var(--dur-slow) var(--ease-out)",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
             </Surface>
           </div>
         </section>
@@ -579,7 +785,16 @@ export default function DashboardPage() {
             ) : (
               <div className="divide-y divide-[var(--line)]">
                 {recentTransactions.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between gap-4 py-3">
+                  <div
+                    key={item.id}
+                    className={`flex items-center justify-between gap-4 py-3 ${
+                      lastRealtimeArrival &&
+                      item.id === lastRealtimeArrival.id &&
+                      Date.now() - lastRealtimeArrival.at < 10_000
+                        ? "anim-flash-in -mx-2 rounded-xl px-2"
+                        : ""
+                    }`}
+                  >
                     <div className="flex min-w-0 items-center gap-3">
                       <CategoryIcon name={categoryName(item.categories, "")} box={34} size={15} />
                       <div className="min-w-0">
@@ -589,7 +804,7 @@ export default function DashboardPage() {
                         </p>
                       </div>
                     </div>
-                    <p className={`shrink-0 text-sm font-extrabold ${item.type === "income" ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+                    <p className={`shrink-0 text-sm font-semibold ${item.type === "income" ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
                       {item.type === "income" ? "+" : "-"}
                       {formatCurrency(Number(item.amount))}
                     </p>
@@ -600,7 +815,7 @@ export default function DashboardPage() {
         </Surface>
 
         <section className="grid gap-5 xl:grid-cols-2">
-          <Surface>
+          <Surface className="min-w-0">
             <SectionHeader
               title="Gastos fixos ativos"
               action={<button onClick={() => router.push("/gastos-fixos")} className="text-sm font-bold text-[var(--brand-strong)]">Ver todos</button>}
@@ -615,14 +830,14 @@ export default function DashboardPage() {
                       <p className="font-bold text-[var(--navy)]">{item.title}</p>
                       <p className="text-xs text-[var(--muted)]">Dia {item.due_day} - {categoryName(item.categories)}</p>
                     </div>
-                    <p className="font-extrabold text-[var(--navy)]">{formatCurrency(item.amount)}</p>
+                    <p className="font-semibold text-[var(--navy)]">{formatCurrency(item.amount)}</p>
                   </div>
                 ))}
               </div>
             )}
           </Surface>
 
-          <Surface>
+          <Surface className="min-w-0">
             <SectionHeader
               title="Parcelamentos ativos"
               action={<button onClick={() => router.push("/parcelamentos")} className="text-sm font-bold text-[var(--brand-strong)]">Ver todos</button>}
@@ -635,7 +850,7 @@ export default function DashboardPage() {
                   <div key={item.id} className="rounded-[16px] border border-[var(--line)] px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <p className="font-bold text-[var(--navy)]">{item.title}</p>
-                      <p className="font-extrabold text-[var(--navy)]">{formatCurrency(item.installment_amount)}</p>
+                      <p className="font-semibold text-[var(--navy)]">{formatCurrency(item.installment_amount)}</p>
                     </div>
                     <p className="mt-1 text-xs text-[var(--muted)]">{item.total_installments}x - início em {formatDate(item.start_date)}</p>
                   </div>
@@ -649,20 +864,7 @@ export default function DashboardPage() {
           <SectionHeader title="Evolução dos últimos meses" eyebrow="Receitas x despesas no tempo" />
           <div className="h-[300px]">
             {chartsReady ? (
-              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
-                <BarChart data={monthlySeries} barGap={6}>
-                  <CartesianGrid stroke="var(--line)" vertical={false} />
-                  <XAxis dataKey="mes" tickLine={false} axisLine={false} />
-                  <YAxis tickLine={false} axisLine={false} width={48} />
-                  <Tooltip
-                    cursor={{ fill: "rgba(46,158,79,0.06)" }}
-                    formatter={(value, name) => [formatCurrency(Number(value ?? 0)), name === "receitas" ? "Receitas" : "Despesas"]}
-                  />
-                  <Legend formatter={(value) => (value === "receitas" ? "Receitas" : "Despesas")} />
-                  <Bar dataKey="receitas" fill="#2E9E4F" radius={[8, 8, 0, 0]} />
-                  <Bar dataKey="despesas" fill="#ef5d77" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <MonthlyBars data={monthlySeries} />
             ) : (
               <SkeletonBlock className="h-full" />
             )}

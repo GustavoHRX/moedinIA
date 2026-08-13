@@ -1,21 +1,22 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+// Cores da paleta curada do Brand Book v1.3 (lib/category-palette.ts)
 const DEFAULT_CATEGORIES = [
-  { name: "Salário", type: "income", icon: "Banknote", color: "#2E9E4F" },
-  { name: "Freelance", type: "income", icon: "Laptop", color: "#3B82F6" },
+  { name: "Salário", type: "income", icon: "Banknote", color: "#34D399" },
+  { name: "Freelance", type: "income", icon: "Laptop", color: "#60A5FA" },
   { name: "Reembolso", type: "income", icon: "Undo2", color: "#14B8A6" },
-  { name: "Investimentos", type: "income", icon: "TrendingUp", color: "#8B5CF6" },
-  { name: "Outras receitas", type: "income", icon: "CirclePlus", color: "#6E746F" },
-  { name: "Alimentação", type: "expense", icon: "Utensils", color: "#F97316" },
-  { name: "Mercado", type: "expense", icon: "ShoppingCart", color: "#16A34A" },
+  { name: "Investimentos", type: "income", icon: "TrendingUp", color: "#6EE7B7" },
+  { name: "Outras receitas", type: "income", icon: "CirclePlus", color: "#94A3B8" },
+  { name: "Alimentação", type: "expense", icon: "Utensils", color: "#FB923C" },
+  { name: "Mercado", type: "expense", icon: "ShoppingCart", color: "#10B981" },
   { name: "Transporte", type: "expense", icon: "Car", color: "#0EA5E9" },
-  { name: "Moradia", type: "expense", icon: "House", color: "#A855F7" },
-  { name: "Contas", type: "expense", icon: "ReceiptText", color: "#EAB308" },
-  { name: "Saúde", type: "expense", icon: "HeartPulse", color: "#EF4444" },
-  { name: "Educação", type: "expense", icon: "GraduationCap", color: "#6366F1" },
-  { name: "Lazer", type: "expense", icon: "Gamepad2", color: "#EC4899" },
-  { name: "Outras despesas", type: "expense", icon: "Ellipsis", color: "#6E746F" },
+  { name: "Moradia", type: "expense", icon: "House", color: "#818CF8" },
+  { name: "Contas", type: "expense", icon: "ReceiptText", color: "#FBBF24" },
+  { name: "Saúde", type: "expense", icon: "HeartPulse", color: "#F87171" },
+  { name: "Educação", type: "expense", icon: "GraduationCap", color: "#A78BFA" },
+  { name: "Lazer", type: "expense", icon: "Gamepad2", color: "#F472B6" },
+  { name: "Outras despesas", type: "expense", icon: "Ellipsis", color: "#94A3B8" },
 ] as const;
 
 export async function POST() {
@@ -31,7 +32,7 @@ export async function POST() {
 
   const { data: existing, error: listError } = await supabase
     .from("categories")
-    .select("id, name, type")
+    .select("id, name, type, color, icon, is_default")
     .eq("user_id", user.id)
     .order("is_default", { ascending: false })
     .order("name", { ascending: true });
@@ -65,7 +66,7 @@ export async function POST() {
         is_default: true,
       }))
     )
-    .select("id, name, type");
+    .select("id, name, type, color, icon, is_default");
 
   if (insertError) {
     if (insertError.code === "42501") {

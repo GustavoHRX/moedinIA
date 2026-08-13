@@ -6,6 +6,7 @@ import { useAppData, type AppProfile } from "@/components/app-data-provider";
 import { createClient } from "@/lib/supabase/client";
 import { ActionButton, Alert, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
 import { Skeleton } from "@/components/skeleton";
+import { CategoryManager } from "@/components/category-manager";
 
 type Profile = {
   id: string;
@@ -186,7 +187,7 @@ export default function PerfilPage() {
       {message ? <Alert type={messageType}>{message}</Alert> : null}
 
       <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-        <Surface>
+        <Surface className="min-w-0">
           <SectionHeader title="Dados pessoais" eyebrow="Preferências" />
 
           {loading ? (
@@ -205,11 +206,11 @@ export default function PerfilPage() {
           ) : (
             <>
               <div className="mt-2 mb-5 flex items-center gap-4">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-2xl font-black text-white">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-2xl font-bold text-white">
                   {initials || "U"}
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate font-display text-lg font-black text-[var(--navy)]">{fullName || "Sem nome"}</p>
+                  <p className="truncate font-display text-lg font-bold text-[var(--navy)]">{fullName || "Sem nome"}</p>
                   <p className="truncate text-sm text-[var(--muted)]">{email}</p>
                 </div>
               </div>
@@ -282,7 +283,7 @@ export default function PerfilPage() {
           )}
         </Surface>
 
-        <Surface>
+        <Surface className="min-w-0">
           <SectionHeader title="Resumo da conta" eyebrow="Suporte" />
 
           <div className="mt-4 space-y-2">
@@ -313,6 +314,16 @@ export default function PerfilPage() {
       </section>
 
       <Surface>
+        <SectionHeader title="Minhas categorias" eyebrow="Personalização" />
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          Crie categorias do seu jeito e escolha uma cor pra cada uma — elas colorem listas, gráficos e resumos.
+        </p>
+        <div className="mt-4">
+          <CategoryManager onMessage={showMessage} />
+        </div>
+      </Surface>
+
+      <Surface>
         <SectionHeader title="Ativar no WhatsApp" eyebrow="Integração" />
         {waLinkedCount > 0 ? (
           <div className="mt-3 rounded-2xl border border-[var(--line)] bg-[var(--bg-soft)] px-4 py-4">
@@ -330,7 +341,7 @@ export default function PerfilPage() {
             <div className="flex flex-wrap items-center gap-3">
               <div className="rounded-2xl border-2 border-dashed border-[var(--brand)] bg-[var(--bg-soft)] px-6 py-4">
                 <p className="text-xs text-[var(--muted)]">Seu código de ativação</p>
-                <p className="font-display text-3xl font-black tracking-[0.2em] text-[var(--navy)]">
+                <p className="font-display text-3xl font-bold tracking-[0.2em] text-[var(--navy)]">
                   {activationCode || "••••••••"}
                 </p>
               </div>

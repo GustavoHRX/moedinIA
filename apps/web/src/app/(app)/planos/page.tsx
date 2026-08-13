@@ -78,29 +78,36 @@ export default function PlanosPage() {
       />
 
       <section className="grid gap-5 lg:grid-cols-3">
-        {plans.map((plan) => (
+        {plans.map((plan, index) => (
           <Surface
             key={plan.name}
             className={
               plan.highlighted
-                ? "relative overflow-hidden border-[rgba(46,158,79,0.42)] bg-[linear-gradient(145deg,var(--surface-strong),var(--brand-soft))] p-6 shadow-[var(--shadow-glow)] ring-1 ring-[rgba(46,158,79,0.22)] lg:-translate-y-3"
-                : "p-6"
+                ? "anim-pop-in relative overflow-hidden border-[rgba(16,185,129,0.42)] bg-[linear-gradient(145deg,var(--surface-strong),var(--brand-soft))] p-6 shadow-[var(--shadow-glow)] ring-1 ring-[rgba(16,185,129,0.22)] lg:-translate-y-3"
+                : "anim-pop-in p-6"
             }
+            style={{ animationDelay: `${index * 80}ms` }}
           >
             <div className="flex min-h-full flex-col">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--muted)]">
+                  <p className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
                     Plano
                   </p>
-                  <h2 className="mt-2 font-display text-2xl font-black text-[var(--navy)]">{plan.name}</h2>
+                  <h2 className="mt-2 font-display text-2xl font-bold text-[var(--navy)]">{plan.name}</h2>
                 </div>
                 {plan.badge ? (
                   <Badge tone={plan.highlighted ? "brand" : "neutral"}>{plan.badge}</Badge>
                 ) : null}
               </div>
 
-              <div className="mt-4 my-6 h-px bg-[var(--line)]" />
+              <div className="mt-5 flex items-baseline gap-1.5">
+                <span className="money text-4xl text-[var(--navy)]">{plan.price}</span>
+                <span className="text-sm font-semibold text-[var(--muted)]">{plan.period}</span>
+              </div>
+              <p className="mt-1 text-xs font-semibold text-[var(--text-soft)]">{plan.note}</p>
+
+              <div className="mt-5 mb-6 h-px bg-[var(--line)]" />
 
               <ul className="space-y-3">
                 {plan.features.map((feature) => (

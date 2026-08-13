@@ -25,7 +25,7 @@ export default function ThemeToggle({
         onClick={toggleTheme}
         className={
           className ||
-          "inline-flex items-center gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-extrabold text-[var(--text)] shadow-[var(--shadow-soft)] transition hover:border-[var(--brand)]"
+          "inline-flex items-center gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-soft)] transition hover:border-[var(--brand)]"
         }
         aria-label="Alternar tema"
         suppressHydrationWarning
@@ -45,7 +45,7 @@ export default function ThemeToggle({
       onClick={toggleTheme}
       className={
         className ||
-        "inline-flex items-center gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-extrabold text-[var(--text)] shadow-[var(--shadow-soft)] transition hover:border-[var(--brand)]"
+        "inline-flex items-center gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-soft)] transition hover:border-[var(--brand)]"
       }
       aria-label={isDark ? "Ativar tema claro" : "Ativar tema escuro"}
     >

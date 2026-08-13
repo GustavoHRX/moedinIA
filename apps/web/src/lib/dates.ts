@@ -9,7 +9,7 @@ function parseDateParts(dateString: string) {
   return { year, month, day };
 }
 
-export function formatDateInput(date: Date) {
+function formatDateInput(date: Date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 

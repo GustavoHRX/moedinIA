@@ -6,10 +6,12 @@ import { useAppData } from "@/components/app-data-provider";
 import { useConfirm } from "@/components/confirm-dialog";
 import { SkeletonList } from "@/components/skeleton";
 import { categoryName, type CategoryRelation } from "@/lib/categories";
-import { addMonthsClamped, isPastOrToday, toCompetenceMonth } from "@/lib/dates";
-import { formatCurrency, formatDate } from "@/lib/formatters";
+import { addMonthsClamped, isPastOrToday, toCompetenceMonth, todayDateInput } from "@/lib/dates";
+import { formatCurrency, formatDate, formatMoneyInputValue, parseMoneyInput } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
 import { ActionButton, Alert, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
+import { HominhoTip } from "@/components/hominho-tip";
+import { parcelamentosTips } from "@/lib/tips";
 
 type InstallmentItem = {
   id: string;
@@ -167,7 +169,7 @@ export default function ParcelamentosPage() {
     setSaving(true);
     setMessage("");
 
-    const parsedTotal = Number(totalAmount.replace(",", "."));
+    const parsedTotal = parseMoneyInput(totalAmount);
     const parsedInstallments = Number(totalInstallments);
 
     if (!title.trim()) {
@@ -313,6 +315,73 @@ export default function ParcelamentosPage() {
     await loadPage(true);
   }
 
+  async function handleSettleEarly(item: InstallmentItem) {
+    const { paidCount, paidAmount } = getInstallmentProgress(item);
+    const remainingCount = item.total_installments - paidCount;
+    if (remainingCount <= 0) {
+      showMessage("Esse parcelamento já está quitado.", "success");
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: "Quitar parcelamento antecipado",
+      message: `Isso lança as ${remainingCount} parcelas restantes de "${item.title}" hoje, de uma vez, e marca o parcelamento como quitado. Deseja continuar?`,
+      confirmLabel: "Quitar agora",
+    });
+    if (!confirmed) return;
+
+    const userId = cachedUser!.id;
+    const today = todayDateInput();
+    const remainingAmount = Number(item.total_amount) - paidAmount;
+
+    const newTransactions = Array.from({ length: remainingCount }, (_, index) => {
+      const installmentNumber = paidCount + index + 1;
+      const isLast = index === remainingCount - 1;
+      const amount = isLast
+        ? Number((remainingAmount - item.installment_amount * (remainingCount - 1)).toFixed(2))
+        : item.installment_amount;
+      return {
+        user_id: userId,
+        type: "expense" as const,
+        amount,
+        description: item.title,
+        notes: item.description || null,
+        transaction_date: today,
+        competence_month: toCompetenceMonth(today),
+        category_id: item.category_id,
+        source: "web" as const,
+        status: "active" as const,
+        origin_type: "installment" as const,
+        installment_id: item.id,
+        installment_number: installmentNumber,
+        installment_total: item.total_installments,
+      };
+    });
+
+    const { error: txError } = await supabase.from("transactions").insert(newTransactions);
+    if (txError) {
+      showMessage(`Erro ao quitar parcelamento: ${txError.message}`, "error");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("installments")
+      .update({ is_active: false })
+      .eq("id", item.id)
+      .eq("user_id", userId);
+
+    if (error) {
+      showMessage(`Parcelas lançadas, mas houve erro ao inativar o parcelamento: ${error.message}`, "error");
+      invalidateFinancialData();
+      await loadPage(true);
+      return;
+    }
+
+    showMessage("Parcelamento quitado! As parcelas restantes foram lançadas hoje.", "success");
+    invalidateFinancialData();
+    await loadPage(true);
+  }
+
   function getInstallmentProgress(item: InstallmentItem) {
     const related = transactions.filter((tx) => tx.installment_id === item.id);
     const paidCount = related.length;
@@ -327,7 +396,7 @@ export default function ParcelamentosPage() {
 
   const activeItems = items.filter((item) => item.is_active);
   const totalOpen = activeItems.reduce((acc, item) => acc + Number(item.total_amount), 0);
-  const parsedTotalPreview = Number(totalAmount.replace(",", "."));
+  const parsedTotalPreview = parseMoneyInput(totalAmount);
   const parsedInstallmentsPreview = Number(totalInstallments);
   const installmentPreview =
     parsedTotalPreview > 0 && parsedInstallmentsPreview > 0
@@ -345,15 +414,35 @@ export default function ParcelamentosPage() {
       <div className="space-y-5">
       {message ? <Alert type={messageType}>{message}</Alert> : null}
 
+      <HominhoTip
+        page="parcelamentos"
+        hominho="alefe"
+        tips={useMemo(
+          () =>
+            parcelamentosTips({
+              installments: items.map((item) => ({
+                id: item.id,
+                title: item.title,
+                installment_amount: Number(item.installment_amount),
+                total_installments: Number(item.total_installments),
+                paid_installments: getInstallmentProgress(item).paidCount,
+                is_active: item.is_active,
+              })),
+            }),
+          // getInstallmentProgress depende só de transactions, já listado abaixo
+          [items, transactions]
+        )}
+      />
+
       <section className="grid gap-5 lg:grid-cols-3">
         <Surface className="bg-[var(--hero-gradient)] p-6 text-[var(--text)] lg:col-span-2">
-          <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Total parcelado ativo</p>
-          <p className="mt-2 text-4xl font-black">{formatCurrency(totalOpen)}</p>
+          <p className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Total parcelado ativo</p>
+          <p className="mt-2 text-4xl font-bold">{formatCurrency(totalOpen)}</p>
           <p className="mt-2 text-sm font-semibold text-[var(--muted)]">{activeItems.length} parcelamentos ativos em acompanhamento.</p>
         </Surface>
         <Surface>
           <p className="text-xs font-bold uppercase text-[var(--muted)]">Parcelas geradas</p>
-          <p className="mt-2 text-4xl font-extrabold text-[var(--brand-strong)]">{transactions.length}</p>
+          <p className="mt-2 text-4xl font-semibold text-[var(--brand-strong)]">{transactions.length}</p>
           <p className="mt-2 text-sm text-[var(--muted)]">Somente registros já vencidos/ocorridos.</p>
         </Surface>
       </section>
@@ -390,6 +479,7 @@ export default function ParcelamentosPage() {
                   placeholder="0,00"
                   value={totalAmount}
                   onChange={(e) => setTotalAmount(e.target.value)}
+                  onBlur={(e) => setTotalAmount(formatMoneyInputValue(e.target.value))}
                 />
               </label>
               <label className="block space-y-1.5">
@@ -464,7 +554,7 @@ export default function ParcelamentosPage() {
                   return (
                     <article key={item.id} className="rounded-[18px] border border-[var(--line)] px-4 py-4 transition hover:bg-[var(--bg-soft)]">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h3 className="font-extrabold text-[var(--navy)]">{item.title}</h3>
+                        <h3 className="font-semibold text-[var(--navy)]">{item.title}</h3>
                         <Badge tone={item.is_active ? "success" : "neutral"}>
                           {item.is_active ? "Ativo" : "Inativo"}
                         </Badge>
@@ -505,6 +595,15 @@ export default function ParcelamentosPage() {
                         </div>
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
+                        {item.is_active && stats.paidCount < item.total_installments ? (
+                          <ActionButton
+                            onClick={() => handleSettleEarly(item)}
+                            tone="primary"
+                            className="px-3 py-2"
+                          >
+                            Quitar antecipado
+                          </ActionButton>
+                        ) : null}
                         <ActionButton
                           onClick={() => handleToggleStatus(item)}
                           tone="secondary"

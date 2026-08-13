@@ -1,17 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppData } from "@/components/app-data-provider";
 import { categoryName, type CategoryRelation } from "@/lib/categories";
 import { CategoryIcon } from "@/components/category-icon";
-import { useConfirm } from "@/components/confirm-dialog";
 import { SkeletonList } from "@/components/skeleton";
 import { todayDateInput, toCompetenceMonth } from "@/lib/dates";
-import { formatCurrency, formatDate } from "@/lib/formatters";
+import { formatCurrency, formatDate, formatMoneyInputValue, parseMoneyInput } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
 import NewEntryButton from "@/components/new-entry-button";
 import { ActionButton, Alert, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
+import { HominhoTip } from "@/components/hominho-tip";
+import { historicoTips } from "@/lib/tips";
 
 type TransactionItem = {
   id: string;
@@ -58,11 +59,11 @@ export default function HistoricoPage() {
     categoriesLoaded,
     refreshCategories,
     financialVersion,
+    lastRealtimeArrival,
     getFinancialCache,
     setFinancialCache,
     invalidateFinancialData,
   } = useAppData();
-  const confirm = useConfirm();
 
   const [transactions, setTransactions] = useState<TransactionItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -170,21 +171,20 @@ export default function HistoricoPage() {
     loadData();
   }, [financialVersion, loadData]);
 
-  async function handleDelete(id: string) {
-    const confirmed = await confirm({
-      title: "Excluir lançamento",
-      message: "Deseja excluir este lançamento? Ele sairá do histórico e dos totais.",
-      confirmLabel: "Excluir",
-    });
-    if (!confirmed) return;
+  // Exclusão já é lógica no banco (status='deleted'), então a exclusão é
+  // imediata — sem confirm() bloqueante — e aparece um "Desfazer" por alguns
+  // segundos. Some o medo de apagar a coisa errada sem adicionar fricção.
+  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [undoItem, setUndoItem] = useState<{ id: string; description: string } | null>(null);
 
+  async function handleDelete(item: TransactionItem) {
     const { error } = await supabase
       .from("transactions")
       .update({
         status: "deleted",
         deleted_at: new Date().toISOString(),
       })
-      .eq("id", id)
+      .eq("id", item.id)
       .eq("user_id", cachedUser!.id);
 
     if (error) {
@@ -192,9 +192,63 @@ export default function HistoricoPage() {
       return;
     }
 
+    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    setUndoItem({ id: item.id, description: item.description });
+    undoTimeoutRef.current = setTimeout(() => setUndoItem(null), 6000);
+
     invalidateFinancialData();
     await loadData(true);
   }
+
+  async function handleDuplicate(item: TransactionItem) {
+    const today = todayDateInput();
+    const { error } = await supabase.from("transactions").insert({
+      user_id: cachedUser!.id,
+      type: item.type,
+      description: item.description,
+      amount: item.amount,
+      transaction_date: today,
+      competence_month: toCompetenceMonth(today),
+      category_id: item.category_id,
+      origin_type: "manual",
+    });
+
+    if (error) {
+      showMessage(`Erro ao duplicar: ${error.message}`, "error");
+      return;
+    }
+
+    showMessage("Lançamento duplicado com a data de hoje.", "success");
+    invalidateFinancialData();
+    await loadData(true);
+  }
+
+  async function handleUndoDelete() {
+    if (!undoItem) return;
+    const id = undoItem.id;
+    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    setUndoItem(null);
+
+    const { error } = await supabase
+      .from("transactions")
+      .update({ status: "active", deleted_at: null })
+      .eq("id", id)
+      .eq("user_id", cachedUser!.id);
+
+    if (error) {
+      showMessage(`Erro ao desfazer: ${error.message}`, "error");
+      return;
+    }
+
+    invalidateFinancialData();
+    await loadData(true);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    };
+  }, []);
 
   function startEdit(item: TransactionItem) {
     if (item.origin_type === "fixed_expense" || item.origin_type === "installment") {
@@ -205,7 +259,7 @@ export default function HistoricoPage() {
     setEditingId(item.id);
     setEditType(item.type);
     setEditDescription(item.description);
-    setEditAmount(String(item.amount));
+    setEditAmount(formatMoneyInputValue(item.amount));
     setEditDate(item.transaction_date);
     setEditCategoryId(item.category_id ?? "");
   }
@@ -225,7 +279,7 @@ export default function HistoricoPage() {
     setSavingEdit(true);
     setMessage("");
 
-    const parsedAmount = Number(editAmount.replace(",", "."));
+    const parsedAmount = parseMoneyInput(editAmount);
     if (!editDescription.trim()) {
       setSavingEdit(false);
       showMessage("Informe uma descrição.", "error");
@@ -282,7 +336,11 @@ export default function HistoricoPage() {
   }
 
   const filteredTransactions = transactions.filter((item) => {
-    const byText = item.description.toLowerCase().includes(searchText.toLowerCase());
+    const query = searchText.trim().toLowerCase();
+    const byText =
+      !query ||
+      item.description.toLowerCase().includes(query) ||
+      formatCurrency(item.amount).toLowerCase().replace(/\s/g, "").includes(query.replace(/\s/g, ""));
     const byType = filterType === "all" || item.type === filterType;
     const byCategory = filterCategory === "all" || item.category_id === filterCategory;
     const byStart = !startDate || item.transaction_date >= startDate;
@@ -360,7 +418,7 @@ export default function HistoricoPage() {
               type="button"
               onClick={handleExportCsv}
               disabled={filteredTransactions.length === 0}
-              className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-5 py-3 text-sm font-extrabold text-[var(--navy)] transition hover:border-[var(--brand)] disabled:opacity-50"
+              className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-5 py-3 text-sm font-semibold text-[var(--navy)] transition hover:border-[var(--brand)] disabled:opacity-50"
             >
               Exportar CSV
             </button>
@@ -372,30 +430,43 @@ export default function HistoricoPage() {
       <div className="space-y-5">
         {message ? <Alert type={messageType}>{message}</Alert> : null}
 
+        <HominhoTip
+          page="historico"
+          hominho="gustavo"
+          tips={useMemo(
+            () =>
+              historicoTips({
+                totalCount: transactions.length,
+                monthKey: todayDateInput().slice(0, 7),
+              }),
+            [transactions.length]
+          )}
+        />
+
         <div className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
-          <Surface className="bg-[var(--hero-gradient)]">
+          <Surface className="min-w-0 bg-[var(--hero-gradient)]">
             <div className="divide-y divide-[var(--line)]">
               <div className="flex items-center justify-between gap-3 pb-3">
                 <div className="min-w-0">
                   <p className="text-xs font-bold uppercase text-[var(--muted)]">Saídas (filtro)</p>
                   <p className="text-[11px] text-[var(--muted)]">Total de gastos no filtro atual</p>
                 </div>
-                <p className="shrink-0 text-xl font-extrabold leading-tight tracking-tight text-[var(--navy)] tabular-nums">{formatCurrency(filteredExpenses)}</p>
+                <p className="shrink-0 text-xl font-semibold leading-tight tracking-tight text-[var(--navy)] tabular-nums">{formatCurrency(filteredExpenses)}</p>
               </div>
               <div className="flex items-center justify-between gap-3 py-3">
                 <p className="text-xs font-bold uppercase text-[var(--muted)]">Entradas</p>
-                <p className="shrink-0 text-xl font-extrabold leading-tight tracking-tight text-[var(--success)] tabular-nums">{formatCurrency(filteredIncome)}</p>
+                <p className="shrink-0 text-xl font-semibold leading-tight tracking-tight text-[var(--success)] tabular-nums">{formatCurrency(filteredIncome)}</p>
               </div>
               <div className="flex items-center justify-between gap-3 pt-3">
                 <p className="text-xs font-bold uppercase text-[var(--muted)]">Saldo filtrado</p>
-                <p className={`shrink-0 text-xl font-extrabold leading-tight tracking-tight tabular-nums ${filteredBalance >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+                <p className={`shrink-0 text-xl font-semibold leading-tight tracking-tight tabular-nums ${filteredBalance >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
                   {formatCurrency(filteredBalance)}
                 </p>
               </div>
             </div>
           </Surface>
 
-          <Surface>
+          <Surface className="min-w-0">
             <SectionHeader
               title="Filtros"
               action={
@@ -405,7 +476,7 @@ export default function HistoricoPage() {
               }
             />
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-              <input className="control xl:col-span-2" placeholder="Buscar transação..." value={searchText} onChange={(e) => setSearchText(e.target.value)} />
+              <input className="control xl:col-span-2" placeholder="Buscar por descrição ou valor..." value={searchText} onChange={(e) => setSearchText(e.target.value)} />
               <select className="control" value={filterType} onChange={(e) => setFilterType(e.target.value as "all" | "income" | "expense")}>
                 <option value="all">Todos</option>
                 <option value="income">Entradas</option>
@@ -442,6 +513,7 @@ export default function HistoricoPage() {
               className="rounded-2xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
               value={editAmount}
               onChange={(e) => setEditAmount(e.target.value)}
+              onBlur={(e) => setEditAmount(formatMoneyInputValue(e.target.value))}
               placeholder="Valor"
             />
             <input
@@ -502,7 +574,7 @@ export default function HistoricoPage() {
             {groupedTransactions.map((group) => (
               <div key={group.key} className="space-y-3">
                 <div className="flex items-center gap-3 pt-1">
-                  <h3 className="font-display text-sm font-extrabold uppercase tracking-[0.12em] text-[var(--muted)]">
+                  <h3 className="font-display text-sm font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
                     {group.label}
                   </h3>
                   <span className="h-px flex-1 bg-[var(--line)]" />
@@ -510,7 +582,13 @@ export default function HistoricoPage() {
                 {group.items.map((item) => (
               <article
                 key={item.id}
-                className="rounded-[18px] border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-4 shadow-[0_7px_18px_rgba(9,42,32,0.05)] transition hover:border-[rgba(46,158,79,0.35)] hover:shadow-[var(--shadow-soft)]"
+                className={`rounded-[18px] border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-4 shadow-[0_7px_18px_rgba(9,42,32,0.05)] transition hover:border-[rgba(16,185,129,0.35)] hover:shadow-[var(--shadow-soft)] ${
+                  lastRealtimeArrival &&
+                  item.id === lastRealtimeArrival.id &&
+                  Date.now() - lastRealtimeArrival.at < 10_000
+                    ? "anim-flash-in"
+                    : ""
+                }`}
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
@@ -557,7 +635,14 @@ export default function HistoricoPage() {
                     Editar
                   </ActionButton>
                   <ActionButton
-                    onClick={() => handleDelete(item.id)}
+                    onClick={() => handleDuplicate(item)}
+                    tone="secondary"
+                    className="px-3 py-2"
+                  >
+                    Duplicar
+                  </ActionButton>
+                  <ActionButton
+                    onClick={() => handleDelete(item)}
                     tone="danger"
                     className="px-3 py-2"
                   >
@@ -577,7 +662,7 @@ export default function HistoricoPage() {
                 <button
                   type="button"
                   onClick={() => setVisibleCount((current) => current + PAGE_SIZE)}
-                  className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-5 py-3 text-sm font-extrabold text-[var(--navy)] transition hover:border-[var(--brand)] hover:text-[var(--brand-strong)]"
+                  className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-5 py-3 text-sm font-semibold text-[var(--navy)] transition hover:border-[var(--brand)] hover:text-[var(--brand-strong)]"
                 >
                   Exibir mais
                 </button>
@@ -587,6 +672,24 @@ export default function HistoricoPage() {
         )}
       </Surface>
       </div>
+
+      {undoItem ? (
+        <div
+          role="status"
+          className="anim-pop-in fixed inset-x-3 bottom-3 z-[150] flex items-center justify-between gap-3 rounded-[16px] border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 shadow-[var(--shadow-strong)] sm:inset-x-auto sm:bottom-5 sm:right-5 sm:max-w-sm"
+        >
+          <p className="min-w-0 truncate text-sm text-[var(--muted-strong)]">
+            <span className="font-semibold text-[var(--text)]">Excluído:</span> {undoItem.description}
+          </p>
+          <button
+            type="button"
+            onClick={handleUndoDelete}
+            className="shrink-0 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--brand-strong)] transition hover:border-[var(--brand)]"
+          >
+            Desfazer
+          </button>
+        </div>
+      ) : null}
     </PageFrame>
   );
 }
