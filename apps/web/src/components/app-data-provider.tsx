@@ -12,11 +12,16 @@ import {
 } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { catchUpRecurrences } from "@/lib/recurrence-catchup";
+import { todayDateInput } from "@/lib/dates";
 
 export type AppCategory = {
   id: string;
   name: string;
   type: "income" | "expense";
+  color: string | null;
+  icon: string | null;
+  is_default: boolean;
 };
 
 export type AppProfile = {
@@ -38,6 +43,8 @@ type AppDataContextValue = {
   profileLoaded: boolean;
   categoriesLoaded: boolean;
   financialVersion: number;
+  /** Último lançamento inserido via Realtime (ex: WhatsApp) — para destaque visual. */
+  lastRealtimeArrival: { id: string; at: number } | null;
   refreshUser: () => Promise<User | null>;
   refreshProfile: () => Promise<AppProfile | null>;
   refreshCategories: () => Promise<AppCategory[]>;
@@ -93,6 +100,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
   const [financialVersion, setFinancialVersion] = useState(0);
   const [financialCache, setFinancialCacheState] = useState<Record<string, FinancialCacheEntry>>({});
+  const [lastRealtimeArrival, setLastRealtimeArrival] = useState<{ id: string; at: number } | null>(null);
 
   useEffect(() => {
     userRef.current = user;
@@ -196,7 +204,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         try {
           const { data, error } = await supabase
             .from("categories")
-            .select("id, name, type")
+            .select("id, name, type, color, icon, is_default")
             .eq("user_id", currentUser.id)
             .order("is_default", { ascending: false })
             .order("name", { ascending: true });
@@ -306,7 +314,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "transactions", filter: `user_id=eq.${userId}` },
-        () => {
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            const newId = (payload.new as { id?: string })?.id;
+            if (newId) setLastRealtimeArrival({ id: newId, at: Date.now() });
+          }
           setFinancialCacheState({});
           setFinancialVersion((version) => version + 1);
         }
@@ -315,6 +327,41 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     return () => {
       void supabase.removeChannel(channel);
+    };
+  }, [supabase, user?.id]);
+
+  // Catch-up de recorrências: gera as transações vencidas de gastos fixos e
+  // parcelamentos que ficaram para trás (o app só gerava na criação). Roda uma
+  // vez por usuário por dia; se criar algo, atualiza os dados na tela.
+  useEffect(() => {
+    const userId = user?.id;
+    if (!userId) return;
+
+    const guardKey = `moedin-catchup:${userId}:${todayDateInput()}`;
+    try {
+      if (window.sessionStorage.getItem(guardKey)) return;
+    } catch {
+      /* sessionStorage indisponível: segue e roda mesmo assim */
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const created = await catchUpRecurrences(supabase, userId);
+        try {
+          window.sessionStorage.setItem(guardKey, "1");
+        } catch {}
+        if (!cancelled && created > 0) {
+          setFinancialCacheState({});
+          setFinancialVersion((version) => version + 1);
+        }
+      } catch {
+        /* silencioso: catch-up nunca deve travar o app */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
     };
   }, [supabase, user?.id]);
 
@@ -329,6 +376,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       profileLoaded,
       categoriesLoaded,
       financialVersion,
+      lastRealtimeArrival,
       refreshUser,
       refreshProfile,
       refreshCategories,
@@ -371,6 +419,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       categoriesLoaded,
       financialCache,
       financialVersion,
+      lastRealtimeArrival,
       getCategoriesByType,
       loadingCategories,
       loadingProfile,

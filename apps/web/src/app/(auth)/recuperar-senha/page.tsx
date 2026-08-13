@@ -5,6 +5,7 @@ import { ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import AuthShell from "@/components/auth-shell";
 import { createClient } from "@/lib/supabase/client";
+import { translateAuthError } from "@/lib/auth-errors";
 
 export default function RecuperarSenhaPage() {
   const supabase = createClient();
@@ -25,7 +26,7 @@ export default function RecuperarSenhaPage() {
     setLoading(false);
 
     if (error) {
-      setMessage(error.message);
+      setMessage(translateAuthError(error.message));
       setIsError(true);
       return;
     }
@@ -41,29 +42,30 @@ export default function RecuperarSenhaPage() {
       features={["Link seguro por e-mail", "Sessão protegida", "Volta rápida ao painel"]}
       spotlightTitle="Conta protegida"
       spotlightText="O fluxo de redefinição mantém sua conta do Moedin.IA conectada ao Supabase Auth."
+      hominho="timachi"
     >
       <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--brand-soft)] text-[var(--brand-strong)]">
         <ShieldCheck className="h-6 w-6" />
       </div>
-      <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Redefinir acesso</p>
-      <h1 className="mt-3 font-display text-4xl font-black text-[var(--navy)]">Recuperar senha</h1>
+      <p className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Redefinir acesso</p>
+      <h1 className="mt-3 font-display text-4xl font-bold text-[var(--navy)]">Recuperar senha</h1>
       <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Informe o e-mail da conta para receber o link de redefinição.</p>
 
       <form onSubmit={handleReset} className="mt-7 space-y-4">
         <div>
-          <label className="mb-2 block text-sm font-extrabold text-[var(--text)]">E-mail</label>
+          <label className="mb-2 block text-sm font-semibold text-[var(--text)]">E-mail</label>
           <input className="control" type="email" placeholder="email@dominio.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </div>
         <button type="submit" disabled={loading} className="btn-primary w-full px-5 py-3.5 disabled:opacity-70">
           {loading ? "Enviando..." : "Enviar link"}
         </button>
         {message ? (
-          <div className={isError ? "rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" : "alert-info rounded-2xl px-4 py-3 text-sm font-semibold"}>
+          <div className={isError ? "alert-error rounded-2xl px-4 py-3 text-sm font-semibold" : "alert-info rounded-2xl px-4 py-3 text-sm font-semibold"}>
             {message}
           </div>
         ) : null}
         <p className="text-center text-sm text-[var(--muted)]">
-          <Link href="/login" className="font-extrabold text-[var(--brand)] hover:text-[var(--brand-strong)]">
+          <Link href="/login" className="font-semibold text-[var(--brand)] hover:text-[var(--brand-strong)]">
             Voltar para login
           </Link>
         </p>

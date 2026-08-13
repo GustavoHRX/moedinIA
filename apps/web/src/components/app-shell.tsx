@@ -17,6 +17,7 @@ import {
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import LogoutButton from "@/components/logout-button";
+import NotificationBell from "@/components/notification-bell";
 import { useAppData } from "@/components/app-data-provider";
 import ThemeToggle from "@/components/theme-toggle";
 import ThemedLogo from "@/components/themed-logo";
@@ -57,7 +58,7 @@ function NavList({
             onClick={onNavigate}
             className={
               isActive
-                ? "flex items-center gap-3 rounded-2xl border border-[rgba(46,158,79,0.32)] bg-[var(--brand-soft)] px-3.5 py-3 font-display text-sm font-extrabold text-[var(--brand-strong)] shadow-[var(--shadow-soft)]"
+                ? "flex items-center gap-3 rounded-2xl border border-[rgba(16,185,129,0.32)] bg-[var(--brand-soft)] px-3.5 py-3 font-display text-sm font-semibold text-[var(--brand-strong)] shadow-[var(--shadow-soft)]"
                 : "flex items-center gap-3 rounded-2xl px-3.5 py-3 font-display text-sm font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-strong)] hover:text-[var(--brand-strong)]"
             }
           >
@@ -95,13 +96,13 @@ export default function AppShell({ children }: AppShellProps) {
     <main className="min-h-screen bg-[var(--shell-gradient)]">
       <aside className="fixed left-0 top-0 z-40 hidden h-screen w-[308px] flex-col border-r border-[var(--line)] bg-[var(--surface)] shadow-[18px_0_60px_rgba(26,26,26,0.08)] backdrop-blur-xl md:flex">
         <div className="shrink-0 px-5 pb-4 pt-5">
-          <div className="rounded-[22px] border border-[var(--line)] bg-[var(--surface-strong)] p-4 shadow-[var(--shadow-soft)] ring-1 ring-[rgba(46,158,79,0.08)]">
+          <div className="rounded-[22px] border border-[var(--line)] bg-[var(--surface-strong)] p-4 shadow-[var(--shadow-soft)] ring-1 ring-[rgba(16,185,129,0.08)]">
             <ThemedLogo className="h-[54px] w-[160px]" priority />
             <div className="mt-2 flex items-center justify-between gap-2">
               <p className="truncate text-sm font-semibold text-[var(--muted)]">
                 {displayName}
               </p>
-              <span className="shrink-0 rounded-full bg-[var(--brand-soft)] px-2.5 py-1 font-display text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--brand-strong)] ring-1 ring-[rgba(46,158,79,0.16)]">
+              <span className="shrink-0 rounded-full bg-[var(--brand-soft)] px-2.5 py-1 font-display text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--brand-strong)] ring-1 ring-[rgba(16,185,129,0.16)]">
                 Finance + IA
               </span>
             </div>
@@ -111,8 +112,15 @@ export default function AppShell({ children }: AppShellProps) {
         <NavList pathname={pathname} />
 
         <div className="shrink-0 space-y-3 border-t border-[var(--line)] p-4">
-          <ThemeToggle className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-3 text-sm font-extrabold text-[var(--text)] transition hover:border-[var(--brand)]" />
-          <LogoutButton className="flex w-full items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-3 text-sm font-extrabold text-[var(--text)] transition hover:border-red-200 hover:bg-red-50 hover:text-red-700" />
+          <div className="flex items-center justify-between gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2.5">
+            <span className="text-sm font-semibold text-[var(--text)]">Avisos</span>
+            <NotificationBell
+              openUpward
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted-strong)] transition hover:bg-[var(--bg-soft)] hover:text-[var(--brand-strong)]"
+            />
+          </div>
+          <ThemeToggle className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-3 text-sm font-semibold text-[var(--text)] transition hover:border-[var(--brand)]" />
+          <LogoutButton className="flex w-full items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-3 text-sm font-semibold text-[var(--text)] transition hover:border-red-200 hover:bg-red-50 hover:text-red-700" />
         </div>
       </aside>
 
@@ -129,6 +137,7 @@ export default function AppShell({ children }: AppShellProps) {
             >
               <Menu className="h-4 w-4" />
             </button>
+            <NotificationBell className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] text-[var(--text)]" />
             <ThemeToggle className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] text-[var(--text)]" showLabel={false} />
             <LogoutButton />
           </div>
@@ -159,15 +168,15 @@ export default function AppShell({ children }: AppShellProps) {
               </div>
             </div>
             <div className="shrink-0 px-5 pb-4">
-              <div className="rounded-2xl border border-[rgba(46,158,79,0.18)] bg-[var(--brand-soft)] px-4 py-3">
-                <p className="font-display text-xs font-extrabold uppercase tracking-[0.12em] text-[var(--brand-strong)]">Finance + IA</p>
+              <div className="rounded-2xl border border-[rgba(16,185,129,0.18)] bg-[var(--brand-soft)] px-4 py-3">
+                <p className="font-display text-xs font-semibold uppercase tracking-[0.12em] text-[var(--brand-strong)]">Finance + IA</p>
                 <p className="mt-1 text-sm font-bold text-[var(--navy)]">Seu painel financeiro inteligente.</p>
               </div>
             </div>
             <NavList pathname={pathname} onNavigate={() => setMobileOpen(false)} />
             <div className="shrink-0 space-y-3 border-t border-[var(--line)] p-4">
-              <ThemeToggle className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-3 text-sm font-extrabold text-[var(--text)]" />
-              <LogoutButton className="flex w-full items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-3 text-sm font-extrabold text-[var(--text)]" />
+              <ThemeToggle className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-3 text-sm font-semibold text-[var(--text)]" />
+              <LogoutButton className="flex w-full items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-3 text-sm font-semibold text-[var(--text)]" />
             </div>
           </aside>
         </div>

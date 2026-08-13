@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import ThemeToggle from "@/components/theme-toggle";
 import ThemedLogo from "@/components/themed-logo";
+import { Hominho, HOMINHO_LABEL, type HominhoName } from "@/components/hominhos";
 
 type AuthShellProps = {
   eyebrow: string;
@@ -14,6 +15,7 @@ type AuthShellProps = {
   formSide?: "left" | "right";
   spotlightTitle?: string;
   spotlightText?: string;
+  hominho?: HominhoName;
 };
 
 export default function AuthShell({
@@ -26,6 +28,7 @@ export default function AuthShell({
   formSide = "right",
   spotlightTitle = "Finance + IA",
   spotlightText = "Organize gastos, metas, fixos e parcelas com uma rotina simples conectada ao WhatsApp.",
+  hominho = "joao",
 }: AuthShellProps) {
   const formOrder = formSide === "left" ? "lg:order-1" : "lg:order-2";
   const heroOrder = formSide === "left" ? "lg:order-2" : "lg:order-1";
@@ -48,19 +51,19 @@ export default function AuthShell({
               variant="symbol"
               className="relative mb-6 h-16 w-16 rounded-3xl bg-[var(--brand-soft)] p-2 ring-1 ring-[var(--line)]"
             />
-            <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--brand-strong)]">{eyebrow}</p>
-            <h1 className="mt-4 font-display text-5xl font-black leading-tight text-[var(--navy)] xl:text-6xl">{title}</h1>
+            <p className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-strong)]">{eyebrow}</p>
+            <h1 className="mt-4 font-display text-5xl font-bold leading-tight text-[var(--navy)] xl:text-6xl">{title}</h1>
             <p className="mt-5 max-w-xl text-lg font-semibold leading-8 text-[var(--muted)]">{description}</p>
           </div>
 
           <div className="grid gap-4">
-            <div className="rounded-[28px] border border-[var(--line)] bg-[var(--surface-strong)] p-5 shadow-[var(--shadow-soft)]">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="font-display text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--brand-strong)]">{spotlightTitle}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[var(--muted)]">{spotlightText}</p>
-                </div>
-                <span className="rounded-2xl bg-[var(--brand-soft)] px-3 py-2 text-sm font-black text-[var(--brand-strong)]">IA</span>
+            <div className="anim-coin-flip flex items-start gap-4 rounded-[20px] border border-[var(--line)] bg-[var(--surface-strong)] p-5 shadow-[var(--shadow-soft)]">
+              <Hominho name={hominho} size={44} className="mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="font-display text-xs font-semibold uppercase tracking-[0.14em] text-[var(--mint)]">
+                  {HOMINHO_LABEL[hominho]} · {spotlightTitle}
+                </p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[var(--muted)]">{spotlightText}</p>
               </div>
             </div>
 
@@ -68,7 +71,7 @@ export default function AuthShell({
               {features.map((item) => (
                 <div
                   key={item}
-                  className="flex min-h-24 items-start gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-4 text-sm font-extrabold leading-5 text-[var(--navy)] shadow-[var(--shadow-soft)]"
+                  className="flex min-h-24 items-start gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-4 text-sm font-semibold leading-5 text-[var(--navy)] shadow-[var(--shadow-soft)]"
                 >
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand)]" />
                   {item}

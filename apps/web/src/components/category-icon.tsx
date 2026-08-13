@@ -1,4 +1,6 @@
-import { categoryVisual } from "@/lib/categories";
+"use client";
+
+import { useCategoryVisual } from "@/components/use-category-visual";
 
 export function CategoryIcon({
   name,
@@ -11,7 +13,8 @@ export function CategoryIcon({
   box?: number;
   className?: string;
 }) {
-  const { Icon, color } = categoryVisual(name);
+  const resolveVisual = useCategoryVisual();
+  const { Icon, color } = resolveVisual(name);
   return (
     <span
       className={`inline-flex shrink-0 items-center justify-center rounded-full ${className}`}

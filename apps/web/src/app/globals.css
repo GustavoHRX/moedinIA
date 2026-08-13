@@ -1,72 +1,109 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens — Brand Book Moedin.IA v1.3 (pág. 12).
+ * Dark é o tema padrão (:root); o claro é derivado da mesma paleta.
+ * Nomes legados (--brand, --line, --muted…) são mantidos como aliases
+ * para não quebrar componentes existentes.
+ */
 :root {
+  color-scheme: dark;
+
+  /* Tokens oficiais do book */
+  --primary: #10b981;
+  --primary-hover: #34d399;
+  --primary-soft: #0f2e22;
+  --accent: #14b8a6;
+  --mint: #6ee7b7;
+  --text-muted: #b7c4be;
+  --text-soft: #5a6b63;
+  --income: #34d399;
+  --expense: #f87171;
+  --info: #60a5fa;
+  --on-primary: #06130d;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --gradient: linear-gradient(135deg, #10b981, #14b8a6);
+  --glow: 0 0 40px rgba(16, 185, 129, 0.25);
+
+  /* Movimento (pág. 08) */
+  --dur-fast: 150ms;
+  --dur-base: 250ms;
+  --dur-slow: 450ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Base dark (site) */
+  --bg: #0c1210;
+  --bg-soft: #141c18;
+  --bg-accent: #0f2e22;
+  --surface: rgba(20, 28, 24, 0.88);
+  --surface-strong: #141c18;
+  --surface-muted: rgba(24, 36, 32, 0.72);
+  --card: rgba(20, 28, 24, 0.94);
+  --text: #f2f6f4;
+  --muted: #b7c4be;
+  --muted-strong: #dce5e0;
+  --line: #24322b;
+  --line-strong: #2e4037;
+  --brand: #10b981;
+  --brand-strong: #34d399;
+  --brand-soft: #0f2e22;
+  --brand-glow: rgba(16, 185, 129, 0.25);
+  --navy: #f2f6f4;
+  --success: #34d399;
+  --danger: #f87171;
+  --warning: #fbbf24;
+  --ring: rgba(52, 211, 153, 0.32);
+  --shadow-soft: 0 18px 44px rgba(0, 0, 0, 0.28);
+  --shadow-strong: 0 32px 88px rgba(0, 0, 0, 0.42);
+  --shadow-glow: 0 0 40px rgba(16, 185, 129, 0.25);
+  --font-body: var(--font-inter), Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-heading: var(--font-poppins), Poppins, var(--font-body);
+  --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --brand-gradient: linear-gradient(135deg, #10b981, #14b8a6);
+  --hero-gradient: linear-gradient(135deg, rgba(20, 28, 24, 0.96), rgba(15, 46, 34, 0.9));
+  --shell-gradient:
+    radial-gradient(circle at 12% 0%, rgba(16, 185, 129, 0.14), transparent 34rem),
+    radial-gradient(circle at 85% 12%, rgba(20, 184, 166, 0.08), transparent 28rem),
+    linear-gradient(135deg, #0c1210 0%, #0e1512 55%, #0a120e 100%);
+}
+
+[data-theme="light"] {
   color-scheme: light;
-  --bg: #f2f2f2;
-  --bg-soft: #f7f8f6;
-  --bg-accent: #eaf5ee;
+  --bg: #f2f6f4;
+  --bg-soft: #f7faf8;
+  --bg-accent: #e3f5ec;
   --surface: rgba(255, 255, 255, 0.92);
   --surface-strong: #ffffff;
   --surface-muted: rgba(255, 255, 255, 0.72);
   --card: rgba(255, 255, 255, 0.96);
-  --text: #1a1a1a;
-  --muted: #5f6662;
-  --muted-strong: #39413c;
-  --line: rgba(26, 26, 26, 0.1);
-  --line-strong: rgba(26, 26, 26, 0.16);
-  --brand: #2e9e4f;
-  --brand-strong: #21773b;
-  --brand-soft: #e6f4ea;
-  --brand-glow: rgba(46, 158, 79, 0.24);
-  --navy: #1a1a1a;
-  --success: #2e9e4f;
-  --danger: #e5484d;
-  --warning: #c8891a;
-  --ring: rgba(46, 158, 79, 0.22);
-  --shadow-soft: 0 18px 44px rgba(26, 26, 26, 0.08);
-  --shadow-strong: 0 30px 80px rgba(26, 26, 26, 0.16);
-  --shadow-glow: 0 22px 54px rgba(46, 158, 79, 0.18);
-  --font-body: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-heading: Montserrat, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --brand-gradient: linear-gradient(135deg, #2e9e4f, #21773b);
-  --hero-gradient: linear-gradient(135deg, #ffffff 0%, #eefaf4 58%, #dff4e6 100%);
+  --text: #10231c;
+  --muted: #5a6b63;
+  --muted-strong: #33443c;
+  --line: rgba(16, 35, 28, 0.12);
+  --line-strong: rgba(16, 35, 28, 0.18);
+  --brand: #10b981;
+  --brand-strong: #0e9f70;
+  --brand-soft: #e3f5ec;
+  --brand-glow: rgba(16, 185, 129, 0.22);
+  --navy: #10231c;
+  --success: #0e9f70;
+  --danger: #ef4444;
+  --warning: #d97706;
+  --info: #2563eb;
+  --primary-soft: #e3f5ec;
+  --text-muted: #5a6b63;
+  --text-soft: #7d8d85;
+  --ring: rgba(16, 185, 129, 0.24);
+  --shadow-soft: 0 18px 44px rgba(16, 35, 28, 0.08);
+  --shadow-strong: 0 30px 80px rgba(16, 35, 28, 0.16);
+  --shadow-glow: 0 22px 54px rgba(16, 185, 129, 0.18);
+  --hero-gradient: linear-gradient(135deg, #ffffff 0%, #eefaf4 58%, #ddf3e8 100%);
   --shell-gradient:
-    radial-gradient(circle at 12% 0%, rgba(46, 158, 79, 0.14), transparent 34rem),
-    linear-gradient(135deg, #fbfbfa 0%, #f2f2f2 50%, #e9eee9 100%);
-}
-
-[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #080d0b;
-  --bg-soft: #101715;
-  --bg-accent: #0f2118;
-  --surface: rgba(18, 24, 22, 0.88);
-  --surface-strong: #121816;
-  --surface-muted: rgba(20, 29, 25, 0.72);
-  --card: rgba(18, 24, 22, 0.94);
-  --text: #f4f7f5;
-  --muted: #aab6af;
-  --muted-strong: #d8e2dd;
-  --line: rgba(255, 255, 255, 0.1);
-  --line-strong: rgba(255, 255, 255, 0.16);
-  --brand: #35c465;
-  --brand-strong: #65e08b;
-  --brand-soft: rgba(46, 158, 79, 0.18);
-  --brand-glow: rgba(46, 158, 79, 0.34);
-  --navy: #f4f7f5;
-  --success: #65e08b;
-  --danger: #ff7378;
-  --warning: #f2b84b;
-  --ring: rgba(46, 158, 79, 0.34);
-  --shadow-soft: 0 18px 44px rgba(0, 0, 0, 0.28);
-  --shadow-strong: 0 32px 88px rgba(0, 0, 0, 0.42);
-  --shadow-glow: 0 22px 64px rgba(46, 158, 79, 0.2);
-  --brand-gradient: linear-gradient(135deg, #2e9e4f, #0f6a35);
-  --hero-gradient: linear-gradient(135deg, rgba(21, 31, 27, 0.96), rgba(12, 31, 21, 0.94));
-  --shell-gradient:
-    radial-gradient(circle at 15% 0%, rgba(46, 158, 79, 0.18), transparent 32rem),
-    radial-gradient(circle at 85% 12%, rgba(46, 158, 79, 0.1), transparent 28rem),
-    linear-gradient(135deg, #080d0b 0%, #0b100e 58%, #06110b 100%);
+    radial-gradient(circle at 12% 0%, rgba(16, 185, 129, 0.12), transparent 34rem),
+    linear-gradient(135deg, #fbfdfc 0%, #f2f6f4 50%, #e9f1ec 100%);
 }
 
 html,
@@ -123,15 +160,22 @@ h4 {
   font-family: var(--font-heading);
 }
 
+/* Valores em R$ — JetBrains Mono (book pág. 05) */
+.money {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .control {
   width: 100%;
-  border-radius: 1rem;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--line);
   background: var(--surface-strong);
   color: var(--text);
   padding: 0.75rem 1rem;
   outline: none;
-  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
 
 .control::placeholder {
@@ -143,16 +187,18 @@ h4 {
   box-shadow: 0 0 0 4px var(--ring);
 }
 
+/* Botão primário: verde chapado + texto escuro (contraste AAA, book pág. 11-12) */
 .btn-primary {
-  border-radius: 1rem;
-  background: var(--brand-gradient);
-  color: #fff;
-  font-weight: 800;
-  box-shadow: 0 16px 34px var(--brand-glow);
-  transition: background 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 600;
+  box-shadow: 0 10px 28px var(--brand-glow);
+  transition: background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .btn-primary:hover {
+  background: var(--primary-hover);
   box-shadow: var(--shadow-glow);
   transform: translateY(-1px);
 }
@@ -163,12 +209,12 @@ h4 {
 
 .btn-secondary {
   border: 1px solid var(--line);
-  border-radius: 1rem;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
-  font-weight: 800;
+  font-weight: 600;
   box-shadow: var(--shadow-soft);
-  transition: border-color 140ms ease, transform 140ms ease, background 140ms ease;
+  transition: border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
 
 .btn-secondary:hover {
@@ -183,6 +229,12 @@ h4 {
   color: var(--brand-strong);
 }
 
+.alert-error {
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--line));
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: var(--danger);
+}
+
 .premium-grid {
   background-image:
     linear-gradient(var(--line) 1px, transparent 1px),
@@ -193,19 +245,19 @@ h4 {
 }
 
 .theme-logo-light {
-  display: block;
+  display: none;
 }
 
 .theme-logo-dark {
-  display: none;
-}
-
-[data-theme="dark"] .theme-logo-light {
-  display: none;
-}
-
-[data-theme="dark"] .theme-logo-dark {
   display: block;
+}
+
+[data-theme="light"] .theme-logo-light {
+  display: block;
+}
+
+[data-theme="light"] .theme-logo-dark {
+  display: none;
 }
 
 .scrollbar-none {
@@ -214,4 +266,207 @@ h4 {
 
 .scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+
+/* ---- Animações da marca (book pág. 08) ---- */
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 40px rgba(16, 185, 129, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 56px rgba(16, 185, 129, 0.3);
+  }
+}
+
+@keyframes coin-flip {
+  from {
+    transform: rotateY(0);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+@keyframes typing {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+.anim-pop-in {
+  animation: pop-in var(--dur-base) var(--ease-spring) both;
+}
+
+/* Entrada de modal: backdrop esmaece, card sobe com spring */
+@keyframes modal-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.anim-modal-backdrop {
+  animation: modal-backdrop-in var(--dur-fast) var(--ease-out) both;
+}
+
+.anim-modal-card {
+  animation: modal-card-in var(--dur-base) var(--ease-spring) both;
+}
+
+/* Shimmer da marca para skeletons (book pág. 15) */
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    100deg,
+    var(--bg-soft) 40%,
+    color-mix(in srgb, var(--mint) 7%, var(--bg-soft)) 50%,
+    var(--bg-soft) 60%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* Flash de chegada em tempo real (lançamento via WhatsApp) */
+@keyframes flash-in {
+  0% {
+    background-color: color-mix(in srgb, var(--primary) 22%, transparent);
+    transform: translateX(-6px);
+  }
+  60% {
+    background-color: color-mix(in srgb, var(--primary) 10%, transparent);
+  }
+  100% {
+    background-color: transparent;
+    transform: translateX(0);
+  }
+}
+
+.anim-flash-in {
+  animation: flash-in 1.4s var(--ease-out) both;
+}
+
+/* Celebrate (book pág. 08): moedinhas caem + card pulsa 1x */
+@keyframes coin-fall {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px) rotate(0deg);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(120px) rotate(320deg);
+  }
+}
+
+@keyframes card-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.02);
+    box-shadow: var(--glow);
+  }
+}
+
+.anim-card-pulse {
+  animation: card-pulse 600ms var(--ease-spring) 1;
+}
+
+.anim-coin-flip:hover .coin-flip-target {
+  animation: coin-flip 600ms var(--ease-spring);
+}
+
+/* Pontinhos "digitando" da IA (book pág. 08: typing-dots) */
+.typing-dot {
+  display: inline-block;
+  height: 6px;
+  width: 6px;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: typing 1.4s var(--ease-out) infinite;
+}
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* Moeda flutuando devagar no hero — a moeda como padrão gráfico (book pág. 06) */
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-4deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(4deg);
+  }
+}
+.coin-float {
+  animation: float-soft 7s ease-in-out infinite;
+}
+
+/* Skeleton de carregamento da landing: cobre a tela e some suave */
+@keyframes skeleton-fade {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+.landing-skeleton-hide {
+  animation: skeleton-fade 400ms var(--ease-out) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

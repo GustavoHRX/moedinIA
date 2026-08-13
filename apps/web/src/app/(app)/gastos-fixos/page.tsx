@@ -6,9 +6,12 @@ import { useAppData } from "@/components/app-data-provider";
 import { useConfirm } from "@/components/confirm-dialog";
 import { SkeletonList } from "@/components/skeleton";
 import { categoryName, type CategoryRelation } from "@/lib/categories";
-import { formatCurrency } from "@/lib/formatters";
+import { formatCurrency, formatMoneyInputValue, parseMoneyInput } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
 import { ActionButton, Alert, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
+import { HominhoTip } from "@/components/hominho-tip";
+import { gastosFixosTips } from "@/lib/tips";
+import { catchUpRecurrences } from "@/lib/recurrence-catchup";
 
 type Category = {
   id: string;
@@ -22,7 +25,6 @@ type FixedExpense = {
   amount: number;
   due_day: number;
   is_active: boolean;
-  auto_create_transaction: boolean;
   category_id: string | null;
   categories: CategoryRelation;
 };
@@ -65,7 +67,6 @@ export default function GastosFixosPage() {
   const [amount, setAmount] = useState("");
   const [dueDay, setDueDay] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [autoCreateTransaction, setAutoCreateTransaction] = useState(false);
 
   const loadPage = useCallback(async (forceRefresh = false) => {
     setMessage("");
@@ -102,7 +103,7 @@ export default function GastosFixosPage() {
       supabase
         .from("fixed_expenses")
         .select(
-          "id, title, description, amount, due_day, is_active, auto_create_transaction, category_id, categories(name)"
+          "id, title, description, amount, due_day, is_active, category_id, categories(name)"
         )
         .eq("user_id", user.id)
         .order("due_day", { ascending: true })
@@ -153,7 +154,7 @@ export default function GastosFixosPage() {
       return;
     }
 
-    const parsedAmount = Number(amount.replace(",", "."));
+    const parsedAmount = parseMoneyInput(amount);
     const parsedDueDay = Number(dueDay);
 
     if (!title.trim()) {
@@ -182,7 +183,7 @@ export default function GastosFixosPage() {
       amount: parsedAmount,
       due_day: parsedDueDay,
       is_active: true,
-      auto_create_transaction: autoCreateTransaction,
+      auto_create_transaction: true,
     });
 
     setSaving(false);
@@ -192,13 +193,20 @@ export default function GastosFixosPage() {
       return;
     }
 
+    // Gera de imediato as transações já vencidas deste fixo. Idempotente — o
+    // catch-up não duplica nada.
+    try {
+      await catchUpRecurrences(supabase, userId);
+    } catch {
+      /* não bloqueia o cadastro se a geração falhar */
+    }
+
     setTitle("");
     setDescription("");
     setAmount("");
     setDueDay("");
     setCategoryId("");
-    setAutoCreateTransaction(false);
-    showMessage("Gasto fixo cadastrado com sucesso.", "success");
+    showMessage("Gasto fixo cadastrado. Transações vencidas geradas.", "success");
     invalidateFinancialData();
     await loadPage(true);
   }
@@ -220,10 +228,49 @@ export default function GastosFixosPage() {
     await loadPage(true);
   }
 
-  async function handleDelete(id: string) {
+  // BUG-03 (QA 11/ago/2026): excluir um gasto fixo com lançamentos já gerados
+  // deixava o origin_type='fixed_expense' apontando pra um fixed_expense_id
+  // nulo (a FK é on delete set null). Agora, se houver vínculo, "Excluir"
+  // inativa em vez de apagar — preserva o histórico explicável. Sem
+  // lançamentos gerados, exclui de verdade.
+  async function handleDelete(item: FixedExpense) {
+    const { count } = await supabase
+      .from("transactions")
+      .select("id", { count: "exact", head: true })
+      .eq("fixed_expense_id", item.id)
+      .eq("user_id", cachedUser!.id);
+
+    const hasLinkedTransactions = (count ?? 0) > 0;
+
+    if (hasLinkedTransactions) {
+      const confirmed = await confirm({
+        title: "Inativar gasto fixo",
+        message:
+          "Este gasto fixo já gerou lançamentos no histórico. Para manter o vínculo com eles, ele será inativado em vez de excluído — para de gerar novas transações, mas o histórico continua explicando de onde cada uma veio.",
+        confirmLabel: "Inativar",
+      });
+      if (!confirmed) return;
+
+      const { error } = await supabase
+        .from("fixed_expenses")
+        .update({ is_active: false })
+        .eq("id", item.id)
+        .eq("user_id", cachedUser!.id);
+
+      if (error) {
+        showMessage(`Erro ao inativar gasto fixo: ${error.message}`, "error");
+        return;
+      }
+
+      showMessage("Gasto fixo inativado. Os lançamentos já gerados continuam com o vínculo.", "success");
+      invalidateFinancialData();
+      await loadPage(true);
+      return;
+    }
+
     const confirmed = await confirm({
       title: "Excluir gasto fixo",
-      message: "Deseja excluir este gasto fixo? As transações já geradas não serão removidas.",
+      message: "Deseja excluir este gasto fixo? Ele ainda não gerou nenhum lançamento.",
       confirmLabel: "Excluir",
     });
     if (!confirmed) return;
@@ -231,7 +278,7 @@ export default function GastosFixosPage() {
     const { error } = await supabase
       .from("fixed_expenses")
       .delete()
-      .eq("id", id)
+      .eq("id", item.id)
       .eq("user_id", cachedUser!.id);
 
     if (error) {
@@ -256,6 +303,14 @@ export default function GastosFixosPage() {
       />
 
       <div className="space-y-5">
+        <HominhoTip
+          page="gastos-fixos"
+          hominho="alefe"
+          tips={useMemo(
+            () => gastosFixosTips({ fixed: items, todayDay: new Date().getDate() }),
+            [items]
+          )}
+        />
         {message ? <Alert type={messageType}>{message}</Alert> : null}
 
         <section className="flex flex-col justify-between gap-5 rounded-[24px] border border-[var(--line)] bg-[var(--hero-gradient)] p-5 shadow-[var(--shadow-soft)] lg:flex-row lg:items-center">
@@ -265,17 +320,17 @@ export default function GastosFixosPage() {
             </div>
             <div>
               <p className="text-sm text-[var(--muted)]">Total mensal de gastos fixos</p>
-              <p className="text-3xl font-extrabold text-[var(--navy)]">{formatCurrency(totalActiveFixed)}</p>
+              <p className="text-3xl font-semibold text-[var(--navy)]">{formatCurrency(totalActiveFixed)}</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:min-w-[320px]">
             <Surface className="p-4 shadow-none">
               <p className="text-xs font-bold uppercase text-[var(--muted)]">Ativos</p>
-              <p className="mt-1 text-2xl font-extrabold text-[var(--navy)]">{activeItems.length}</p>
+              <p className="mt-1 text-2xl font-semibold text-[var(--navy)]">{activeItems.length}</p>
             </Surface>
             <Surface className="p-4 shadow-none">
               <p className="text-xs font-bold uppercase text-[var(--muted)]">Cadastrados</p>
-              <p className="mt-1 text-2xl font-extrabold text-[var(--navy)]">{items.length}</p>
+              <p className="mt-1 text-2xl font-semibold text-[var(--navy)]">{items.length}</p>
             </Surface>
           </div>
         </section>
@@ -312,6 +367,7 @@ export default function GastosFixosPage() {
                   placeholder="0,00"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
+                  onBlur={(e) => setAmount(formatMoneyInputValue(e.target.value))}
                 />
               </label>
               <label className="block space-y-1.5">
@@ -348,15 +404,6 @@ export default function GastosFixosPage() {
               </p>
             ) : null}
 
-            <label className="flex items-center gap-3 rounded-[16px] border border-[var(--line)] bg-[var(--bg-soft)] px-4 py-3 text-sm font-semibold text-[var(--text)]">
-              <input
-                type="checkbox"
-                checked={autoCreateTransaction}
-                onChange={(e) => setAutoCreateTransaction(e.target.checked)}
-              />
-              Permitir criação automática de transações vencidas
-            </label>
-
             <ActionButton
               type="submit"
               disabled={saving}
@@ -383,13 +430,13 @@ export default function GastosFixosPage() {
                   <article key={item.id} className="rounded-[18px] border border-[var(--line)] px-4 py-4 transition hover:bg-[var(--bg-soft)]">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <h3 className="font-extrabold text-[var(--navy)]">{item.title}</h3>
+                        <h3 className="font-semibold text-[var(--navy)]">{item.title}</h3>
                         <p className="mt-1 text-sm text-[var(--muted)]">
                           Dia {item.due_day} - {categoryName(item.categories)}
                         </p>
                       </div>
                       <div className="text-left sm:text-right">
-                        <p className="text-lg font-extrabold text-[var(--navy)]">{formatCurrency(Number(item.amount))}</p>
+                        <p className="text-lg font-semibold text-[var(--navy)]">{formatCurrency(Number(item.amount))}</p>
                         <Badge tone={item.is_active ? "success" : "neutral"}>
                           {item.is_active ? "Ativo" : "Inativo"}
                         </Badge>
@@ -406,7 +453,7 @@ export default function GastosFixosPage() {
                         {item.is_active ? "Inativar" : "Ativar"}
                       </button>
                       <button
-                        onClick={() => handleDelete(item.id)}
+                        onClick={() => handleDelete(item)}
                         className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700"
                       >
                         Excluir

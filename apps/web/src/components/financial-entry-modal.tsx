@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useAppData } from "@/components/app-data-provider";
 import { addMonthsClamped, isPastOrToday, todayDateInput, toCompetenceMonth } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/client";
+import { formatCurrency, formatDate, formatMoneyInputValue, parseMoneyInput } from "@/lib/formatters";
 
 type EntryMode =
   | "menu"
@@ -27,7 +28,7 @@ type Category = {
 };
 
 function toMoney(value: string) {
-  return Number(value.replace(",", ".") || 0);
+  return parseMoneyInput(value);
 }
 
 function Field({
@@ -39,7 +40,7 @@ function Field({
 }) {
   return (
     <label className="block space-y-2">
-      <span className="text-sm font-extrabold text-[var(--text)]">{label}</span>
+      <span className="text-sm font-semibold text-[var(--text)]">{label}</span>
       {children}
     </label>
   );
@@ -83,13 +84,13 @@ function ModeCard({
       <span
         className={
           tone === "income"
-            ? "mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-lg font-black text-[var(--brand-strong)]"
-            : "mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-red-100 text-lg font-black text-red-600"
+            ? "mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-lg font-bold text-[var(--brand-strong)]"
+            : "mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-red-100 text-lg font-bold text-red-600"
         }
       >
         {tone === "income" ? "+" : "-"}
       </span>
-      <p className="text-base font-black text-[var(--navy)]">{title}</p>
+      <p className="text-base font-bold text-[var(--navy)]">{title}</p>
       <p className="mt-1 text-sm leading-6 text-[var(--muted)]">{description}</p>
     </button>
   );
@@ -128,7 +129,6 @@ export default function FinancialEntryModal({
 
   const [fixedDueDay, setFixedDueDay] = useState("");
   const [fixedMonthsAhead, setFixedMonthsAhead] = useState("12");
-  const [fixedAutoCreate, setFixedAutoCreate] = useState(true);
 
   useEffect(() => {
     setMounted(true);
@@ -195,7 +195,6 @@ export default function FinancialEntryModal({
     setInstallmentCount("2");
     setFixedDueDay("");
     setFixedMonthsAhead("12");
-    setFixedAutoCreate(true);
   }
 
   async function getUserId() {
@@ -296,7 +295,7 @@ export default function FinancialEntryModal({
         amount: parsedAmount,
         due_day: parsedDueDay,
         is_active: true,
-        auto_create_transaction: fixedAutoCreate,
+        auto_create_transaction: true,
         start_date: date,
         end_date: endDate,
         months_ahead: parsedMonths,
@@ -306,13 +305,6 @@ export default function FinancialEntryModal({
 
     if (fixedError || !fixedExpense) {
       setMessage(`Erro ao salvar gasto fixo: ${fixedError?.message}`);
-      return;
-    }
-
-    if (!fixedAutoCreate) {
-      finish(
-        "Gasto fixo salvo sem gerar transações automáticas. Use automação futura para gerar as próximas."
-      );
       return;
     }
 
@@ -495,6 +487,23 @@ export default function FinancialEntryModal({
   const isInstallment = mode === "expense_installment";
   const isFixedExpense = mode === "expense_fixed";
   const categoriesForMode = isExpense ? expenseCategories : incomeCategories;
+
+  // Próxima ocorrência do gasto fixo a partir do dia de vencimento informado —
+  // alimenta o preview "R$ X por mês, próxima em DD/MM/AAAA".
+  const nextFixedDueDate = useMemo(() => {
+    const day = Number(fixedDueDay);
+    if (!day || day < 1 || day > 31) return null;
+
+    const today = todayDateInput();
+    const year = Number(today.slice(0, 4));
+    const month = Number(today.slice(5, 7));
+    const todayDay = Number(today.slice(8, 10));
+    const lastDayThisMonth = new Date(year, month, 0).getDate();
+    const clampedDay = Math.min(day, lastDayThisMonth);
+
+    const candidate = `${today.slice(0, 7)}-${String(clampedDay).padStart(2, "0")}`;
+    return candidate >= today ? candidate : addMonthsClamped(candidate, 1);
+  }, [fixedDueDay]);
   const titleMap: Record<EntryMode, string> = {
     menu: "Novo lançamento",
     expense_normal: "Gasto normal",
@@ -505,13 +514,13 @@ export default function FinancialEntryModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] bg-slate-950/50 p-3 backdrop-blur-md sm:p-6">
+    <div className="anim-modal-backdrop fixed inset-0 z-[100] bg-slate-950/50 p-3 backdrop-blur-md sm:p-6">
       <div className="mx-auto flex h-full max-w-5xl items-center">
-        <div className="max-h-[92vh] w-full overflow-hidden rounded-[28px] border border-[var(--line)] bg-[var(--surface-strong)] shadow-[0_28px_70px_rgba(9,42,32,0.28)]">
+        <div className="anim-modal-card max-h-[92vh] w-full overflow-hidden rounded-[24px] border border-[var(--line)] bg-[var(--surface-strong)] shadow-[0_28px_70px_rgba(9,42,32,0.28)]">
           <header className="flex items-center justify-between bg-[var(--hero-gradient)] px-5 py-5 text-[var(--text)] sm:px-6">
             <div>
-              <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Moedin.IA</p>
-              <h2 className="text-2xl font-black">{titleMap[mode]}</h2>
+              <p className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Moedin.IA</p>
+              <h2 className="text-2xl font-bold">{titleMap[mode]}</h2>
             </div>
             <button
               type="button"
@@ -592,6 +601,7 @@ export default function FinancialEntryModal({
                       <Input
                         value={installmentTotal}
                         onChange={(e) => setInstallmentTotal(e.target.value)}
+                        onBlur={(e) => setInstallmentTotal(formatMoneyInputValue(e.target.value))}
                         placeholder="0,00"
                       />
                     </Field>
@@ -622,6 +632,7 @@ export default function FinancialEntryModal({
                     <Input
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
+                      onBlur={(e) => setAmount(formatMoneyInputValue(e.target.value))}
                       placeholder="0,00"
                     />
                   </Field>
@@ -673,15 +684,15 @@ export default function FinancialEntryModal({
                         />
                       </Field>
                     </div>
-
-                    <label className="flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-[var(--bg-soft)] px-4 py-3 text-sm text-[var(--text)]">
-                      <input
-                        type="checkbox"
-                        checked={fixedAutoCreate}
-                        onChange={(e) => setFixedAutoCreate(e.target.checked)}
-                      />
-                      Gerar apenas transações já vencidas em transactions
-                    </label>
+                    {/* Preview do que será salvo — mesmo espírito do "valor de cada
+                        parcela" do parcelamento, mas pro gasto fixo. */}
+                    {toMoney(amount) > 0 && Number(fixedDueDay) >= 1 && Number(fixedDueDay) <= 31 ? (
+                      <p className="rounded-xl border border-[var(--line)] bg-[var(--bg-soft)] px-3 py-2 text-sm text-[var(--muted-strong)]">
+                        <strong className="text-[var(--text)]">{formatCurrency(toMoney(amount))}</strong> por
+                        mês, próxima em{" "}
+                        <strong className="text-[var(--text)]">{formatDate(nextFixedDueDate)}</strong>.
+                      </p>
+                    ) : null}
                   </>
                 ) : null}
 

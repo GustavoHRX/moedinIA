@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import FinancialEntryModal from "@/components/financial-entry-modal";
+import dynamic from "next/dynamic";
+
+// Carregado sob demanda: o modal (e a lógica de Supabase que ele traz) só entra
+// no bundle quando o usuário abre um novo lançamento pela primeira vez.
+const FinancialEntryModal = dynamic(() => import("@/components/financial-entry-modal"), {
+  ssr: false,
+});
 
 type NewEntryButtonProps = {
   label?: React.ReactNode;
@@ -15,25 +21,32 @@ export default function NewEntryButton({
   onSaved,
 }: NewEntryButtonProps) {
   const [open, setOpen] = useState(false);
+  // Só monta o modal depois do primeiro clique — aí o chunk é baixado sob demanda.
+  const [mounted, setMounted] = useState(false);
 
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setMounted(true);
+          setOpen(true);
+        }}
         className={className || "btn-primary px-5 py-3"}
       >
         {label}
       </button>
 
-      <FinancialEntryModal
-        open={open}
-        onClose={() => setOpen(false)}
-        onSaved={async () => {
-          await onSaved?.();
-          window.dispatchEvent(new CustomEvent("financial-entry-saved"));
-        }}
-      />
+      {mounted ? (
+        <FinancialEntryModal
+          open={open}
+          onClose={() => setOpen(false)}
+          onSaved={async () => {
+            await onSaved?.();
+            window.dispatchEvent(new CustomEvent("financial-entry-saved"));
+          }}
+        />
+      ) : null}
     </>
   );
 }

@@ -5,7 +5,9 @@ import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import AuthShell from "@/components/auth-shell";
+import GoogleSignInButton from "@/components/google-signin-button";
 import { createClient } from "@/lib/supabase/client";
+import { translateAuthError } from "@/lib/auth-errors";
 
 export default function LoginPage() {
   const supabase = createClient();
@@ -32,7 +34,7 @@ export default function LoginPage() {
 
     setLoading(false);
     if (error) {
-      setMessage(error.message);
+      setMessage(translateAuthError(error.message));
       return;
     }
 
@@ -46,12 +48,23 @@ export default function LoginPage() {
       title="Seu painel financeiro continua daqui."
       description="Entre para acompanhar lançamentos, recorrências, metas e orçamentos conectados à IA e ao WhatsApp."
       features={["Dashboard do mês", "WhatsApp integrado", "IA para categorizar"]}
+      hominho="joao"
     >
-      <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Acessar conta</p>
-      <h1 className="mt-3 font-display text-4xl font-black text-[var(--navy)]">Entrar</h1>
+      <p className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Acessar conta</p>
+      <h1 className="mt-3 font-display text-4xl font-bold text-[var(--navy)]">Entrar</h1>
       <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Acesse sua conta para continuar no Moedin.IA.</p>
 
-      <form onSubmit={handleLogin} className="mt-7 space-y-4">
+      <div className="mt-7">
+        <GoogleSignInButton label="Entrar com Google" />
+      </div>
+
+      <div className="my-6 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">
+        <span className="h-px flex-1 bg-[var(--line)]" />
+        ou
+        <span className="h-px flex-1 bg-[var(--line)]" />
+      </div>
+
+      <form onSubmit={handleLogin} className="space-y-4">
         <div>
           <label className="mb-2 block text-sm font-semibold text-[var(--text)]">E-mail</label>
           <input className="control" type="email" placeholder="email@dominio.com" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -69,7 +82,7 @@ export default function LoginPage() {
           {loading ? "Entrando..." : "Entrar"}
           <ArrowRight className="h-4 w-4" />
         </button>
-        {message ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{message}</div> : null}
+        {message ? <div className="alert-error rounded-2xl px-4 py-3 text-sm font-semibold">{message}</div> : null}
         <p className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
           <CheckCircle2 className="h-4 w-4 text-[var(--brand)]" />
           Ainda não tem conta?
