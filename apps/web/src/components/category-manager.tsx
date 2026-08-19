@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useAppData, type AppCategory } from "@/components/app-data-provider";
 import { useConfirm } from "@/components/confirm-dialog";
@@ -179,6 +180,11 @@ export function CategoryManager({
 
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [saving, setSaving] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const incomeCategories = categories.filter((category) => category.type === "income");
   const expenseCategories = categories.filter((category) => category.type === "expense");
@@ -332,8 +338,17 @@ export function CategoryManager({
         ))}
       </div>
 
-      {editor ? (
-        <div className="anim-pop-in space-y-4 rounded-[16px] border border-[var(--line-strong)] bg-[var(--surface-strong)] p-4 sm:p-5">
+      {editor && mounted
+        ? createPortal(
+            <div
+              className="anim-modal-backdrop fixed inset-0 z-[100] overflow-y-auto bg-slate-950/50 p-3 backdrop-blur-md sm:p-6"
+              onClick={() => setEditor(null)}
+            >
+              <div className="flex min-h-full items-center justify-center">
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="anim-modal-card w-full max-w-lg space-y-4 rounded-[24px] border border-[var(--line-strong)] bg-[var(--surface-strong)] p-4 shadow-[0_28px_70px_rgba(9,42,32,0.28)] sm:p-5"
+                >
           <div className="flex items-center justify-between gap-3">
             <p className="font-display text-base font-bold text-[var(--navy)]">
               {editor.id ? `Editar "${editor.name}"` : "Nova categoria"}
@@ -427,8 +442,12 @@ export function CategoryManager({
               {saving ? "Salvando..." : editor.id ? "Salvar categoria" : "Criar categoria"}
             </button>
           </div>
-        </div>
-      ) : null}
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }
