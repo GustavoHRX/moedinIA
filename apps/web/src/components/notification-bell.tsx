@@ -249,8 +249,8 @@ export default function NotificationBell({
             onClick={() => setOpen(false)}
           />
           <div
-            className={`absolute z-50 w-[320px] max-w-[calc(100vw-2rem)] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3 shadow-[var(--shadow-strong)] ${
-              openUpward ? "bottom-full left-0 mb-2" : "right-0 top-full mt-2"
+            className={`fixed left-1/2 top-[72px] z-50 w-[calc(100vw-1.5rem)] max-w-[360px] -translate-x-1/2 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-3 shadow-[var(--shadow-strong)] sm:absolute sm:left-auto sm:top-auto sm:w-[320px] sm:max-w-[calc(100vw-2rem)] sm:translate-x-0 ${
+              openUpward ? "sm:bottom-full sm:left-0 sm:mb-2" : "sm:right-0 sm:top-full sm:mt-2"
             }`}
           >
             <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">

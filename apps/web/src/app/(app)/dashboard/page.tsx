@@ -514,11 +514,11 @@ export default function DashboardPage() {
         description="Num olhar, entenda seu mês: o que entrou, o que saiu e como está o seu saldo."
         eyebrow="Dashboard financeiro"
         actions={
-          <div className="w-full sm:w-auto">
+          <div className="w-full min-w-0 sm:w-auto">
             <label className="mb-2 block text-sm font-semibold text-[var(--text)]">Mês de referência</label>
             <input
               type="month"
-              className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-[var(--text)] outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)] sm:w-[200px]"
+              className="w-full min-w-0 max-w-full rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-[var(--text)] outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)] sm:w-[200px]"
               value={monthRef.slice(0, 7)}
               max={currentMonthRef().slice(0, 7)}
               onChange={(e) => setSelectedMonth(e.target.value ? `${e.target.value}-01` : currentMonthRef())}

@@ -97,7 +97,9 @@ export default function AppShell({ children }: AppShellProps) {
       <aside className="fixed left-0 top-0 z-40 hidden h-screen w-[308px] flex-col border-r border-[var(--line)] bg-[var(--surface)] shadow-[18px_0_60px_rgba(26,26,26,0.08)] backdrop-blur-xl md:flex">
         <div className="shrink-0 px-5 pb-4 pt-5">
           <div className="rounded-[22px] border border-[var(--line)] bg-[var(--surface-strong)] p-4 shadow-[var(--shadow-soft)] ring-1 ring-[rgba(16,185,129,0.08)]">
-            <ThemedLogo className="h-[54px] w-[160px]" priority />
+            <Link href="/dashboard" aria-label="Ir para o dashboard" className="block">
+              <ThemedLogo className="h-[54px] w-[160px]" priority />
+            </Link>
             <div className="mt-2 flex items-center justify-between gap-2">
               <p className="truncate text-sm font-semibold text-[var(--muted)]">
                 {displayName}
@@ -126,7 +128,9 @@ export default function AppShell({ children }: AppShellProps) {
 
       <div className="md:pl-[308px]">
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-[var(--line)] bg-[var(--surface)] px-4 shadow-[0_10px_28px_rgba(8,36,29,0.06)] backdrop-blur sm:px-6 md:hidden">
-          <ThemedLogo className="h-[51px] w-[150px]" priority />
+          <Link href="/dashboard" aria-label="Ir para o dashboard">
+            <ThemedLogo className="h-[51px] w-[150px]" priority />
+          </Link>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -156,7 +160,9 @@ export default function AppShell({ children }: AppShellProps) {
           <aside className="relative flex h-full w-[min(88vw,340px)] flex-col border-r border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-strong)] backdrop-blur-xl">
             <div className="shrink-0 px-5 pb-4 pt-5">
               <div className="flex items-center justify-between gap-4">
-                <ThemedLogo className="h-[65px] w-[190px]" priority />
+                <Link href="/dashboard" aria-label="Ir para o dashboard" onClick={() => setMobileOpen(false)}>
+                  <ThemedLogo className="h-[65px] w-[190px]" priority />
+                </Link>
                 <button
                   type="button"
                   onClick={() => setMobileOpen(false)}

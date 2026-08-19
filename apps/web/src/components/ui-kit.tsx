@@ -55,7 +55,7 @@ export function PageHeader({
     <header className="relative overflow-hidden rounded-[24px] border border-[var(--line)] bg-[var(--surface)] px-5 py-5 shadow-[var(--shadow-soft)] sm:px-7 sm:py-7">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_78%_12%,var(--brand-glow),transparent_30rem)] opacity-70" />
       <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
+        <div className="min-w-0">
           {eyebrow ? (
             <p className="mb-2 font-display text-xs font-semibold uppercase tracking-[0.14em] text-[var(--brand-strong)]">
               {eyebrow}
@@ -64,7 +64,7 @@ export function PageHeader({
           <h1 className="font-display text-3xl font-bold leading-tight text-[var(--navy)] sm:text-4xl">{title}</h1>
           <p className="mt-2 max-w-3xl text-base font-medium leading-7 text-[var(--muted)]">{description}</p>
         </div>
-        {actions ? <div className="flex flex-wrap gap-2 sm:justify-end sm:gap-3">{actions}</div> : null}
+        {actions ? <div className="flex w-full min-w-0 flex-wrap gap-2 sm:justify-end sm:gap-3 lg:w-auto">{actions}</div> : null}
       </div>
     </header>
   );

@@ -128,6 +128,11 @@ begin
 end;
 $$;
 
-grant execute on function public.ensure_activation_code(uuid)            to anon, authenticated, service_role;
-grant execute on function public.link_whatsapp_by_code(text, text, text) to anon, authenticated, service_role;
-grant execute on function public.resolve_user_by_wa(text, text)          to anon, authenticated, service_role;
+-- Sem anon: estas funções são SECURITY DEFINER e leem/gravam dados de perfil.
+-- Liberadas para anon, qualquer visitante conseguiria resolver ou vincular a
+-- conta de outra pessoa passando o id/telefone dela (falha achada no QA de
+-- ago/2026). O app chama ensure_activation_code já logado; as de WhatsApp são
+-- chamadas pelo n8n com a service_role.
+grant execute on function public.ensure_activation_code(uuid)            to authenticated, service_role;
+grant execute on function public.link_whatsapp_by_code(text, text, text) to service_role;
+grant execute on function public.resolve_user_by_wa(text, text)          to service_role;

@@ -481,15 +481,10 @@ export default function FinancialEntryModal({
     }
   }
 
-  if (!open || !mounted) return null;
-
-  const isExpense = mode.includes("expense");
-  const isInstallment = mode === "expense_installment";
-  const isFixedExpense = mode === "expense_fixed";
-  const categoriesForMode = isExpense ? expenseCategories : incomeCategories;
-
   // Próxima ocorrência do gasto fixo a partir do dia de vencimento informado —
-  // alimenta o preview "R$ X por mês, próxima em DD/MM/AAAA".
+  // alimenta o preview "R$ X por mês, próxima em DD/MM/AAAA". Precisa vir
+  // antes do "if (!open) return null" abaixo — hooks não podem ser
+  // condicionais, senão o React quebra ao reabrir o modal (erro #310).
   const nextFixedDueDate = useMemo(() => {
     const day = Number(fixedDueDay);
     if (!day || day < 1 || day > 31) return null;
@@ -497,13 +492,20 @@ export default function FinancialEntryModal({
     const today = todayDateInput();
     const year = Number(today.slice(0, 4));
     const month = Number(today.slice(5, 7));
-    const todayDay = Number(today.slice(8, 10));
     const lastDayThisMonth = new Date(year, month, 0).getDate();
     const clampedDay = Math.min(day, lastDayThisMonth);
 
     const candidate = `${today.slice(0, 7)}-${String(clampedDay).padStart(2, "0")}`;
     return candidate >= today ? candidate : addMonthsClamped(candidate, 1);
   }, [fixedDueDay]);
+
+  if (!open || !mounted) return null;
+
+  const isExpense = mode.includes("expense");
+  const isInstallment = mode === "expense_installment";
+  const isFixedExpense = mode === "expense_fixed";
+  const categoriesForMode = isExpense ? expenseCategories : incomeCategories;
+
   const titleMap: Record<EntryMode, string> = {
     menu: "Novo lançamento",
     expense_normal: "Gasto normal",
