@@ -21,7 +21,20 @@
     },
     {
       "parameters": {
-        "jsCode": "const payload = $json.body ?? $json;\nconst rawText = String(payload.text ?? payload.message ?? payload.body ?? '').trim();\nconst userId = String(payload.user_id ?? payload.userId ?? '').trim();\nconst externalId = String(payload.external_id ?? payload.externalId ?? payload.id ?? `n8n-${Date.now()}`).trim();\n\nfunction todaySaoPaulo() {\n  return new Intl.DateTimeFormat('en-CA', {\n    timeZone: 'America/Sao_Paulo',\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n  }).format(new Date());\n}\n\nfunction normalizeDate(text, fallback) {\n  const iso = text.match(/\\b(20\\d{2}-\\d{2}-\\d{2})\\b/);\n  if (iso) return iso[1];\n\n  const br = text.match(/\\b(\\d{1,2})\\/(\\d{1,2})\\/(20\\d{2})\\b/);\n  if (br) {\n    const [, day, month, year] = br;\n    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;\n  }\n\n  return fallback;\n}\n\nfunction normalizeAmount(text) {\n  const match = text.match(/(?:r\\$\\s*)?(\\d{1,3}(?:\\.\\d{3})*|\\d+)(?:,(\\d{1,2})|\\.(\\d{1,2}))?/i);\n  if (!match) return 0;\n\n  const integer = match[1].replace(/\\./g, '');\n  const cents = match[2] ?? match[3] ?? '00';\n  return Number(`${integer}.${cents.padEnd(2, '0')}`);\n}\n\nfunction normalizeType(text, explicitType) {\n  const normalizedExplicit = String(explicitType ?? '').toLowerCase();\n  if (['income', 'receita', 'entrada'].includes(normalizedExplicit)) return 'income';\n  if (['expense', 'despesa', 'saida', 'saída'].includes(normalizedExplicit)) return 'expense';\n\n  const lower = text.toLowerCase();\n  if (/\\b(recebi|receita|sal[aá]rio|entrada|ganhei|pix recebido|reembolso)\\b/.test(lower)) {\n    return 'income';\n  }\n\n  return 'expense';\n}\n\nfunction buildDescription(text) {\n  const withoutAmount = text\n    .replace(/(?:r\\$\\s*)?\\d{1,3}(?:\\.\\d{3})*(?:,\\d{1,2})?/ig, '')\n    .replace(/\\b(20\\d{2}-\\d{2}-\\d{2})\\b/g, '')\n    .replace(/\\b\\d{1,2}\\/\\d{1,2}\\/20\\d{2}\\b/g, '')\n    .replace(/\\b(gastei|paguei|comprei|recebi|receita|despesa|entrada|saida|saída)\\b/ig, '')\n    .replace(/\\s+/g, ' ')\n    .trim();\n\n  return withoutAmount || text.slice(0, 120) || 'Lancamento via n8n';\n}\n\nconst transactionDate = normalizeDate(rawText, todaySaoPaulo());\nconst amount = normalizeAmount(rawText);\nconst type = normalizeType(rawText, payload.type);\nconst description = String(payload.description ?? buildDescription(rawText)).slice(0, 255);\nconst competenceMonth = `${transactionDate.slice(0, 7)}-01`;\nconst errors = [];\n\nif (!userId) errors.push('Informe user_id no corpo da requisicao.');\nif (!rawText) errors.push('Informe text com a mensagem financeira.');\nif (!amount || Number.isNaN(amount)) errors.push('Nao consegui identificar o valor da transacao.');\n\nreturn [{\n  json: {\n    valid: errors.length === 0,\n    error: errors.join(' '),\n    raw: payload,\n    message_log: {\n      user_id: userId || null,\n      channel: payload.channel ?? 'whatsapp',\n      direction: 'in',\n      raw_text: rawText,\n      parsed_json: {\n        type,\n        amount,\n        description,\n        transaction_date: transactionDate,\n        competence_month: competenceMonth,\n      },\n      external_id: externalId,\n    },\n    transaction: {\n      user_id: userId,\n      type,\n      amount,\n      description,\n      notes: rawText,\n      transaction_date: transactionDate,\n      competence_month: competenceMonth,\n      source: 'n8n',\n      external_message_id: externalId,\n      origin_type: 'manual',\n      status: 'active',\n    },\n  },\n}];"
+        "jsCode": "// AUDITORIA C-3: o webhook do n8n nao tinha autenticacao. Este no rejeita\n// qualquer requisicao que nao traga o header X-Webhook-Token com o valor\n// de $env.WHATSAPP_WEBHOOK_TOKEN. Fail-closed: se o env nao estiver setado,\n// nada passa.\nconst expected = ($env.WHATSAPP_WEBHOOK_TOKEN || '').trim();\nconst headers = ($input.first().json.headers) || {};\nconst got = (headers['x-webhook-token'] || headers['X-Webhook-Token'] || '').toString().trim();\nif (!expected || got !== expected) {\n  throw new Error('webhook nao autorizado (X-Webhook-Token ausente ou invalido)');\n}\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "guard-token-001",
+      "name": "Guard: token do webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = $json.body ?? $json;\nconst rawText = String(payload.text ?? payload.message ?? payload.body ?? '').trim();\nconst userId = String(payload.user_id ?? payload.userId ?? '').trim();\nconst externalId = String(payload.external_id ?? payload.externalId ?? payload.id ?? `n8n-${Date.now()}`).trim();\n\nfunction todaySaoPaulo() {\n  return new Intl.DateTimeFormat('en-CA', {\n    timeZone: 'America/Sao_Paulo',\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n  }).format(new Date());\n}\n\nfunction normalizeDate(text, fallback) {\n  const iso = text.match(/\\b(20\\d{2}-\\d{2}-\\d{2})\\b/);\n  if (iso) return iso[1];\n\n  const br = text.match(/\\b(\\d{1,2})\\/(\\d{1,2})\\/(20\\d{2})\\b/);\n  if (br) {\n    const [, day, month, year] = br;\n    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;\n  }\n\n  return fallback;\n}\n\nfunction normalizeAmount(text) {\n  // Achado 3.1: nao pegar o primeiro numero (data/quantidade). Remove datas,\n  // prioriza numero marcado como dinheiro (R$, \"reais\", ou com centavos).\n  const cleaned = String(text).toLowerCase()\n    .replace(/\\b\\d{1,2}\\s*[/-]\\s*\\d{1,2}(?:\\s*[/-]\\s*\\d{2,4})?\\b/g, '  ')\n    .replace(/\\b20\\d{2}-\\d{2}-\\d{2}\\b/g, '  ')\n    .replace(/\\b\\d{1,2}h(?:\\d{2})?\\b/g, '  ');\n  const money = cleaned.match(/r\\$\\s*(\\d[\\d.,]*\\d|\\d)|(\\d[\\d.,]*\\d|\\d)\\s*(?:reais|real|conto|pila)\\b|\\b(\\d{1,3}(?:\\.\\d{3})*,\\d{2})\\b|\\b(\\d+[.,]\\d{2})\\b/i);\n  let token = money ? (money[1] || money[2] || money[3] || money[4]) : null;\n  if (!token) {\n    const nums = cleaned.match(/\\d[\\d.,]*\\d|\\d/g) || [];\n    token = nums.find((r) => r.replace(/\\D/g, '').length >= 2) || nums[0] || null;\n  }\n  if (!token) return 0;\n  token = token.replace(/[^\\d.,]/g, '');\n  if (token.includes(',')) {\n    token = token.replace(/\\./g, '').replace(',', '.');\n  } else {\n    const dots = (token.match(/\\./g) || []).length;\n    if (dots === 1) {\n      const dec = token.split('.')[1] || '';\n      if (dec.length !== 1 && dec.length !== 2) token = token.replace(/\\./g, '');\n    } else if (dots > 1) {\n      token = token.replace(/\\./g, '');\n    }\n  }\n  const n = Number(token);\n  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : 0;\n}\n\nfunction normalizeType(text, explicitType) {\n  const normalizedExplicit = String(explicitType ?? '').toLowerCase();\n  if (['income', 'receita', 'entrada'].includes(normalizedExplicit)) return 'income';\n  if (['expense', 'despesa', 'saida', 'saída'].includes(normalizedExplicit)) return 'expense';\n\n  const lower = text.toLowerCase();\n  if (/\\b(recebi|receita|sal[aá]rio|entrada|ganhei|pix recebido|reembolso)\\b/.test(lower)) {\n    return 'income';\n  }\n\n  return 'expense';\n}\n\nfunction buildDescription(text) {\n  const withoutAmount = text\n    .replace(/(?:r\\$\\s*)?\\d{1,3}(?:\\.\\d{3})*(?:,\\d{1,2})?/ig, '')\n    .replace(/\\b(20\\d{2}-\\d{2}-\\d{2})\\b/g, '')\n    .replace(/\\b\\d{1,2}\\/\\d{1,2}\\/20\\d{2}\\b/g, '')\n    .replace(/\\b(gastei|paguei|comprei|recebi|receita|despesa|entrada|saida|saída)\\b/ig, '')\n    .replace(/\\s+/g, ' ')\n    .trim();\n\n  return withoutAmount || text.slice(0, 120) || 'Lancamento via n8n';\n}\n\nconst transactionDate = normalizeDate(rawText, todaySaoPaulo());\nconst amount = normalizeAmount(rawText);\nconst type = normalizeType(rawText, payload.type);\nconst description = String(payload.description ?? buildDescription(rawText)).slice(0, 255);\nconst competenceMonth = `${transactionDate.slice(0, 7)}-01`;\nconst errors = [];\n\nif (!userId) errors.push('Informe user_id no corpo da requisicao.');\nif (!rawText) errors.push('Informe text com a mensagem financeira.');\nif (!amount || Number.isNaN(amount)) errors.push('Nao consegui identificar o valor da transacao.');\n\nreturn [{\n  json: {\n    valid: errors.length === 0,\n    error: errors.join(' '),\n    raw: payload,\n    message_log: {\n      user_id: userId || null,\n      channel: payload.channel ?? 'whatsapp',\n      direction: 'in',\n      raw_text: rawText,\n      parsed_json: {\n        type,\n        amount,\n        description,\n        transaction_date: transactionDate,\n        competence_month: competenceMonth,\n      },\n      external_id: externalId,\n    },\n    transaction: {\n      user_id: userId,\n      type,\n      amount,\n      description,\n      notes: rawText,\n      transaction_date: transactionDate,\n      competence_month: competenceMonth,\n      source: 'n8n',\n      external_message_id: externalId,\n      origin_type: 'manual',\n      status: 'active',\n    },\n  },\n}];"
       },
       "id": "3b73452d-7bbe-494b-8e84-371cf74468cb",
       "name": "Normalizar mensagem",
@@ -110,7 +123,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.SUPABASE_URL}}/rest/v1/transactions",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/transactions?on_conflict=user_id,external_message_id",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -128,7 +141,7 @@
             },
             {
               "name": "Prefer",
-              "value": "return=representation"
+              "value": "return=representation,resolution=ignore-duplicates"
             }
           ]
         },
@@ -211,7 +224,7 @@
       "main": [
         [
           {
-            "node": "Normalizar mensagem",
+            "node": "Guard: token do webhook",
             "type": "main",
             "index": 0
           }
@@ -285,6 +298,17 @@
         [
           {
             "node": "Responder erro de validacao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard: token do webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalizar mensagem",
             "type": "main",
             "index": 0
           }

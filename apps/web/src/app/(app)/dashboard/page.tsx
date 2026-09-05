@@ -7,16 +7,18 @@ import { categoryName, type CategoryRelation } from "@/lib/categories";
 import { CategoryIcon } from "@/components/category-icon";
 import { useCategoryVisual } from "@/components/use-category-visual";
 import { HominhoTip } from "@/components/hominho-tip";
-import { AnimatedMoney } from "@/components/animated-money";
+import { Money } from "@/components/money";
 import { dashboardTips } from "@/lib/tips";
 import { ArrowLeftRight, Lightbulb, TrendingUp, TriangleAlert } from "lucide-react";
 import { Skeleton, SkeletonBlock, SkeletonList } from "@/components/skeleton";
 import { addMonthsClamped, currentMonthRef, todayDateInput } from "@/lib/dates";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/paginate";
+import { CHART_COLORS } from "@/lib/chart-palette";
 import { useAppData } from "@/components/app-data-provider";
 import NewEntryButton from "@/components/new-entry-button";
-import { EmptyState, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
+import { EmptyState, PageFrame, PageHeader, SectionHeader, StatCard, Surface } from "@/components/ui-kit";
 
 type TransactionItem = {
   id: string;
@@ -70,18 +72,8 @@ type DashboardData = {
   installments: Installment[];
 };
 
-// Sequência de cores de gráficos do Brand Book v1.3 (pág. 15)
-const CHART_COLORS = [
-  "#10B981",
-  "#6EE7B7",
-  "#14B8A6",
-  "#FBBF24",
-  "#60A5FA",
-  "#F87171",
-];
-
 // Gráficos (Recharts) carregados sob demanda — fora do bundle inicial.
-const chartFallback = () => <div className="skeleton-shimmer h-full w-full rounded-lg" />;
+const chartFallback = () => <div className="skeleton-shimmer h-full w-full rounded-md" />;
 const CategoryDonut = dynamic(
   () => import("@/components/dashboard-charts").then((m) => m.CategoryDonut),
   { ssr: false, loading: chartFallback }
@@ -115,6 +107,9 @@ export default function DashboardPage() {
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([]);
   const [installments, setInstallments] = useState<Installment[]>([]);
   const [chartsReady, setChartsReady] = useState(false);
+  // Mês selecionado no seletor. Precisa vir antes de loadDashboard porque a
+  // janela de dados carregada depende dele (achado 4.1).
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthRef());
 
   useEffect(() => {
     // Espera o navegador pintar o layout antes de montar os gráficos. Sem
@@ -144,7 +139,15 @@ export default function DashboardPage() {
     }
 
     const today = todayDateInput();
-    const cacheKey = `dashboard:${currentUser.id}:${today}`;
+
+    // Janela de dados: 6 meses terminando no mês selecionado (o gráfico de
+    // evolução mostra 6 meses), estendida até hoje, e sempre incluindo o mês
+    // atual. Cobre tudo que o painel calcula sem puxar o histórico inteiro.
+    // Achado 4.1: antes era um `.limit(300)` que truncava contas grandes.
+    const selectedMonthStart = `${selectedMonth.slice(0, 7)}-01`;
+    const windowStart = addMonthsClamped(selectedMonthStart, -5);
+
+    const cacheKey = `dashboard:${currentUser.id}:${today}:${windowStart}`;
     const cachedDashboard = forceRefresh
       ? null
       : getFinancialCache<DashboardData>(cacheKey);
@@ -157,19 +160,29 @@ export default function DashboardPage() {
 
     setLoading(true);
 
-    const [transactionsRes, budgetsRes, fixedRes, installmentsRes] =
+    const txSelect =
+      "id, type, amount, description, transaction_date, created_at, category_id, origin_type, installment_number, installment_total, fixed_expense_id, installment_id, categories(name)";
+
+    const [transactionsResult, budgetsRes, fixedRes, installmentsRes] =
       await Promise.all([
-        supabase
-          .from("transactions")
-          .select(
-            "id, type, amount, description, transaction_date, created_at, category_id, origin_type, installment_number, installment_total, fixed_expense_id, installment_id, categories(name)"
-          )
-          .eq("user_id", currentUser.id)
-          .eq("status", "active")
-          .lte("transaction_date", today)
-          .order("transaction_date", { ascending: false })
-          .order("created_at", { ascending: false })
-          .limit(300),
+        fetchAllRows<TransactionItem>((from, to) =>
+          supabase
+            .from("transactions")
+            .select(txSelect)
+            .eq("user_id", currentUser.id)
+            .eq("status", "active")
+            .gte("transaction_date", windowStart)
+            .lte("transaction_date", today)
+            .order("transaction_date", { ascending: false })
+            .order("created_at", { ascending: false })
+            .order("id", { ascending: false })
+            .range(from, to),
+        )
+          .then((data) => ({ data, error: null as null | { message: string } }))
+          .catch((err: unknown) => ({
+            data: [] as TransactionItem[],
+            error: { message: err instanceof Error ? err.message : "erro ao carregar lançamentos" },
+          })),
         supabase
           .from("budgets")
           .select("id, amount, month_ref, category_id, categories(name)")
@@ -192,7 +205,7 @@ export default function DashboardPage() {
     setLoading(false);
 
     const error =
-      transactionsRes.error ||
+      transactionsResult.error ||
       budgetsRes.error ||
       fixedRes.error ||
       installmentsRes.error;
@@ -203,20 +216,28 @@ export default function DashboardPage() {
     }
 
     const nextDashboard: DashboardData = {
-      transactions: (transactionsRes.data ?? []) as TransactionItem[],
+      transactions: transactionsResult.data,
       budgets: (budgetsRes.data ?? []) as BudgetItem[],
       fixedExpenses: (fixedRes.data ?? []) as FixedExpense[],
       installments: (installmentsRes.data ?? []) as Installment[],
     };
     applyDashboardData(nextDashboard);
     setFinancialCache(cacheKey, nextDashboard);
-  }, [applyDashboardData, cachedUser, getFinancialCache, loadingUser, router, setFinancialCache, supabase]);
+  }, [
+    applyDashboardData,
+    cachedUser,
+    getFinancialCache,
+    loadingUser,
+    router,
+    selectedMonth,
+    setFinancialCache,
+    supabase,
+  ]);
 
   useEffect(() => {
     loadDashboard();
   }, [financialVersion, loadDashboard]);
 
-  const [selectedMonth, setSelectedMonth] = useState(currentMonthRef());
   const monthRef = selectedMonth;
   const monthName = new Date(`${monthRef}T00:00:00`).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
@@ -237,7 +258,6 @@ export default function DashboardPage() {
   }, [monthlyTransactions]);
 
   const balance = incomeTotal - expenseTotal;
-  const recentTransactions = useMemo(() => transactions.slice(0, 6), [transactions]);
 
   // Projeção de saldo até o fim do mês: saldo atual menos os gastos fixos e
   // parcelas que ainda vão vencer neste mês (ainda não viraram lançamento).
@@ -289,6 +309,8 @@ export default function DashboardPage() {
     [monthlyTransactions]
   );
 
+  const recentTransactions = useMemo(() => transactions.slice(0, 6), [transactions]);
+
   const barData = useMemo(
     () => [
       { name: "Receitas", total: Number(incomeTotal.toFixed(2)) },
@@ -324,10 +346,10 @@ export default function DashboardPage() {
       }
     } catch {}
 
-    const aiUrl = process.env.NEXT_PUBLIC_AI_URL || "http://localhost:8000";
+    // AUDITORIA A-1: chama a rota interna do Next (autenticada), não o ai-service direto.
     const controller = new AbortController();
 
-    fetch(`${aiUrl}/insight`, {
+    fetch(`/api/insight`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: controller.signal,
@@ -402,7 +424,7 @@ export default function DashboardPage() {
       barData.map((entry) => ({
         name: entry.name,
         total: entry.total,
-        fill: entry.name === "Receitas" ? "#34D399" : "#F87171",
+        fill: entry.name === "Receitas" ? "var(--chart-1)" : "var(--chart-6)",
       })),
     [barData]
   );
@@ -450,14 +472,33 @@ export default function DashboardPage() {
       list.push({ tone: "info", text: `Seu maior gasto é ${topCategory.name}: ${pct.toFixed(0)}% das despesas do mês.` });
     }
 
-    const cur = monthlySeries[monthlySeries.length - 1];
-    const prev = monthlySeries[monthlySeries.length - 2];
-    if (cur && prev && prev.despesas > 0) {
-      const diff = ((cur.despesas - prev.despesas) / prev.despesas) * 100;
-      list.push({
-        tone: diff > 0 ? "warning" : "tip",
-        text: `Seus gastos ${diff >= 0 ? "subiram" : "caíram"} ${Math.abs(diff).toFixed(0)}% em relação ao mês anterior.`,
-      });
+    // Comparação com o mês anterior. Achado 4.6: comparar um mês EM ANDAMENTO
+    // com um mês FECHADO sugeria uma economia que só existe porque o mês ainda
+    // não acabou. Quando o mês selecionado é o atual, comparamos "até o mesmo
+    // dia" do mês anterior.
+    {
+      const curExpense = expenseTotal;
+      const prevMonthKey = (() => {
+        const [y, m] = monthRef.slice(0, 7).split("-").map(Number);
+        const d = new Date(y, m - 2, 1);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      })();
+      const todayDay = Number(todayDateInput().slice(8, 10));
+      let prevExpense = 0;
+      for (const t of transactions) {
+        if (t.type !== "expense") continue;
+        if (t.transaction_date.slice(0, 7) !== prevMonthKey) continue;
+        if (isCurrentMonth && Number(t.transaction_date.slice(8, 10)) > todayDay) continue;
+        prevExpense += Number(t.amount);
+      }
+      if (prevExpense > 0 && curExpense > 0) {
+        const diff = ((curExpense - prevExpense) / prevExpense) * 100;
+        const sufixo = isCurrentMonth ? " (até hoje, mesmo dia)" : "";
+        list.push({
+          tone: diff > 0 ? "warning" : "tip",
+          text: `Seus gastos ${diff >= 0 ? "subiram" : "caíram"} ${Math.abs(diff).toFixed(0)}% em relação ao mês anterior${sufixo}.`,
+        });
+      }
     }
 
     if (incomeTotal > 0) {
@@ -470,7 +511,7 @@ export default function DashboardPage() {
     }
 
     return list;
-  }, [budgetAmount, expenseTotal, topCategory, monthlySeries, incomeTotal, balance]);
+  }, [budgetAmount, expenseTotal, topCategory, transactions, monthRef, isCurrentMonth, incomeTotal, balance]);
 
   const insightStyle: Record<string, { Icon: typeof Lightbulb; color: string }> = {
     warning: { Icon: TriangleAlert, color: "#F87171" },
@@ -511,124 +552,81 @@ export default function DashboardPage() {
     <PageFrame>
       <PageHeader
         title="Visão geral"
-        description="Num olhar, entenda seu mês: o que entrou, o que saiu e como está o seu saldo."
-        eyebrow="Dashboard financeiro"
+        description={`Seu mês em ${monthName}.`}
         actions={
-          <div className="w-full min-w-0 sm:w-auto">
-            <label className="mb-2 block text-sm font-semibold text-[var(--text)]">Mês de referência</label>
-            <input
-              type="month"
-              className="w-full min-w-0 max-w-full rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-[var(--text)] outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)] sm:w-[200px]"
-              value={monthRef.slice(0, 7)}
-              max={currentMonthRef().slice(0, 7)}
-              onChange={(e) => setSelectedMonth(e.target.value ? `${e.target.value}-01` : currentMonthRef())}
-            />
-          </div>
+          <input
+            type="month"
+            aria-label="Mês de referência"
+            className="w-full min-w-0 max-w-full rounded-md border border-line bg-surface-strong px-3.5 py-2.5 text-sm text-fg outline-none focus:border-primary focus:ring-4 focus:ring-ring sm:w-[220px]"
+            value={monthRef.slice(0, 7)}
+            max={currentMonthRef().slice(0, 7)}
+            onChange={(e) => setSelectedMonth(e.target.value ? `${e.target.value}-01` : currentMonthRef())}
+          />
         }
       />
 
       <div className="space-y-5">
         {message ? (
-          <div className="alert-error rounded-2xl px-4 py-3 text-sm font-semibold">
+          <div className="alert-error rounded-md px-4 py-3 text-sm font-semibold">
             {message}
           </div>
         ) : null}
 
-        <Surface className="relative min-w-0 overflow-hidden bg-[var(--hero-gradient)] p-6 text-[var(--text)] ring-1 ring-[rgba(16,185,129,0.12)] sm:p-7">
-          {loading ? (
-            // Enquanto carrega, mostra esqueleto em vez de "R$ 0,00" — evita
-            // confundir "ainda carregando" com "saldo realmente zerado".
-            <div className="flex h-full flex-col justify-between gap-6 lg:flex-row lg:items-stretch">
-              <div className="min-w-0 flex-1">
-                <Skeleton className="h-12 w-40" />
-                <Skeleton className="mt-4 h-3 w-28" />
-                <Skeleton className="mt-3 h-10 w-56" />
-                <Skeleton className="mt-4 h-4 w-full max-w-md" />
-                <Skeleton className="mt-2 h-4 w-2/3 max-w-sm" />
-                <div className="mt-5 flex gap-2">
-                  <Skeleton className="h-7 w-28 rounded-full" />
-                  <Skeleton className="h-7 w-28 rounded-full" />
-                </div>
-              </div>
-              <div className="flex w-full flex-col gap-4 lg:w-[340px]">
-                <Skeleton className="h-[92px] w-full rounded-[22px]" />
-                <Skeleton className="h-[92px] w-full rounded-[22px]" />
-              </div>
-            </div>
-          ) : (
-            <div className="flex h-full flex-col justify-between gap-6 lg:flex-row lg:items-stretch">
-              <div>
-                <p className="font-display text-5xl font-bold leading-none text-[var(--navy)] sm:text-6xl">
-                  Resumo
-                </p>
-                <p className="mt-3 font-display text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Saldo do mês</p>
-                <p className={`mt-3 text-4xl sm:text-5xl ${balance >= 0 ? "text-[var(--navy)]" : "text-[var(--danger)]"}`}>
-                  <AnimatedMoney value={balance} />
-                </p>
-                <p className="mt-3 max-w-2xl text-base font-semibold leading-7 text-[var(--muted)]">
-                  Uma leitura consolidada de {monthName}, com recorrências, parcelamentos e metas no mesmo fluxo.
-                </p>
-                <div className="mt-5 flex flex-wrap gap-2 text-xs font-semibold">
-                  <span className="rounded-full bg-[var(--brand-soft)] px-3 py-1.5 text-[var(--brand-strong)] ring-1 ring-[rgba(16,185,129,0.16)]">
-                    Entradas <AnimatedMoney value={incomeTotal} />
-                  </span>
-                  <span className="rounded-full bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] px-3 py-1.5 text-[var(--danger)] ring-1 ring-[color-mix(in_srgb,var(--danger)_25%,transparent)]">
-                    Saídas <AnimatedMoney value={expenseTotal} />
-                  </span>
-                  {projectedBalance !== null ? (
-                    <span className="rounded-full bg-[var(--bg-soft)] px-3 py-1.5 text-[var(--muted-strong)] ring-1 ring-[var(--line)]">
-                      Previsão fim do mês <AnimatedMoney value={projectedBalance} />
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-              <div className="flex w-full flex-col gap-4 lg:w-[340px]">
-                <div className="flex flex-1 items-center gap-4 rounded-[22px] border border-[rgba(16,185,129,0.16)] bg-[var(--surface-muted)] p-6 shadow-[0_10px_24px_rgba(16,185,129,0.08)]">
-                  <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--brand-soft)] text-[var(--brand-strong)]">
-                    <ArrowLeftRight className="h-6 w-6" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="font-display text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">Lançamentos</p>
-                    <p className="font-display text-4xl font-bold leading-none text-[var(--navy)]">{monthlyTransactions.length}</p>
-                    <p className="mt-1.5 text-xs text-[var(--muted)]">Em {monthName}</p>
-                  </div>
-                </div>
-                <div className="flex flex-1 items-center gap-4 rounded-[22px] border border-[rgba(16,185,129,0.16)] bg-[var(--surface-muted)] p-6 shadow-[0_10px_24px_rgba(16,185,129,0.08)]">
-                  {topCategory ? (
-                    <CategoryIcon name={topCategory.name} box={56} size={26} />
-                  ) : (
-                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--bg-soft)] text-[var(--muted)]">--</span>
-                  )}
-                  <div className="min-w-0">
-                    <p className="font-display text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">Top categoria</p>
-                    <p className="truncate font-display text-2xl font-bold leading-tight text-[var(--navy)]">{topCategory ? topCategory.name : "--"}</p>
-                    <p className="mt-1.5 text-xs text-[var(--muted)]">{topCategory ? `${formatCurrency(topCategory.total)} no mês` : "Sem gastos ainda"}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </Surface>
+        {loading ? (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <Surface key={i}>
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="mt-2 h-7 w-28" />
+              </Surface>
+            ))}
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              label="Saldo do mês"
+              value={<Money value={balance} size="xl" tone={balance >= 0 ? "neutral" : "expense"} animate />}
+              detail={`${monthlyTransactions.length} lançamentos em ${monthName}`}
+            />
+            <StatCard label="Entradas" value={<Money value={incomeTotal} size="xl" tone="income" animate />} tone="success" />
+            <StatCard label="Saídas" value={<Money value={expenseTotal} size="xl" tone="expense" animate />} tone="danger" />
+            {projectedBalance !== null ? (
+              <StatCard label="Previsão fim do mês" value={<Money value={projectedBalance} size="xl" animate />} />
+            ) : (
+              <StatCard
+                label="Top categoria"
+                value={<span className="font-display text-xl font-semibold text-fg">{topCategory ? topCategory.name : "—"}</span>}
+                detail={topCategory ? `${formatCurrency(topCategory.total)} no mês` : "Sem gastos ainda"}
+              />
+            )}
+          </div>
+        )}
 
-        <section className="grid gap-5 sm:grid-cols-2">
+        <section className="grid gap-3 sm:grid-cols-2">
           <NewEntryButton
             label={
-              <span className="flex h-full flex-col items-start justify-center gap-2 text-left">
-                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--primary)] text-2xl text-[var(--on-primary)]">+</span>
-                <span className="font-display text-2xl font-bold">Novo lançamento</span>
-                <span className="text-sm font-semibold text-[var(--muted)]">Gasto, receita, fixo ou parcelado em um modal.</span>
+              <span className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[var(--primary)] text-xl text-[var(--on-primary)]">+</span>
+                <span className="text-left">
+                  <span className="block font-display text-base font-semibold">Novo lançamento</span>
+                  <span className="block text-sm font-normal text-fg-muted">Gasto, receita, fixo ou parcelado</span>
+                </span>
               </span>
             }
-            className="flex min-h-[150px] flex-col justify-center rounded-[22px] border border-[rgba(16,185,129,0.22)] bg-[var(--hero-gradient)] p-5 text-[var(--text)] shadow-[0_18px_38px_rgba(16,185,129,0.14)] ring-1 ring-[var(--line)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_42px_rgba(16,185,129,0.2)]"
+            className="glow-card flex items-center rounded-lg border border-line bg-surface p-4 text-fg"
           />
           <button
             type="button"
             onClick={() => router.push("/historico")}
-            className="flex min-h-[150px] flex-col justify-center rounded-[22px] border border-[var(--line)] bg-[var(--surface)] p-5 text-left shadow-[var(--shadow-soft)] transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-strong)]"
+            className="glow-card flex items-center gap-3 rounded-lg border border-line bg-surface p-4 text-left"
           >
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">Histórico</p>
-            <p className="mt-2 text-lg font-bold text-[var(--navy)]">Ver movimentações</p>
-            <p className="mt-1 text-sm text-[var(--muted)]">Lista limpa apenas com lançamentos ocorridos.</p>
+            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-bg-soft text-fg-muted">
+              <ArrowLeftRight className="h-[18px] w-[18px]" />
+            </span>
+            <span>
+              <span className="block font-display text-base font-semibold text-fg">Ver movimentações</span>
+              <span className="block text-sm font-normal text-fg-muted">Livro-razão do mês</span>
+            </span>
           </button>
         </section>
 
@@ -638,15 +636,15 @@ export default function DashboardPage() {
           <Surface>
             <SectionHeader title="Insights" eyebrow="Análise automática do mês" />
             {aiInsight ? (
-              <div className="anim-pop-in mb-3 flex items-start gap-3 rounded-2xl border border-[rgba(16,185,129,0.3)] bg-[var(--primary-soft)] px-4 py-3.5 shadow-[var(--glow)]">
+              <div className="anim-pop-in mb-3 flex items-start gap-3 rounded-md border border-primary/30 bg-primary-soft px-4 py-3.5">
                 <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-sm text-[var(--on-primary)]">
                   ✦
                 </span>
                 <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--mint)]">
+                  <p className="eyebrow">
                     ✦ Insight da IA
                   </p>
-                  <p className="mt-1 text-sm font-semibold leading-6 text-[var(--text)]">{aiInsight}</p>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-fg">{aiInsight}</p>
                 </div>
               </div>
             ) : null}
@@ -654,14 +652,14 @@ export default function DashboardPage() {
               {insights.map((ins, index) => {
                 const { Icon, color } = insightStyle[ins.tone];
                 return (
-                  <div key={index} className="flex items-start gap-3 rounded-2xl border border-[var(--line)] bg-[var(--bg-soft)] px-4 py-3">
+                  <div key={index} className="flex items-start gap-3 rounded-md border border-line bg-bg-soft px-4 py-3">
                     <span
                       className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
                       style={{ backgroundColor: `${color}1f`, color }}
                     >
                       <Icon className="h-4 w-4" />
                     </span>
-                    <p className="text-sm font-semibold leading-6 text-[var(--text)]">{ins.text}</p>
+                    <p className="text-sm font-semibold leading-6 text-fg">{ins.text}</p>
                   </div>
                 );
               })}
@@ -671,7 +669,7 @@ export default function DashboardPage() {
 
         <section className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
           <Surface className="min-w-0">
-            <SectionHeader title="Gastos por categoria" eyebrow="Distribuição" />
+            <SectionHeader title="Gastos por categoria" />
             <div className="h-[320px]">
               {loading || !chartsReady ? (
                 <SkeletonBlock className="h-full" />
@@ -691,11 +689,11 @@ export default function DashboardPage() {
                       <div className="mb-1 flex items-center justify-between gap-2 text-xs">
                         <span className="flex min-w-0 items-center gap-2">
                           <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-                          <span className="truncate font-bold text-[var(--navy)]">{item.name}</span>
+                          <span className="truncate font-semibold text-fg">{item.name}</span>
                         </span>
-                        <span className="shrink-0 font-semibold text-[var(--muted)]">{formatCurrency(item.total)} · {percent.toFixed(0)}%</span>
+                        <span className="shrink-0 font-semibold text-fg-muted">{formatCurrency(item.total)} · {percent.toFixed(0)}%</span>
                       </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-[var(--bg-soft)]">
+                      <div className="h-2 overflow-hidden rounded-full bg-bg-soft">
                         <div className="h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: color }} />
                       </div>
                     </div>
@@ -718,28 +716,28 @@ export default function DashboardPage() {
             </Surface>
 
             <Surface>
-              <SectionHeader title="Orçamento do mês" eyebrow="Limite de gastos" />
+              <SectionHeader
+                title="Orçamento do mês"
+                action={<button onClick={() => router.push("/perfil")} className="text-sm font-medium text-primary-strong">Ajustar</button>}
+              />
               {generalBudget ? (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="rounded-full bg-[var(--bg-soft)] px-3 py-1 text-xs font-bold text-[var(--navy)]">{budgetProgress.toFixed(0)}%</span>
-                    <button onClick={() => router.push("/planejamento-mensal")} className="text-sm font-bold text-[var(--brand-strong)]">Ajustar</button>
-                  </div>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-[var(--bg-soft)]">
+                  <span className="inline-flex rounded-full bg-bg-soft px-3 py-1 text-xs font-medium text-fg">{budgetProgress.toFixed(0)}% usado</span>
+                  <div className="h-2.5 overflow-hidden rounded-full bg-bg-soft">
                     <div className={`h-full ${budgetProgress >= 100 ? "bg-[var(--danger)]" : budgetProgress >= 80 ? "bg-[var(--warning)]" : "bg-[var(--brand)]"}`} style={{ width: `${budgetProgress}%` }} />
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-[var(--muted)]">Usado <span className="font-semibold text-[var(--navy)]">{formatCurrency(expenseTotal)}</span></span>
-                    <span className="text-[var(--muted)]">Resta <span className={`font-semibold ${budgetRemaining >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>{formatCurrency(budgetRemaining)}</span></span>
+                    <span className="text-fg-muted">Usado <span className="font-semibold text-fg">{formatCurrency(expenseTotal)}</span></span>
+                    <span className="text-fg-muted">Resta <span className={`font-semibold ${budgetRemaining >= 0 ? "text-income" : "text-expense"}`}>{formatCurrency(budgetRemaining)}</span></span>
                   </div>
                 </div>
               ) : (
-                <EmptyState title="Sem orçamento geral" description="Configure um limite mensal em planejamento." />
+                <EmptyState title="Sem limite definido" description="Defina um limite de gasto mensal na tela Conta." />
               )}
 
               {categoryBudgets.length > 0 ? (
-                <div className="mt-5 space-y-3 border-t border-[var(--line)] pt-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-soft)]">
+                <div className="mt-5 space-y-3 border-t border-line pt-4">
+                  <p className="eyebrow">
                     Por categoria
                   </p>
                   {categoryBudgets.slice(0, 5).map((item) => {
@@ -751,13 +749,13 @@ export default function DashboardPage() {
                         <div className="mb-1 flex items-center justify-between gap-2 text-xs">
                           <span className="flex min-w-0 items-center gap-2">
                             <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-                            <span className="truncate font-bold text-[var(--navy)]">{item.name}</span>
+                            <span className="truncate font-semibold text-fg">{item.name}</span>
                           </span>
-                          <span className={`shrink-0 font-semibold ${over ? "text-[var(--danger)]" : "text-[var(--muted)]"}`}>
+                          <span className={`shrink-0 font-semibold ${over ? "text-expense" : "text-fg-muted"}`}>
                             {formatCurrency(item.spent)} de {formatCurrency(item.limit)}
                           </span>
                         </div>
-                        <div className="h-2 overflow-hidden rounded-full bg-[var(--bg-soft)]">
+                        <div className="h-2 overflow-hidden rounded-full bg-bg-soft">
                           <div
                             className="h-full rounded-full"
                             style={{
@@ -777,7 +775,10 @@ export default function DashboardPage() {
         </section>
 
         <Surface>
-            <SectionHeader title="Últimos lançamentos" eyebrow="Transações recentes" />
+            <SectionHeader
+              title="Últimos lançamentos"
+              action={<button onClick={() => router.push("/historico")} className="text-sm font-medium text-primary-strong">Ver todos</button>}
+            />
             {loading ? (
               <SkeletonList rows={5} />
             ) : recentTransactions.length === 0 ? (
@@ -791,20 +792,20 @@ export default function DashboardPage() {
                       lastRealtimeArrival &&
                       item.id === lastRealtimeArrival.id &&
                       Date.now() - lastRealtimeArrival.at < 10_000
-                        ? "anim-flash-in -mx-2 rounded-xl px-2"
+                        ? "anim-flash-in -mx-2 rounded-md px-2"
                         : ""
                     }`}
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <CategoryIcon name={categoryName(item.categories, "")} box={34} size={15} />
                       <div className="min-w-0">
-                        <p className="truncate font-bold text-[var(--navy)]">{item.description}</p>
-                        <p className="mt-1 text-xs text-[var(--muted)]">
+                        <p className="truncate font-semibold text-fg">{item.description}</p>
+                        <p className="mt-1 text-xs text-fg-muted">
                           {formatDate(item.transaction_date)} - {categoryName(item.categories)}
                         </p>
                       </div>
                     </div>
-                    <p className={`shrink-0 text-sm font-semibold ${item.type === "income" ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+                    <p className={`shrink-0 text-sm font-semibold ${item.type === "income" ? "text-income" : "text-expense"}`}>
                       {item.type === "income" ? "+" : "-"}
                       {formatCurrency(Number(item.amount))}
                     </p>
@@ -814,54 +815,11 @@ export default function DashboardPage() {
             )}
         </Surface>
 
-        <section className="grid gap-5 xl:grid-cols-2">
-          <Surface className="min-w-0">
-            <SectionHeader
-              title="Gastos fixos ativos"
-              action={<button onClick={() => router.push("/gastos-fixos")} className="text-sm font-bold text-[var(--brand-strong)]">Ver todos</button>}
-            />
-            {fixedExpenses.length === 0 ? (
-              <EmptyState title="Sem gastos fixos" description="Cadastre despesas recorrentes para acompanhar melhor o mês." />
-            ) : (
-              <div className="space-y-2">
-                {fixedExpenses.slice(0, 4).map((item) => (
-                  <div key={item.id} className="flex items-center justify-between rounded-[16px] border border-[var(--line)] px-4 py-3">
-                    <div>
-                      <p className="font-bold text-[var(--navy)]">{item.title}</p>
-                      <p className="text-xs text-[var(--muted)]">Dia {item.due_day} - {categoryName(item.categories)}</p>
-                    </div>
-                    <p className="font-semibold text-[var(--navy)]">{formatCurrency(item.amount)}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Surface>
-
-          <Surface className="min-w-0">
-            <SectionHeader
-              title="Parcelamentos ativos"
-              action={<button onClick={() => router.push("/parcelamentos")} className="text-sm font-bold text-[var(--brand-strong)]">Ver todos</button>}
-            />
-            {installments.length === 0 ? (
-              <EmptyState title="Sem parcelamentos" description="Adicione compras parceladas para visualizar parcelas e progresso." />
-            ) : (
-              <div className="space-y-2">
-                {installments.slice(0, 4).map((item) => (
-                  <div key={item.id} className="rounded-[16px] border border-[var(--line)] px-4 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="font-bold text-[var(--navy)]">{item.title}</p>
-                      <p className="font-semibold text-[var(--navy)]">{formatCurrency(item.installment_amount)}</p>
-                    </div>
-                    <p className="mt-1 text-xs text-[var(--muted)]">{item.total_installments}x - início em {formatDate(item.start_date)}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Surface>
-        </section>
+        {/* "Gastos fixos ativos" e "Parcelamentos ativos" saíram daqui —
+            têm tela própria (Fixos, Parcelamentos) e duplicavam informação. */}
 
         <Surface>
-          <SectionHeader title="Evolução dos últimos meses" eyebrow="Receitas x despesas no tempo" />
+          <SectionHeader title="Evolução dos últimos meses" />
           <div className="h-[300px]">
             {chartsReady ? (
               <MonthlyBars data={monthlySeries} />

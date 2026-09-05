@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 // Cores da paleta curada do Brand Book v1.3 (lib/category-palette.ts)
 const DEFAULT_CATEGORIES = [
@@ -29,6 +30,9 @@ export async function POST() {
   if (userError || !user) {
     return NextResponse.json({ error: "Usuário não autenticado." }, { status: 401 });
   }
+
+  const limited = await enforceRateLimit("ensure", user.id);
+  if (limited) return limited;
 
   const { data: existing, error: listError } = await supabase
     .from("categories")

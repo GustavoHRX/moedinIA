@@ -68,31 +68,31 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       {mounted && options
         ? createPortal(
             <div
-              className="anim-modal-backdrop fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
+              className="anim-modal-backdrop fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm"
               onClick={() => close(false)}
             >
               <div
-                className="anim-modal-card w-full max-w-md rounded-[24px] border border-[var(--line)] bg-[var(--surface-strong)] p-6 shadow-[0_28px_70px_rgba(9,42,32,0.28)]"
+                className="anim-modal-card w-full max-w-md rounded-lg border border-line bg-surface-strong p-6 shadow-modal"
                 onClick={(e) => e.stopPropagation()}
                 role="alertdialog"
                 aria-modal="true"
               >
-                <h2 className="font-display text-xl font-bold text-[var(--navy)]">
+                <h2 className="font-display text-xl font-semibold text-fg">
                   {options.title ?? "Confirmar ação"}
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{options.message}</p>
+                <p className="mt-2 text-sm leading-6 text-fg-muted">{options.message}</p>
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
                   <button
                     type="button"
                     onClick={() => close(false)}
-                    className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-5 py-3 font-semibold text-[var(--text)] transition hover:bg-[var(--bg-soft)]"
+                    className="rounded-md border border-line bg-surface px-5 py-3 font-semibold text-fg transition hover:bg-bg-soft"
                   >
                     {options.cancelLabel ?? "Cancelar"}
                   </button>
                   <button
                     type="button"
                     onClick={() => close(true)}
-                    className={`rounded-2xl px-5 py-3 font-display font-semibold transition ${confirmClass}`}
+                    className={`rounded-md px-5 py-3 font-display font-semibold transition ${confirmClass}`}
                   >
                     {options.confirmLabel ?? "Confirmar"}
                   </button>

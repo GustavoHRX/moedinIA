@@ -1,109 +1,281 @@
 @import "tailwindcss";
 
 /*
- * Design tokens — Brand Book Moedin.IA v1.3 (pág. 12).
- * Dark é o tema padrão (:root); o claro é derivado da mesma paleta.
- * Nomes legados (--brand, --line, --muted…) são mantidos como aliases
- * para não quebrar componentes existentes.
+ * ============================================================================
+ * FUNDAÇÃO VISUAL — Moedin.IA
+ * ============================================================================
+ * Princípio (docs/design/hominhos/design-philosophy.md): "contenção meticulosa
+ * — um ou dois atributos, jamais três". Cada elemento pode ter no máximo DOIS
+ * de: borda, preenchimento, sombra, brilho, peso forte. A interface é desenhada
+ * como os bonequinhos: traço único de espessura constante, uma cor só.
+ *
+ * ESTRUTURA DESTE FICHEIRO
+ *   1. :root            — tokens crus (o único sítio onde existe uma cor literal)
+ *   2. [data-theme=…]   — o tema claro sobrepõe só o que muda
+ *   3. @theme inline    — mapeia o que VARIA com o tema (cores, sombras)
+ *   4. @theme           — o que é ESTÁTICO (raio, peso, fontes, container)
+ *
+ * PORQUÊ @theme inline PARA AS CORES: o `inline` compila a utility para
+ * `var(--surface)` resolvido no elemento que a consome. Com @theme normal, o
+ * valor seria capturado no :root e a troca claro/escuro partia-se assim que um
+ * tema fosse aplicado a um sub-ramo em vez do <html>.
+ *
+ * CUIDADO — NAMESPACES RESERVADOS DO TAILWIND v4: --color-*, --radius-*,
+ * --text-*, --font-*, --shadow-*, --font-weight-*. Tokens crus NUNCA usam
+ * esses prefixos, senão o Tailwind gera utilities corrompidas sem dar erro.
+ * (Era o caso de --radius-sm, --text-muted e --text-soft nesta app.)
+ * ============================================================================
  */
 :root {
   color-scheme: dark;
 
-  /* Tokens oficiais do book */
+  /* --- Superfícies. Elevação = degrau de luminosidade, nunca borrão. ------ */
+  --bg: #0c1210;
+  --bg-soft: #121a16;
+  --surface: #161f1a;
+  --surface-strong: #1b241f;
+  --surface-glass: rgb(18 26 22 / 0.72);  /* rail expandido / overlays — vidro fosco */
+  --line: #24322b;
+  --line-strong: #2e4037;
+
+  /* --- Texto ------------------------------------------------------------- */
+  --fg: #f2f6f4;
+  --fg-muted: #9fb0a8;
+  --fg-soft: #6b7c74;
+
+  /* --- Marca ------------------------------------------------------------- */
   --primary: #10b981;
   --primary-hover: #34d399;
+  --primary-strong: #34d399;
   --primary-soft: #0f2e22;
+  --on-primary: #06130d;
   --accent: #14b8a6;
   --mint: #6ee7b7;
-  --text-muted: #b7c4be;
-  --text-soft: #5a6b63;
-  --income: #34d399;
-  --expense: #f87171;
-  --info: #60a5fa;
-  --on-primary: #06130d;
-  --radius-sm: 12px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
-  --gradient: linear-gradient(135deg, #10b981, #14b8a6);
-  --glow: 0 0 40px rgba(16, 185, 129, 0.25);
 
-  /* Movimento (pág. 08) */
+  /* --- Estado ------------------------------------------------------------ */
+  --success: #34d399;
+  --danger: #f87171;
+  --warning: #fbbf24;
+  --info: #60a5fa;
+  --ring: rgb(52 211 153 / 0.32);
+
+  /* --- Séries de gráfico (um nome por série, não hex espalhado) ----------- */
+  --chart-1: #10b981;
+  --chart-2: #14b8a6;
+  --chart-3: #6ee7b7;
+  --chart-4: #fbbf24;
+  --chart-5: #60a5fa;
+  --chart-6: #f87171;
+
+  /* --- Elevação: DUAS. Mais nada no ecrã pode ter sombra. ---------------- */
+  --elev-pop: 0 4px 12px rgb(0 0 0 / 0.24);
+  --elev-modal: 0 24px 60px rgb(0 0 0 / 0.55);
+
+  /* --- Movimento (book pág. 08) ------------------------------------------ */
   --dur-fast: 150ms;
   --dur-base: 250ms;
   --dur-slow: 450ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  /* Base dark (site) */
-  --bg: #0c1210;
-  --bg-soft: #141c18;
-  --bg-accent: #0f2e22;
-  --surface: rgba(20, 28, 24, 0.88);
-  --surface-strong: #141c18;
-  --surface-muted: rgba(24, 36, 32, 0.72);
-  --card: rgba(20, 28, 24, 0.94);
-  --text: #f2f6f4;
-  --muted: #b7c4be;
-  --muted-strong: #dce5e0;
-  --line: #24322b;
-  --line-strong: #2e4037;
-  --brand: #10b981;
-  --brand-strong: #34d399;
-  --brand-soft: #0f2e22;
-  --brand-glow: rgba(16, 185, 129, 0.25);
-  --navy: #f2f6f4;
-  --success: #34d399;
-  --danger: #f87171;
-  --warning: #fbbf24;
-  --ring: rgba(52, 211, 153, 0.32);
-  --shadow-soft: 0 18px 44px rgba(0, 0, 0, 0.28);
-  --shadow-strong: 0 32px 88px rgba(0, 0, 0, 0.42);
-  --shadow-glow: 0 0 40px rgba(16, 185, 129, 0.25);
+  /* --- Fontes ------------------------------------------------------------ */
   --font-body: var(--font-inter), Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-heading: var(--font-poppins), Poppins, var(--font-body);
   --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --brand-gradient: linear-gradient(135deg, #10b981, #14b8a6);
-  --hero-gradient: linear-gradient(135deg, rgba(20, 28, 24, 0.96), rgba(15, 46, 34, 0.9));
-  --shell-gradient:
-    radial-gradient(circle at 12% 0%, rgba(16, 185, 129, 0.14), transparent 34rem),
-    radial-gradient(circle at 85% 12%, rgba(20, 184, 166, 0.08), transparent 28rem),
-    linear-gradient(135deg, #0c1210 0%, #0e1512 55%, #0a120e 100%);
+
+  /* --- O ÚNICO brilho decorativo, uma vez por página (no PageHeader) ------ */
+  --hero-glow: radial-gradient(circle at 78% 12%, rgb(16 185 129 / 0.14), transparent 26rem);
+  --gradient: linear-gradient(135deg, #10b981, #14b8a6);
+
+  /* Fundo da página: plano. Sem halos verdes por trás de cada card. */
+  --shell-gradient: linear-gradient(180deg, #0c1210 0%, #0a100e 100%);
+
+  /* ---------------------------------------------------------------------- *
+   * ALIASES LEGADOS — a apagar no fim da migração (Fase 1, passo final).
+   * Existem só para a app continuar a funcionar enquanto as páginas ainda
+   * não foram convertidas. Não usar em código novo.
+   * ---------------------------------------------------------------------- */
+  --text: var(--fg);
+  --navy: var(--fg);
+  --muted: var(--fg-muted);
+  --text-muted: var(--fg-muted);
+  --muted-strong: var(--fg);
+  --text-soft: var(--fg-soft);
+  --brand: var(--primary);
+  --brand-strong: var(--primary-strong);
+  --brand-soft: var(--primary-soft);
+  --bg-accent: var(--primary-soft);
+  --card: var(--surface);
+  --surface-muted: var(--bg-soft);
+  --income: var(--success);
+  --expense: var(--danger);
+  --brand-gradient: var(--gradient);
+  --hero-gradient: var(--surface);
+  --brand-glow: rgb(16 185 129 / 0.20);
+  --glow: none;
+  --shadow-glow: none;
+  --shadow-soft: none;
+  --shadow-strong: var(--elev-pop);
 }
 
 [data-theme="light"] {
   color-scheme: light;
-  --bg: #f2f6f4;
-  --bg-soft: #f7faf8;
-  --bg-accent: #e3f5ec;
-  --surface: rgba(255, 255, 255, 0.92);
-  --surface-strong: #ffffff;
-  --surface-muted: rgba(255, 255, 255, 0.72);
-  --card: rgba(255, 255, 255, 0.96);
-  --text: #10231c;
-  --muted: #5a6b63;
-  --muted-strong: #33443c;
-  --line: rgba(16, 35, 28, 0.12);
-  --line-strong: rgba(16, 35, 28, 0.18);
-  --brand: #10b981;
-  --brand-strong: #0e9f70;
-  --brand-soft: #e3f5ec;
-  --brand-glow: rgba(16, 185, 129, 0.22);
-  --navy: #10231c;
-  --success: #0e9f70;
-  --danger: #ef4444;
-  --warning: #d97706;
-  --info: #2563eb;
+
+  /* Escada de luminosidade espelhada do escuro: no escuro sobe (bg → surface),
+     no claro desce (bg → surface). Sem isto, --bg-soft e --surface eram ambos
+     branco e os tiles "muted" desapareciam dentro dos cards. */
+  --bg: #eef2f0;
+  --bg-soft: #f5f8f6;
+  --surface: #ffffff;
+  --surface-strong: #f7faf8;
+  --surface-glass: rgb(255 255 255 / 0.78);
+  --line: rgb(16 35 28 / 0.10);
+  --line-strong: rgb(16 35 28 / 0.18);
+
+  --fg: #10231c;
+  --fg-muted: #5a6b63;
+  --fg-soft: #8b9a92;
+
+  --primary-hover: #0e9f70;
+  --primary-strong: #0e9f70;
   --primary-soft: #e3f5ec;
-  --text-muted: #5a6b63;
-  --text-soft: #7d8d85;
-  --ring: rgba(16, 185, 129, 0.24);
-  --shadow-soft: 0 18px 44px rgba(16, 35, 28, 0.08);
-  --shadow-strong: 0 30px 80px rgba(16, 35, 28, 0.16);
-  --shadow-glow: 0 22px 54px rgba(16, 185, 129, 0.18);
-  --hero-gradient: linear-gradient(135deg, #ffffff 0%, #eefaf4 58%, #ddf3e8 100%);
-  --shell-gradient:
-    radial-gradient(circle at 12% 0%, rgba(16, 185, 129, 0.12), transparent 34rem),
-    linear-gradient(135deg, #fbfdfc 0%, #f2f6f4 50%, #e9f1ec 100%);
+
+  --success: #0e9f70;
+  --danger: #dc2626;
+  --warning: #b45309;
+  --info: #2563eb;
+  --ring: rgb(16 185 129 / 0.24);
+
+  --chart-1: #0e9f70;
+  --chart-2: #0d9488;
+  --chart-3: #34d399;
+  --chart-4: #b45309;
+  --chart-5: #2563eb;
+  --chart-6: #dc2626;
+
+  --elev-pop: 0 4px 12px rgb(16 35 28 / 0.08);
+  --elev-modal: 0 24px 60px rgb(16 35 28 / 0.18);
+
+  --hero-glow: radial-gradient(circle at 78% 12%, rgb(16 185 129 / 0.10), transparent 26rem);
+  --shell-gradient: linear-gradient(180deg, #eef2f0 0%, #e7ede9 100%);
+
+  /* aliases legados que precisam de valor próprio no claro */
+  --brand-glow: rgb(16 185 129 / 0.18);
+  --shadow-strong: var(--elev-pop);
+}
+
+/* ============================================================================
+ * 3. O QUE VARIA COM O TEMA  →  @theme inline
+ * ==========================================================================*/
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-soft: var(--bg-soft);
+  --color-surface: var(--surface);
+  --color-surface-strong: var(--surface-strong);
+  --color-surface-glass: var(--surface-glass);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-soft: var(--fg-soft);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-strong: var(--primary-strong);
+  --color-primary-soft: var(--primary-soft);
+  --color-on-primary: var(--on-primary);
+  --color-accent: var(--accent);
+  --color-mint: var(--mint);
+
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-ring: var(--ring);
+
+  /* Direção do dinheiro — lê melhor que success/danger num livro-razão */
+  --color-income: var(--success);
+  --color-expense: var(--danger);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+
+  /* Sombra: exatamente duas (mais a shadow-none embutida). */
+  --shadow-pop: var(--elev-pop);
+  --shadow-modal: var(--elev-modal);
+}
+
+/* ============================================================================
+ * 4. O QUE É ESTÁTICO  →  @theme
+ * ==========================================================================*/
+@theme {
+  /* --- Raio: 3 passos (eram 10 tamanhos, 3 com grafia dupla) ------------- *
+   * NOTA: estes nomes SOBREPÕEM os do Tailwind (--radius-sm era 4px).
+   * .control/.btn-* usam var(--radius-sm) e passam a ler 10px daqui.        */
+  --radius-sm: 10px;   /* input, chip, botão pequeno   → rounded-sm  */
+  --radius-md: 14px;   /* botão, linha de lista, ícone → rounded-md  */
+  --radius-lg: 20px;   /* card, modal, PageHeader      → rounded-lg  */
+
+  /* --- Peso: 3, e só 3. O 700 deixa de existir na app. ------------------ *
+   * 291 de 307 usos eram 600/700 — quando tudo é forte, nada se destaca.   */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  /* --- Tamanhos: base 16px MANTIDA (densidade meio-termo). --------------- *
+   * Só o topo da escala encolhe — os títulos gigantes e os números de 48-60px
+   * eram o "tudo muito grande". xs/sm/base/lg ficam nos valores do Tailwind. */
+  --text-xl: 1.1875rem;   /* 19px — era 20 */
+  --text-2xl: 1.375rem;   /* 22px — era 24 */
+  --text-2xl--letter-spacing: -0.01em;
+  --text-3xl: 1.75rem;    /* 28px — era 30 */
+  --text-3xl--letter-spacing: -0.015em;
+  --text-4xl: 2rem;       /* 32px — era 36. O teto na área do painel. */
+  --text-4xl--letter-spacing: -0.02em;
+
+  /* --- Famílias --------------------------------------------------------- */
+  --font-sans: var(--font-body);
+  --font-display: var(--font-heading);
+  --font-mono: var(--font-mono);
+
+  /* --- Largura do conteúdo: 1720 → 1280. -------------------------------- *
+   * A largura antiga espalhava 4 números por 1720px, o que lê como esparso
+   * e desorganizado ao mesmo tempo.                                        */
+  --container-app: 80rem;
+}
+
+/* Neon da marca: card que "acende" no hover (dashboard + cards clicáveis).
+   Fora do hover é só a linha — mantém o resto do painel calmo. */
+@utility glow-card {
+  transition:
+    transform var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .glow-card:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--primary) 45%, var(--line));
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--primary) 30%, transparent),
+      0 14px 40px -12px color-mix(in srgb, var(--primary) 40%, transparent);
+  }
+}
+
+/* Um rótulo, um papel. Substitui os 3 valores de tracking diferentes
+   (0.12em / 0.14em / 0.16em) e as variantes sem tracking nenhum. */
+@utility eyebrow {
+  font-family: var(--font-heading);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
 }
 
 html,
@@ -153,17 +325,18 @@ h2,
 h3,
 h4 {
   font-family: var(--font-heading);
+  font-weight: 600; /* nunca 700 — ver escala de pesos no @theme */
   letter-spacing: 0;
 }
 
-.font-display {
-  font-family: var(--font-heading);
-}
+/* NOTA: `.font-display` NÃO é declarada aqui. O @theme acima define
+   --font-display, e o Tailwind gera a utility `font-display` sozinho.
+   Declarar as duas criava definições concorrentes para o mesmo nome. */
 
-/* Valores em R$ — JetBrains Mono (book pág. 05) */
+/* Valores em R$ — JetBrains Mono (book pág. 05).
+   Mantida para o <Money>/<AnimatedMoney>; equivale a `font-mono tabular-nums`. */
 .money {
   font-family: var(--font-mono);
-  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -200,46 +373,49 @@ input[type="datetime-local"] {
   box-shadow: 0 0 0 4px var(--ring);
 }
 
-/* Botão primário: verde chapado + texto escuro (contraste AAA, book pág. 11-12) */
+/* Botão primário: verde chapado + texto escuro (contraste AAA, book pág. 11-12).
+   Sem sombra: o verde já é o destaque. Um atributo, não dois. */
 .btn-primary {
-  border-radius: var(--radius-sm);
+  /* borda transparente de 1px: mesma caixa que .btn-secondary (que tem borda),
+     senão os dois botões lado a lado ficam com 2px de diferença de altura. */
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   background: var(--primary);
   color: var(--on-primary);
-  font-weight: 600;
-  box-shadow: 0 10px 28px var(--brand-glow);
-  transition: background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+  font-weight: 500;
+  /* NÃO transicionar `transform` aqui: na landing o GSAP anima a entrada com
+     transform e um transition CSS em cima trava o botão a meio. */
+  transition: background var(--dur-fast) var(--ease-out);
 }
 
 .btn-primary:hover {
   background: var(--primary-hover);
-  box-shadow: var(--shadow-glow);
-  transform: translateY(-1px);
 }
 
 .btn-primary:active {
   transform: translateY(1px);
 }
 
+/* Secundário: só a linha. Antes carregava um borrão de 44px — em todos os
+   botões secundários do ecrã ao mesmo tempo. */
 .btn-secondary {
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--surface);
-  color: var(--text);
-  font-weight: 600;
-  box-shadow: var(--shadow-soft);
-  transition: border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+  color: var(--fg);
+  font-weight: 500;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
 
 .btn-secondary:hover {
-  border-color: color-mix(in srgb, var(--brand) 42%, var(--line));
+  border-color: var(--line-strong);
   background: var(--surface-strong);
-  transform: translateY(-1px);
 }
 
 .alert-info {
-  border: 1px solid color-mix(in srgb, var(--brand) 32%, var(--line));
-  background: var(--brand-soft);
-  color: var(--brand-strong);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--line));
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--primary-strong);
 }
 
 .alert-error {
@@ -461,6 +637,118 @@ input[type="datetime-local"] {
 }
 .coin-float {
   animation: float-soft 7s ease-in-out infinite;
+}
+
+/* ---- Toque descontraído (landing) — micro-humor visual, sempre com propósito ---- */
+
+/* Balancinho: chama atenção sem irritar (ícones, selos) */
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+.anim-wiggle-hover:hover,
+.hover-lift:hover .anim-wiggle-hover {
+  animation: wiggle 480ms var(--ease-spring);
+}
+
+/* Flutua devagar (mascotes, selo "mais popular") */
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.anim-bob {
+  animation: bob 3.4s ease-in-out infinite;
+}
+
+/* Brilhinho girando (Sparkles ao lado do título) */
+@keyframes sparkle-spin {
+  0% {
+    transform: rotate(0) scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: rotate(90deg) scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(180deg) scale(1);
+    opacity: 0.7;
+  }
+}
+.anim-sparkle {
+  animation: sparkle-spin 4.2s var(--ease-out) infinite;
+}
+
+/* Card que levanta a mãozinha quando o mouse passa (só na landing).
+   A elevação é feita pela linha e por um degrau de fundo, não por borrão. */
+.hover-lift {
+  transition: transform var(--dur-base) var(--ease-spring),
+    border-color var(--dur-base) var(--ease-out),
+    background-color var(--dur-base) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .hover-lift:hover {
+    transform: translateY(-4px);
+    border-color: var(--line-strong);
+    background-color: var(--surface-strong);
+  }
+}
+
+/* ---- Rail lateral do painel (estilo Instagram web): ícones recolhidos, abre no hover ---- */
+
+/* A largura anima só neste elemento fixo (nada reflui na página — o conteúdo
+   usa padding fixo e o rail expandido passa por cima). Curva e duração dos
+   tokens do book. prefers-reduced-motion (bloco no fim) troca por corte seco. */
+.rail {
+  transition: width var(--dur-base) var(--ease-out);
+}
+
+/* Rótulos: entram junto com a expansão, com leve deslize + fade e stagger.
+   Fora do hover ficam invisíveis E o rail os corta (overflow-hidden). */
+.rail-label {
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+  white-space: nowrap;
+}
+.rail:hover .rail-label,
+.rail:focus-within .rail-label {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Marca: símbolo sozinho quando recolhido, logo completa quando abre */
+.rail-symbol {
+  opacity: 1;
+  transition: opacity 160ms var(--ease-out);
+}
+.rail:hover .rail-symbol,
+.rail:focus-within .rail-symbol {
+  opacity: 0;
+}
+
+.rail-icon {
+  transition: transform 140ms var(--ease-out), background-color 140ms var(--ease-out),
+    color 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .rail-item:hover .rail-icon {
+    transform: scale(1.08);
+  }
+  .rail-item:active .rail-icon {
+    transform: scale(0.96);
+  }
 }
 
 /* Skeleton de carregamento da landing: cobre a tela e some suave */

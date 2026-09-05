@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Bell, CalendarClock, TriangleAlert, X } from "lucide-react";
 import { useAppData } from "@/components/app-data-provider";
 import { createClient } from "@/lib/supabase/client";
 import { addMonthsClamped, currentMonthRef, todayDateInput } from "@/lib/dates";
-import { formatCurrency, formatDate } from "@/lib/formatters";
+import { formatCurrency } from "@/lib/formatters";
 import { categoryName, type CategoryRelation } from "@/lib/categories";
 
 const DUE_SOON_DAYS = 5;
@@ -83,6 +84,19 @@ export default function NotificationBell({
   const { user, financialVersion } = useAppData();
   const [open, setOpen] = useState(false);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+
+  // Container do portal criado no cliente e anexado ao <body> — padrão à prova
+  // de SSR. O rail e o header têm backdrop-filter, que recorta descendentes
+  // position:fixed; o portal escapa disso.
+  const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    setPortalEl(el);
+    return () => {
+      document.body.removeChild(el);
+    };
+  }, []);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -195,7 +209,7 @@ export default function NotificationBell({
           pct >= 100
             ? `Estourou o limite: ${formatCurrency(spent)} de ${formatCurrency(amount)}`
             : `Perto do limite: ${formatCurrency(spent)} de ${formatCurrency(amount)} (${pct.toFixed(0)}%)`,
-        href: "/planejamento-mensal",
+        href: "/perfil",
       });
     }
 
@@ -218,11 +232,10 @@ export default function NotificationBell({
   }
 
   return (
-    <div
-      className="relative"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
+    <div className="relative">
+      {/* Clique para abrir — não hover: a partir do rail lateral (que também é
+          hover) havia espaço morto entre o sino e o painel, e o mouseleave
+          fechava antes de o rato lá chegar. */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -233,56 +246,57 @@ export default function NotificationBell({
         <span className="relative inline-flex">
           <Bell className="h-4 w-4" />
           {alerts.length > 0 ? (
-            <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[var(--danger)] px-1 text-[9px] font-bold text-white">
+            <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-danger px-1 text-[9px] font-semibold text-white">
               {alerts.length > 9 ? "9+" : alerts.length}
             </span>
           ) : null}
         </span>
       </button>
 
-      {open ? (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 z-40"
-            aria-label="Fechar avisos"
-            onClick={() => setOpen(false)}
-          />
-          <div
-            className={`fixed left-1/2 top-[72px] z-50 w-[calc(100vw-1.5rem)] max-w-[360px] -translate-x-1/2 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-3 shadow-[var(--shadow-strong)] sm:absolute sm:left-auto sm:top-auto sm:w-[320px] sm:max-w-[calc(100vw-2rem)] sm:translate-x-0 ${
-              openUpward ? "sm:bottom-full sm:left-0 sm:mb-2" : "sm:right-0 sm:top-full sm:mt-2"
-            }`}
-          >
-            <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
-              Avisos
-            </p>
+      {open && portalEl
+        ? createPortal(
+            <>
+              {/* Portal para o <body>: o rail e o header têm backdrop-filter,
+                  que cria bloco de contenção e recortava o painel fixo. */}
+              <button
+                type="button"
+                className="fixed inset-0 z-[90]"
+                aria-label="Fechar avisos"
+                onClick={() => setOpen(false)}
+              />
+              <div
+                className={`fixed z-[91] w-[calc(100vw-1.5rem)] max-w-[320px] rounded-lg border border-line bg-surface p-3 shadow-pop ${
+                  openUpward
+                    ? "bottom-4 left-3 sm:left-[236px]"
+                    : "left-1/2 top-[68px] -translate-x-1/2 sm:left-auto sm:right-4 sm:translate-x-0"
+                }`}
+              >
+            <p className="eyebrow px-1 pb-2">Avisos</p>
             {alerts.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-[var(--line)] px-3 py-4 text-center text-sm text-[var(--muted)]">
+              <p className="rounded-md border border-dashed border-line px-3 py-4 text-center text-sm text-fg-muted">
                 Nada pendente por aqui.
               </p>
             ) : (
               <div className="max-h-[360px] space-y-2 overflow-y-auto">
                 {alerts.map((alert) => {
-                  const Icon = alert.title.includes("Orçamento") || alert.href === "/planejamento-mensal" ? TriangleAlert : CalendarClock;
+                  const Icon = alert.title.includes("Orçamento") || alert.href === "/perfil" ? TriangleAlert : CalendarClock;
                   return (
                     <div key={alert.id} className="relative">
                       <Link
                         href={alert.href}
                         onClick={() => setOpen(false)}
-                        className="flex items-start gap-2.5 rounded-xl border border-[var(--line)] bg-[var(--bg-soft)] py-2.5 pl-3 pr-8 transition hover:border-[var(--brand)]"
+                        className="flex items-start gap-2.5 rounded-md border border-line bg-bg-soft py-2.5 pl-3 pr-8 transition hover:border-primary"
                       >
                         <span
                           className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                            alert.tone === "danger"
-                              ? "bg-[color-mix(in_srgb,var(--danger)_15%,transparent)] text-[var(--danger)]"
-                              : "bg-[color-mix(in_srgb,var(--warning)_16%,transparent)] text-[var(--warning)]"
+                            alert.tone === "danger" ? "bg-danger/10 text-expense" : "bg-warning/10 text-warning"
                           }`}
                         >
                           <Icon className="h-3.5 w-3.5" />
                         </span>
                         <span className="min-w-0">
-                          <span className="block truncate text-sm font-bold text-[var(--navy)]">{alert.title}</span>
-                          <span className="block text-xs text-[var(--muted)]">{alert.detail}</span>
+                          <span className="block truncate text-sm font-medium text-fg">{alert.title}</span>
+                          <span className="block text-xs text-fg-muted">{alert.detail}</span>
                         </span>
                       </Link>
                       <button
@@ -293,7 +307,7 @@ export default function NotificationBell({
                           dismiss(alert.id);
                         }}
                         aria-label={`Apagar aviso: ${alert.title}`}
-                        className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full text-[var(--muted)] transition hover:bg-[var(--surface-strong)] hover:text-[var(--text)]"
+                        className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full text-fg-muted transition hover:bg-surface-strong hover:text-fg"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -302,9 +316,11 @@ export default function NotificationBell({
                 })}
               </div>
             )}
-          </div>
-        </>
-      ) : null}
+              </div>
+            </>,
+            portalEl
+          )
+        : null}
     </div>
   );
 }

@@ -47,5 +47,7 @@ export function AnimatedMoney({
     };
   }, [value]);
 
-  return <span className={`money tabular-nums ${className}`}>{formatCurrency(display)}</span>;
+  // A classe vem do <Money>, que é a fonte única de tamanho/tom.
+  // Aqui só se garante a fonte mono caso seja usado directamente.
+  return <span className={className.includes("money") ? className : `money ${className}`}>{formatCurrency(display)}</span>;
 }

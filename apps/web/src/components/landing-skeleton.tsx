@@ -44,7 +44,7 @@ export default function LandingSkeleton() {
 
   if (removed) return null;
 
-  const bar = "skeleton-shimmer rounded-lg";
+  const bar = "skeleton-shimmer rounded-md";
 
   return (
     <div

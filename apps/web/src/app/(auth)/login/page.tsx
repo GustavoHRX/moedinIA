@@ -8,6 +8,13 @@ import AuthShell from "@/components/auth-shell";
 import GoogleSignInButton from "@/components/google-signin-button";
 import { createClient } from "@/lib/supabase/client";
 import { translateAuthError } from "@/lib/auth-errors";
+import {
+  EMAIL_MAX,
+  PASSWORD_MAX,
+  firstError,
+  validateEmail,
+  validateLoginPassword,
+} from "@/lib/auth-validation";
 
 export default function LoginPage() {
   const supabase = createClient();
@@ -22,8 +29,17 @@ export default function LoginPage() {
     e.preventDefault();
     if (loading) return;
 
-    setLoading(true);
     setMessage("");
+    const validationError = firstError(
+      validateEmail(email),
+      validateLoginPassword(password),
+    );
+    if (validationError) {
+      setMessage(validationError);
+      return;
+    }
+
+    setLoading(true);
 
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -64,14 +80,14 @@ export default function LoginPage() {
         <span className="h-px flex-1 bg-[var(--line)]" />
       </div>
 
-      <form onSubmit={handleLogin} className="space-y-4">
+      <form onSubmit={handleLogin} className="space-y-4" noValidate>
         <div>
-          <label className="mb-2 block text-sm font-semibold text-[var(--text)]">E-mail</label>
-          <input className="control" type="email" placeholder="email@dominio.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <label htmlFor="login-email" className="mb-2 block text-sm font-semibold text-[var(--text)]">E-mail</label>
+          <input id="login-email" name="email" className="control" type="email" autoComplete="email" required maxLength={EMAIL_MAX} placeholder="email@dominio.com" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <div>
-          <label className="mb-2 block text-sm font-semibold text-[var(--text)]">Senha</label>
-          <input className="control" type="password" placeholder="********" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <label htmlFor="login-senha" className="mb-2 block text-sm font-semibold text-[var(--text)]">Senha</label>
+          <input id="login-senha" name="current-password" className="control" type="password" autoComplete="current-password" required maxLength={PASSWORD_MAX} placeholder="Sua senha" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
         <div className="flex justify-end">
           <Link href="/recuperar-senha" className="text-sm font-bold text-[var(--brand)] hover:text-[var(--brand-strong)]">

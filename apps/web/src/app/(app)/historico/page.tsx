@@ -418,7 +418,7 @@ export default function HistoricoPage() {
               type="button"
               onClick={handleExportCsv}
               disabled={filteredTransactions.length === 0}
-              className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-5 py-3 text-sm font-semibold text-[var(--navy)] transition hover:border-[var(--brand)] disabled:opacity-50"
+              className="rounded-md border border-line bg-surface-strong px-5 py-3 text-sm font-semibold text-fg transition hover:border-primary disabled:opacity-50"
             >
               Exportar CSV
             </button>
@@ -444,22 +444,22 @@ export default function HistoricoPage() {
         />
 
         <div className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
-          <Surface className="min-w-0 bg-[var(--hero-gradient)]">
+          <Surface className="min-w-0 bg-surface">
             <div className="divide-y divide-[var(--line)]">
               <div className="flex items-center justify-between gap-3 pb-3">
                 <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase text-[var(--muted)]">Saídas (filtro)</p>
-                  <p className="text-[11px] text-[var(--muted)]">Total de gastos no filtro atual</p>
+                  <p className="text-xs font-semibold uppercase text-fg-muted">Saídas (filtro)</p>
+                  <p className="text-[11px] text-fg-muted">Total de gastos no filtro atual</p>
                 </div>
-                <p className="shrink-0 text-xl font-semibold leading-tight tracking-tight text-[var(--navy)] tabular-nums">{formatCurrency(filteredExpenses)}</p>
+                <p className="shrink-0 text-xl font-semibold leading-tight tracking-tight text-fg tabular-nums">{formatCurrency(filteredExpenses)}</p>
               </div>
               <div className="flex items-center justify-between gap-3 py-3">
-                <p className="text-xs font-bold uppercase text-[var(--muted)]">Entradas</p>
-                <p className="shrink-0 text-xl font-semibold leading-tight tracking-tight text-[var(--success)] tabular-nums">{formatCurrency(filteredIncome)}</p>
+                <p className="text-xs font-semibold uppercase text-fg-muted">Entradas</p>
+                <p className="shrink-0 text-xl font-semibold leading-tight tracking-tight text-income tabular-nums">{formatCurrency(filteredIncome)}</p>
               </div>
               <div className="flex items-center justify-between gap-3 pt-3">
-                <p className="text-xs font-bold uppercase text-[var(--muted)]">Saldo filtrado</p>
-                <p className={`shrink-0 text-xl font-semibold leading-tight tracking-tight tabular-nums ${filteredBalance >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+                <p className="text-xs font-semibold uppercase text-fg-muted">Saldo filtrado</p>
+                <p className={`shrink-0 text-xl font-semibold leading-tight tracking-tight tabular-nums ${filteredBalance >= 0 ? "text-income" : "text-expense"}`}>
                   {formatCurrency(filteredBalance)}
                 </p>
               </div>
@@ -470,7 +470,7 @@ export default function HistoricoPage() {
             <SectionHeader
               title="Filtros"
               action={
-                <button onClick={clearFilters} className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm font-bold text-[var(--navy)]">
+                <button onClick={clearFilters} className="rounded-md border border-line bg-surface-strong px-3 py-2 text-sm font-semibold text-fg">
                   Limpar
                 </button>
               }
@@ -496,10 +496,10 @@ export default function HistoricoPage() {
 
       {editingId ? (
         <Surface>
-          <h2 className="text-xl font-bold text-[var(--text)]">Editar lançamento</h2>
+          <h2 className="text-xl font-semibold text-fg">Editar lançamento</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <select
-              className="rounded-2xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
+              className="rounded-md border border-line px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-ring"
               value={editType}
               onChange={(e) => {
                 setEditType(e.target.value as "income" | "expense");
@@ -510,26 +510,26 @@ export default function HistoricoPage() {
               <option value="expense">Despesa</option>
             </select>
             <input
-              className="rounded-2xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
+              className="rounded-md border border-line px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-ring"
               value={editAmount}
               onChange={(e) => setEditAmount(e.target.value)}
               onBlur={(e) => setEditAmount(formatMoneyInputValue(e.target.value))}
               placeholder="Valor"
             />
             <input
-              className="rounded-2xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)] md:col-span-2"
+              className="rounded-md border border-line px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-ring md:col-span-2"
               value={editDescription}
               onChange={(e) => setEditDescription(e.target.value)}
               placeholder="Descrição"
             />
             <input
               type="date"
-              className="rounded-2xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
+              className="rounded-md border border-line px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-ring"
               value={editDate}
               onChange={(e) => setEditDate(e.target.value)}
             />
             <select
-              className="rounded-2xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
+              className="rounded-md border border-line px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-ring"
               value={editCategoryId}
               onChange={(e) => setEditCategoryId(e.target.value)}
             >
@@ -574,7 +574,7 @@ export default function HistoricoPage() {
             {groupedTransactions.map((group) => (
               <div key={group.key} className="space-y-3">
                 <div className="flex items-center gap-3 pt-1">
-                  <h3 className="font-display text-sm font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+                  <h3 className="eyebrow">
                     {group.label}
                   </h3>
                   <span className="h-px flex-1 bg-[var(--line)]" />
@@ -582,7 +582,7 @@ export default function HistoricoPage() {
                 {group.items.map((item) => (
               <article
                 key={item.id}
-                className={`rounded-[18px] border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-4 shadow-[0_7px_18px_rgba(9,42,32,0.05)] transition hover:border-[rgba(16,185,129,0.35)] hover:shadow-[var(--shadow-soft)] ${
+                className={`rounded-md border border-line bg-surface-strong px-4 py-4 transition hover:border-primary/30 ${
                   lastRealtimeArrival &&
                   item.id === lastRealtimeArrival.id &&
                   Date.now() - lastRealtimeArrival.at < 10_000
@@ -594,10 +594,10 @@ export default function HistoricoPage() {
                   <div className="flex items-center gap-3">
                     <CategoryIcon name={categoryName(item.categories, "")} />
                     <div>
-                    <h3 className="font-bold text-[var(--navy)]">
+                    <h3 className="font-semibold text-fg">
                       {item.description}
                     </h3>
-                    <p className="mt-1 text-sm text-[var(--muted)]">
+                    <p className="mt-1 text-sm text-fg-muted">
                       {categoryName(item.categories)} - {formatDate(item.transaction_date)}
                       {item.origin_type === "installment" &&
                       item.installment_number &&
@@ -608,7 +608,7 @@ export default function HistoricoPage() {
                     </div>
                   </div>
                   <div className="text-left sm:text-right">
-                    <p className={`font-bold ${item.type === "income" ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+                    <p className={`font-semibold ${item.type === "income" ? "text-income" : "text-expense"}`}>
                       {item.type === "income" ? "+" : "-"}
                       {formatCurrency(Number(item.amount))}
                     </p>
@@ -655,14 +655,14 @@ export default function HistoricoPage() {
             ))}
 
             <div className="flex flex-col items-center gap-2 pt-2">
-              <p className="text-xs text-[var(--muted)]">
+              <p className="text-xs text-fg-muted">
                 Mostrando {visibleTransactions.length} de {filteredTransactions.length} lançamentos
               </p>
               {hasMore ? (
                 <button
                   type="button"
                   onClick={() => setVisibleCount((current) => current + PAGE_SIZE)}
-                  className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-5 py-3 text-sm font-semibold text-[var(--navy)] transition hover:border-[var(--brand)] hover:text-[var(--brand-strong)]"
+                  className="rounded-md border border-line bg-surface-strong px-5 py-3 text-sm font-semibold text-fg transition hover:border-primary hover:text-primary-strong"
                 >
                   Exibir mais
                 </button>
@@ -676,15 +676,15 @@ export default function HistoricoPage() {
       {undoItem ? (
         <div
           role="status"
-          className="anim-pop-in fixed inset-x-3 bottom-3 z-[150] flex items-center justify-between gap-3 rounded-[16px] border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 shadow-[var(--shadow-strong)] sm:inset-x-auto sm:bottom-5 sm:right-5 sm:max-w-sm"
+          className="anim-pop-in fixed inset-x-3 bottom-3 z-[150] flex items-center justify-between gap-3 rounded-md border border-line bg-surface-strong px-4 py-3 sm:inset-x-auto sm:bottom-5 sm:right-5 sm:max-w-sm"
         >
-          <p className="min-w-0 truncate text-sm text-[var(--muted-strong)]">
-            <span className="font-semibold text-[var(--text)]">Excluído:</span> {undoItem.description}
+          <p className="min-w-0 truncate text-sm text-fg">
+            <span className="font-semibold text-fg">Excluído:</span> {undoItem.description}
           </p>
           <button
             type="button"
             onClick={handleUndoDelete}
-            className="shrink-0 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--brand-strong)] transition hover:border-[var(--brand)]"
+            className="shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-semibold text-primary-strong transition hover:border-primary"
           >
             Desfazer
           </button>

@@ -64,21 +64,21 @@ export function HominhoTip({
       <div className="relative z-10 mt-1 shrink-0">
         <Hominho name={hominho} size={56} />
       </div>
-      <div className="relative flex-1 rounded-[16px] border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3.5 pr-10">
+      <div className="relative flex-1 rounded-md border border-line bg-surface-strong px-4 py-3.5 pr-10">
         <span
           aria-hidden="true"
-          className="absolute -left-[7px] top-6 h-3.5 w-3.5 rotate-45 border-b border-l border-[var(--line)] bg-[var(--surface-strong)]"
+          className="absolute -left-[7px] top-6 h-3.5 w-3.5 rotate-45 border-b border-l border-line bg-surface-strong"
         />
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--mint)]">
+        <p className="eyebrow">
           {HOMINHO_LABEL[hominho]} · dica
         </p>
-        <p className="mt-1 text-sm leading-6 text-[var(--muted-strong)]">{tip.text}</p>
+        <p className="mt-1 text-sm leading-6 text-fg">{tip.text}</p>
         <button
           type="button"
           onClick={handleDismiss}
           aria-label="Dispensar dica"
           title="Dispensar dica"
-          className="absolute right-2.5 top-2.5 rounded-lg p-1.5 text-[var(--text-soft)] transition hover:bg-[var(--bg-soft)] hover:text-[var(--text)]"
+          className="absolute right-2.5 top-2.5 rounded-md p-1.5 text-fg-soft transition hover:bg-bg-soft hover:text-fg"
         >
           <X className="h-3.5 w-3.5" />
         </button>

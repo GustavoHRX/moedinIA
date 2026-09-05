@@ -55,16 +55,16 @@ function ChartTooltip({
 }) {
   if (!active || !payload || payload.length === 0) return null;
   return (
-    <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2.5 shadow-[var(--shadow-soft)]">
-      {label ? <p className="mb-1.5 text-xs font-semibold text-[var(--text-muted)]">{label}</p> : null}
+    <div className="rounded-md border border-line bg-surface-strong px-3 py-2.5">
+      {label ? <p className="mb-1.5 text-xs font-semibold text-fg-muted">{label}</p> : null}
       <div className="space-y-1">
         {payload.map((entry, index) => {
           const key = entry.dataKey != null ? String(entry.dataKey) : undefined;
           const name = (key && labelMap?.[key]) || entry.payload?.name || "Total";
           return (
-            <p key={index} className="flex items-center gap-2 text-sm text-[var(--text)]">
+            <p key={index} className="flex items-center gap-2 text-sm text-fg">
               <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: entry.color }} />
-              <span className="text-[var(--text-muted)]">{name}</span>
+              <span className="text-fg-muted">{name}</span>
               <span className="money ml-auto pl-2 font-semibold">{formatCurrency(Number(entry.value ?? 0))}</span>
             </p>
           );
@@ -129,8 +129,8 @@ export function MonthlyBars({ data }: { data: MonthlyDatum[] }) {
           cursor={BAR_CURSOR}
         />
         <Legend formatter={(value) => (value === "receitas" ? "Receitas" : "Despesas")} />
-        <Bar dataKey="receitas" fill="#34D399" radius={[6, 6, 0, 0]} maxBarSize={32} animationDuration={450} animationEasing="ease-out" />
-        <Bar dataKey="despesas" fill="#F87171" radius={[6, 6, 0, 0]} maxBarSize={32} animationDuration={450} animationEasing="ease-out" animationBegin={60} />
+        <Bar dataKey="receitas" fill="var(--chart-1)" radius={[6, 6, 0, 0]} maxBarSize={32} animationDuration={450} animationEasing="ease-out" />
+        <Bar dataKey="despesas" fill="var(--chart-6)" radius={[6, 6, 0, 0]} maxBarSize={32} animationDuration={450} animationEasing="ease-out" animationBegin={60} />
       </BarChart>
     </ResponsiveContainer>
   );

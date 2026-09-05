@@ -21,14 +21,17 @@ export default function LandingMotion() {
     mm.add("(prefers-reduced-motion: no-preference)", () => {
       const ease = "expo.out";
 
-      // Entrada do hero: título → sub → CTAs → mockup (guia o olho na ordem de leitura)
-      const heroTl = gsap.timeline({ defaults: { ease, duration: 0.45 } });
+      // Entrada do hero: título → sub → CTAs → mockup (guia o olho na ordem de leitura).
+      // clearProps: no fim o GSAP APAGA o transform/opacity inline que deixou nos
+      // elementos — senão fica a brigar com o `transition: transform` do
+      // .btn-primary e o botão trava a meio da animação (ficava 12px mais baixo).
+      const heroTl = gsap.timeline({ defaults: { ease, duration: 0.45, clearProps: "transform,opacity" } });
       heroTl
         .from("[data-hero-title]", { y: 24, opacity: 0 })
         .from("[data-hero-sub]", { y: 16, opacity: 0 }, "-=0.28")
         .from("[data-hero-cta] > *", { y: 12, opacity: 0, stagger: 0.07 }, "-=0.28")
         .from("[data-hero-chips] > *", { y: 8, opacity: 0, stagger: 0.05 }, "-=0.3")
-        .from("[data-hero-mock]", { y: 28, opacity: 0, scale: 0.97, duration: 0.55 }, "-=0.45");
+        .from("[data-hero-mock]", { y: 28, opacity: 0, scale: 0.97, duration: 0.55, clearProps: "opacity" }, "-=0.45");
 
       // Mensagens do chat aparecem em sequência (typing feel) quando o mockup entra na tela
       gsap.from("[data-chat-msg]", {

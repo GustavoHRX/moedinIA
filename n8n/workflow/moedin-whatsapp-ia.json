@@ -20,6 +20,19 @@
     },
     {
       "parameters": {
+        "jsCode": "// AUDITORIA C-3: o webhook do n8n nao tinha autenticacao. Este no rejeita\n// qualquer requisicao que nao traga o header X-Webhook-Token com o valor\n// de $env.WHATSAPP_WEBHOOK_TOKEN. Fail-closed: se o env nao estiver setado,\n// nada passa.\nconst expected = ($env.WHATSAPP_WEBHOOK_TOKEN || '').trim();\nconst headers = ($input.first().json.headers) || {};\nconst got = (headers['x-webhook-token'] || headers['X-Webhook-Token'] || '').toString().trim();\nif (!expected || got !== expected) {\n  throw new Error('webhook nao autorizado (X-Webhook-Token ausente ou invalido)');\n}\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2290,
+        400
+      ],
+      "id": "guard-token-001",
+      "name": "Guard: token do webhook"
+    },
+    {
+      "parameters": {
         "assignments": {
           "assignments": [
             {
@@ -538,7 +551,7 @@
             {
               "id": "ti",
               "name": "texto",
-              "value": "={{ 'gastei ' + ($json.valor || 0) + ' em ' + ($json.descricao || 'compra no comprovante') }}",
+              "value": "={{ ($json.tipo === 'income' ? 'recebi' : 'gastei') + ' R$ ' + Number($json.valor || 0).toFixed(2).replace('.', ',') + (($json.categoria) ? (' em ' + $json.categoria) : '') + ' - ' + ($json.descricao || 'comprovante') + (($json.data) ? (' em ' + $json.data) : '') }}",
               "type": "string"
             }
           ]
@@ -592,7 +605,7 @@
             {
               "id": "ta",
               "name": "texto",
-              "value": "={{ $json.texto_original || ('gastei ' + ($json.valor||0) + ' em ' + ($json.descricao||'audio')) }}",
+              "value": "={{ $json.texto_original || (($json.tipo === 'income' ? 'recebi' : 'gastei') + ' R$ ' + Number($json.valor || 0).toFixed(2).replace('.', ',') + (($json.categoria) ? (' em ' + $json.categoria) : '') + ' - ' + ($json.descricao || 'audio')) }}",
               "type": "string"
             }
           ]
@@ -1237,7 +1250,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/transactions",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/transactions?on_conflict=user_id,external_message_id",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -1255,13 +1268,13 @@
             },
             {
               "name": "Prefer",
-              "value": "return=representation"
+              "value": "return=representation,resolution=ignore-duplicates"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={ \"user_id\": {{ JSON.stringify($('Resolver usuario (Supabase RPC)').item.json.user_id) }}, \"type\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.tipo) }}, \"amount\": {{ $('Interpretar lancamento (ai-service)').item.json.valor }}, \"description\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.descricao) }}, \"notes\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.texto_original) }}, \"transaction_date\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.data) }}, \"competence_month\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.competence_month) }}, \"category_id\": {{ JSON.stringify($json.category_id) }}, \"source\": \"whatsapp\", \"status\": \"active\", \"origin_type\": \"manual\" }",
+        "jsonBody": "={ \"user_id\": {{ JSON.stringify($('Resolver usuario (Supabase RPC)').item.json.user_id) }}, \"type\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.tipo) }}, \"amount\": {{ $('Interpretar lancamento (ai-service)').item.json.valor }}, \"description\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.descricao) }}, \"notes\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.texto_original) }}, \"transaction_date\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.data) }}, \"competence_month\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.competence_month) }}, \"category_id\": {{ JSON.stringify($json.category_id) }}, \"source\": \"whatsapp\", \"status\": \"active\", \"origin_type\": \"manual\",\n  \"external_message_id\": {{ JSON.stringify($('global').item.json.msgId || null) }}\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -1296,7 +1309,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={ \"user_id\": {{ JSON.stringify($('Resolver usuario (Supabase RPC)').item.json.user_id) }}, \"channel\": \"whatsapp\", \"direction\": \"in\", \"raw_text\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.texto_original) }}, \"external_id\": {{ JSON.stringify('wpp-' + $now.toMillis()) }} }",
+        "jsonBody": "={ \"user_id\": {{ JSON.stringify($('Resolver usuario (Supabase RPC)').item.json.user_id) }}, \"channel\": \"whatsapp\", \"direction\": \"in\", \"raw_text\": {{ JSON.stringify($('Interpretar lancamento (ai-service)').item.json.texto_original) }}, \"external_id\": {{ JSON.stringify($('global').item.json.msgId || ('wpp-' + $now.toMillis())) }} }",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -1577,7 +1590,7 @@
       "main": [
         [
           {
-            "node": "global",
+            "node": "Guard: token do webhook",
             "type": "main",
             "index": 0
           }
@@ -2045,6 +2058,17 @@
         [
           {
             "node": "Texto (audio)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard: token do webhook": {
+      "main": [
+        [
+          {
+            "node": "global",
             "type": "main",
             "index": 0
           }

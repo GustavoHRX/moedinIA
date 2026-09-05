@@ -254,14 +254,14 @@ export default function MetasPage() {
       {message ? <Alert type={messageType}>{message}</Alert> : null}
 
       <section className="grid gap-5 xl:grid-cols-[1fr_0.95fr]">
-        <Surface className="min-w-0 bg-[var(--hero-gradient)] p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Progresso geral</p>
+        <Surface className="min-w-0 bg-surface p-6">
+          <p className="eyebrow">Progresso geral</p>
           <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-4xl font-bold text-[var(--navy)]">{globalProgress.toFixed(0)}%</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">{formatCurrency(totalSaved)} guardados de {formatCurrency(totalTargets)}</p>
+              <p className="text-4xl font-semibold text-fg">{globalProgress.toFixed(0)}%</p>
+              <p className="mt-1 text-sm text-fg-muted">{formatCurrency(totalSaved)} guardados de {formatCurrency(totalTargets)}</p>
             </div>
-            <div className="h-3 w-full overflow-hidden rounded-full bg-[var(--surface-strong)] lg:max-w-[360px]">
+            <div className="h-3 w-full overflow-hidden rounded-full bg-surface-strong lg:max-w-[360px]">
               <div className="h-full rounded-full bg-[var(--brand)]" style={{ width: `${globalProgress}%` }} />
             </div>
           </div>
@@ -277,9 +277,9 @@ export default function MetasPage() {
           <SectionHeader title="Nova meta" eyebrow="Objetivo" />
           <form onSubmit={handleCreateGoal} className="mt-4 space-y-4">
             <label className="block space-y-1.5">
-              <span className="text-sm font-semibold text-[var(--text)]">Título da meta</span>
+              <span className="text-sm font-semibold text-fg">Título da meta</span>
               <input
-                className="w-full rounded-2xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
+                className="w-full rounded-md border border-line px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-ring"
                 type="text"
                 placeholder="Ex: Reserva de emergência"
                 value={title}
@@ -287,9 +287,9 @@ export default function MetasPage() {
               />
             </label>
             <label className="block space-y-1.5">
-              <span className="text-sm font-semibold text-[var(--text)]">Descrição (opcional)</span>
+              <span className="text-sm font-semibold text-fg">Descrição (opcional)</span>
               <textarea
-                className="min-h-[100px] w-full rounded-2xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
+                className="min-h-[100px] w-full rounded-md border border-line px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-ring"
                 placeholder="Detalhes da meta"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -297,9 +297,9 @@ export default function MetasPage() {
             </label>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block space-y-1.5">
-                <span className="text-sm font-semibold text-[var(--text)]">Valor alvo</span>
+                <span className="text-sm font-semibold text-fg">Valor alvo</span>
                 <input
-                  className="w-full rounded-2xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
+                  className="w-full rounded-md border border-line px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-ring"
                   type="text"
                   placeholder="0,00"
                   value={targetAmount}
@@ -308,9 +308,9 @@ export default function MetasPage() {
                 />
               </label>
               <label className="block space-y-1.5">
-                <span className="text-sm font-semibold text-[var(--text)]">Prazo (opcional)</span>
+                <span className="text-sm font-semibold text-fg">Prazo (opcional)</span>
                 <input
-                  className="w-full rounded-2xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
+                  className="w-full rounded-md border border-line px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-ring"
                   type="date"
                   value={deadline}
                   onChange={(e) => setDeadline(e.target.value)}
@@ -350,13 +350,13 @@ export default function MetasPage() {
                   return (
                     <article
                       key={goal.id}
-                      className={`relative rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-4 shadow-[0_7px_18px_rgba(9,42,32,0.04)] ${
+                      className={`relative rounded-md border border-line bg-surface-strong px-4 py-4 ${
                         celebrateGoalId === goal.id ? "anim-card-pulse" : ""
                       }`}
                     >
                       <CelebrateBurst trigger={celebrateGoalId === goal.id ? goal.id : null} />
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h3 className="font-semibold text-[var(--text)]">{goal.title}</h3>
+                        <h3 className="font-semibold text-fg">{goal.title}</h3>
                         <Badge
                           tone={
                             goal.status === "completed"
@@ -374,9 +374,9 @@ export default function MetasPage() {
                         </Badge>
                       </div>
                       {goal.description ? (
-                        <p className="mt-1 text-sm text-[var(--muted)]">{goal.description}</p>
+                        <p className="mt-1 text-sm text-fg-muted">{goal.description}</p>
                       ) : null}
-                      <p className="mt-2 text-sm text-[var(--muted)]">
+                      <p className="mt-2 text-sm text-fg-muted">
                         {formatCurrency(Number(goal.current_amount))} de{" "}
                         {formatCurrency(Number(goal.target_amount))} - prazo {formatDate(goal.deadline)}
                       </p>
@@ -400,10 +400,10 @@ export default function MetasPage() {
                         : null}
                       <div className="mt-2">
                         <div className="mb-1 flex items-center justify-between text-sm">
-                          <span className="text-[var(--muted)]">Progresso</span>
-                          <span className="font-semibold text-[var(--text)]">{progress.toFixed(0)}%</span>
+                          <span className="text-fg-muted">Progresso</span>
+                          <span className="font-semibold text-fg">{progress.toFixed(0)}%</span>
                         </div>
-                        <div className="h-2.5 rounded-full bg-[var(--bg-soft)]">
+                        <div className="h-2.5 rounded-full bg-bg-soft">
                           <div
                             className="h-2.5 rounded-full bg-[var(--success)]"
                             style={{ width: `${progress}%` }}
@@ -415,7 +415,7 @@ export default function MetasPage() {
                           <input
                             type="text"
                             inputMode="decimal"
-                            className="w-36 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)]"
+                            className="w-36 rounded-md border border-line bg-surface-strong px-3 py-2 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-ring"
                             placeholder="Valor acumulado"
                             value={progressInput}
                             onChange={(e) => setProgressInput(e.target.value)}

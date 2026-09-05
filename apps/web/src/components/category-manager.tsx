@@ -54,7 +54,7 @@ function ColorSwatches({
             aria-label={`Cor ${item.label}`}
             aria-pressed={selected}
             onClick={() => onChange(item.hex)}
-            className="flex h-8 w-8 items-center justify-center rounded-full transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+            className="flex h-8 w-8 items-center justify-center rounded-full transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-ring"
             style={{
               backgroundColor: item.hex,
               boxShadow: selected ? `0 0 0 2px var(--surface-strong), 0 0 0 4px ${item.hex}` : "none",
@@ -66,7 +66,7 @@ function ColorSwatches({
       })}
       <label
         title="Cor personalizada"
-        className="relative flex h-8 w-8 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-dashed border-[var(--line-strong)] transition hover:scale-110"
+        className="relative flex h-8 w-8 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-dashed border-line-strong transition hover:scale-110"
         style={isCustom ? { backgroundColor: value, borderStyle: "solid" } : undefined}
       >
         <input
@@ -76,7 +76,7 @@ function ColorSwatches({
           className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
           aria-label="Cor personalizada"
         />
-        {isCustom ? <Check className="h-4 w-4 text-[#06130D]" /> : <span className="text-xs text-[var(--muted)]">+</span>}
+        {isCustom ? <Check className="h-4 w-4 text-[#06130D]" /> : <span className="text-xs text-fg-muted">+</span>}
       </label>
     </div>
   );
@@ -102,10 +102,10 @@ function IconPicker({
             title={iconName}
             aria-pressed={selected}
             onClick={() => onChange(iconName)}
-            className={`flex h-9 w-9 items-center justify-center rounded-xl border transition ${
+            className={`flex h-9 w-9 items-center justify-center rounded-md border transition ${
               selected
                 ? "border-transparent"
-                : "border-[var(--line)] text-[var(--muted)] hover:border-[var(--brand)]"
+                : "border-line text-fg-muted hover:border-primary"
             }`}
             style={selected ? { backgroundColor: `${color}1f`, color } : undefined}
           >
@@ -132,18 +132,18 @@ function CategoryRow({
     categoryIconByName(category.icon)
   );
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-[var(--bg-soft)] px-3 py-2.5">
+    <div className="flex items-center gap-3 rounded-md border border-line bg-bg-soft px-3 py-2.5">
       <span
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
         style={{ backgroundColor: `${color}1f`, color }}
       >
         <Icon className="h-4 w-4" />
       </span>
-      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--text)]">
+      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-fg">
         {category.name}
       </span>
       {category.is_default ? (
-        <span className="hidden shrink-0 rounded-full bg-[var(--primary-soft)] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--mint)] sm:inline">
+        <span className="hidden shrink-0 rounded-full bg-primary-soft px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--mint)] sm:inline">
           Padrão
         </span>
       ) : null}
@@ -151,7 +151,7 @@ function CategoryRow({
         type="button"
         onClick={onEdit}
         title="Editar categoria"
-        className="rounded-lg p-2 text-[var(--muted)] transition hover:bg-[var(--surface-strong)] hover:text-[var(--text)]"
+        className="rounded-md p-2 text-fg-muted transition hover:bg-surface-strong hover:text-fg"
       >
         <Pencil className="h-4 w-4" />
       </button>
@@ -160,7 +160,7 @@ function CategoryRow({
           type="button"
           onClick={onDelete}
           title="Excluir categoria"
-          className="rounded-lg p-2 text-[var(--muted)] transition hover:bg-[var(--surface-strong)] hover:text-[var(--danger)]"
+          className="rounded-md p-2 text-fg-muted transition hover:bg-surface-strong hover:text-expense"
         >
           <Trash2 className="h-4 w-4" />
         </button>
@@ -222,12 +222,20 @@ export function CategoryManager({
       if (editor.id) {
         const patch: Record<string, string> = { color: editor.color, icon: editor.icon };
         if (!editor.isDefault) patch.name = name;
-        const { error } = await supabase
+        // Achado 6.1: conferir as linhas afetadas, não só o erro. Se a policy
+        // recusar (0 linhas), não anunciar sucesso.
+        const { data, error } = await supabase
           .from("categories")
           .update(patch)
           .eq("id", editor.id)
-          .eq("user_id", user.id);
+          .eq("user_id", user.id)
+          .select("id");
         if (error) throw error;
+        if (!data || data.length === 0) {
+          onMessage?.("Não foi possível atualizar essa categoria.", "error");
+          setSaving(false);
+          return;
+        }
         onMessage?.("Categoria atualizada!", "success");
       } else {
         const duplicated = categories.some(
@@ -306,20 +314,20 @@ export function CategoryManager({
         ).map((group) => (
           <div key={group.type} className="space-y-2.5">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-soft)]">
+              <p className="eyebrow">
                 {group.title}
               </p>
               <button
                 type="button"
                 onClick={() => openCreate(group.type)}
-                className="flex items-center gap-1.5 rounded-full border border-[var(--line)] px-3 py-1.5 text-xs font-semibold text-[var(--brand-strong)] transition hover:border-[var(--brand)] hover:bg-[var(--primary-soft)]"
+                className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-primary-strong transition hover:border-primary hover:bg-primary-soft"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Nova
               </button>
             </div>
             {group.items.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-[var(--line)] px-4 py-5 text-center text-sm text-[var(--muted)]">
+              <p className="rounded-md border border-dashed border-line px-4 py-5 text-center text-sm text-fg-muted">
                 Nada por aqui ainda. Crie sua primeira categoria!
               </p>
             ) : (
@@ -341,23 +349,23 @@ export function CategoryManager({
       {editor && mounted
         ? createPortal(
             <div
-              className="anim-modal-backdrop fixed inset-0 z-[100] overflow-y-auto bg-slate-950/50 p-3 backdrop-blur-md sm:p-6"
+              className="anim-modal-backdrop fixed inset-0 z-[100] overflow-y-auto bg-black/45 p-3 backdrop-blur-md sm:p-6"
               onClick={() => setEditor(null)}
             >
               <div className="flex min-h-full items-center justify-center">
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="anim-modal-card w-full max-w-lg space-y-4 rounded-[24px] border border-[var(--line-strong)] bg-[var(--surface-strong)] p-4 shadow-[0_28px_70px_rgba(9,42,32,0.28)] sm:p-5"
+                  className="anim-modal-card w-full max-w-lg space-y-4 rounded-lg border border-line-strong bg-surface-strong p-4 shadow-modal sm:p-5"
                 >
           <div className="flex items-center justify-between gap-3">
-            <p className="font-display text-base font-bold text-[var(--navy)]">
+            <p className="font-display text-base font-semibold text-fg">
               {editor.id ? `Editar "${editor.name}"` : "Nova categoria"}
             </p>
             <button
               type="button"
               onClick={() => setEditor(null)}
               title="Fechar"
-              className="rounded-lg p-2 text-[var(--muted)] transition hover:bg-[var(--bg-soft)] hover:text-[var(--text)]"
+              className="rounded-md p-2 text-fg-muted transition hover:bg-bg-soft hover:text-fg"
             >
               <X className="h-4 w-4" />
             </button>
@@ -375,7 +383,7 @@ export function CategoryManager({
                 })()}
               </span>
               <label className="block flex-1 space-y-1.5">
-                <span className="text-sm font-semibold text-[var(--text)]">Nome</span>
+                <span className="text-sm font-semibold text-fg">Nome</span>
                 <input
                   className="control max-w-xs"
                   type="text"
@@ -385,7 +393,7 @@ export function CategoryManager({
                   onChange={(event) => setEditor({ ...editor, name: event.target.value })}
                 />
                 {editor.isDefault ? (
-                  <span className="text-xs text-[var(--muted)]">
+                  <span className="text-xs text-fg-muted">
                     Categorias padrão não mudam de nome — mas a cor e o ícone são seus.
                   </span>
                 ) : null}
@@ -393,7 +401,7 @@ export function CategoryManager({
             </div>
             {!editor.id ? (
               <label className="block space-y-1.5">
-                <span className="text-sm font-semibold text-[var(--text)]">Tipo</span>
+                <span className="text-sm font-semibold text-fg">Tipo</span>
                 <select
                   className="control"
                   value={editor.type}
@@ -409,7 +417,7 @@ export function CategoryManager({
           </div>
 
           <div className="space-y-1.5">
-            <span className="text-sm font-semibold text-[var(--text)]">Cor</span>
+            <span className="text-sm font-semibold text-fg">Cor</span>
             <ColorSwatches
               value={editor.color}
               onChange={(hex) => setEditor({ ...editor, color: hex })}
@@ -417,7 +425,7 @@ export function CategoryManager({
           </div>
 
           <div className="space-y-1.5">
-            <span className="text-sm font-semibold text-[var(--text)]">Ícone</span>
+            <span className="text-sm font-semibold text-fg">Ícone</span>
             <IconPicker
               value={editor.icon}
               color={editor.color}

@@ -6,8 +6,10 @@ import { useAppData } from "@/components/app-data-provider";
 import { useConfirm } from "@/components/confirm-dialog";
 import { SkeletonList } from "@/components/skeleton";
 import { categoryName, type CategoryRelation } from "@/lib/categories";
-import { addMonthsClamped, isPastOrToday, toCompetenceMonth, todayDateInput } from "@/lib/dates";
+import { addMonthsClamped, toCompetenceMonth, todayDateInput } from "@/lib/dates";
 import { formatCurrency, formatDate, formatMoneyInputValue, parseMoneyInput } from "@/lib/formatters";
+import { splitInstallments } from "@/lib/money";
+import { catchUpRecurrences } from "@/lib/recurrence-catchup";
 import { createClient } from "@/lib/supabase/client";
 import { ActionButton, Alert, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
 import { HominhoTip } from "@/components/hominho-tip";
@@ -200,7 +202,7 @@ export default function ParcelamentosPage() {
       return;
     }
 
-    const installmentAmount = Number((parsedTotal / parsedInstallments).toFixed(2));
+    const parcelas = splitInstallments(parsedTotal, parsedInstallments);
 
     const { data: installment, error } = await supabase
       .from("installments")
@@ -210,7 +212,7 @@ export default function ParcelamentosPage() {
         title: title.trim(),
         description: description.trim() || null,
         total_amount: parsedTotal,
-        installment_amount: installmentAmount,
+        installment_amount: parcelas[0],
         total_installments: parsedInstallments,
         start_date: startDate,
         is_active: true,
@@ -224,36 +226,12 @@ export default function ParcelamentosPage() {
       return;
     }
 
-    const dueTransactions = Array.from({ length: parsedInstallments }, (_, index) => {
-      const transactionDate = addMonthsClamped(startDate, index);
-      if (!isPastOrToday(transactionDate)) return null;
-
-      return {
-        user_id: userId,
-        type: "expense" as const,
-        amount: installmentAmount,
-        description: title.trim(),
-        notes: description.trim() || null,
-        transaction_date: transactionDate,
-        competence_month: toCompetenceMonth(transactionDate),
-        category_id: categoryId || null,
-        source: "web" as const,
-        status: "active" as const,
-        origin_type: "installment" as const,
-        installment_id: installment.id,
-        installment_number: index + 1,
-        installment_total: parsedInstallments,
-      };
-    }).filter((transaction) => transaction !== null);
-
-    if (dueTransactions.length > 0) {
-      const { error: txError } = await supabase.from("transactions").insert(dueTransactions);
-
-      if (txError) {
-        setSaving(false);
-        showMessage(`Parcelamento salvo, mas houve erro ao gerar parcelas vencidas: ${txError.message}`, "error");
-        return;
-      }
+    // Geração das parcelas vencidas: responsabilidade única do catch-up.
+    let generationOk = true;
+    try {
+      await catchUpRecurrences(supabase, userId);
+    } catch {
+      generationOk = false;
     }
 
     setSaving(false);
@@ -265,10 +243,10 @@ export default function ParcelamentosPage() {
     setStartDate("");
     setCategoryId("");
     showMessage(
-      dueTransactions.length > 0
-        ? "Parcelamento cadastrado e parcelas vencidas geradas com sucesso."
-        : "Parcelamento cadastrado. Parcelas futuras não foram geradas automaticamente.",
-      "success"
+      generationOk
+        ? "Parcelamento cadastrado. Só as parcelas vencidas até hoje foram geradas."
+        : "Parcelamento cadastrado. As parcelas vencidas serão geradas ao reabrir a página.",
+      "success",
     );
     invalidateFinancialData();
     await loadPage(true);
@@ -316,51 +294,82 @@ export default function ParcelamentosPage() {
   }
 
   async function handleSettleEarly(item: InstallmentItem) {
-    const { paidCount, paidAmount } = getInstallmentProgress(item);
-    const remainingCount = item.total_installments - paidCount;
-    if (remainingCount <= 0) {
-      showMessage("Esse parcelamento já está quitado.", "success");
+    const userId = cachedUser!.id;
+
+    // REVISÃO EXTERNA (ago/2026) — achado 2.6: a versão antiga numerava as
+    // parcelas restantes a partir da CONTAGEM das existentes. Com a parcela 1
+    // apagada e 2 e 3 no ar, "contagem = 2" virava "próxima = 3" — e recriava
+    // a 3. Agora olhamos QUAIS NÚMEROS já existem (em qualquer status) e só
+    // geramos os que faltam de verdade. Parcela apagada de propósito fica
+    // apagada.
+    const { data: allParcels, error: parcelError } = await supabase
+      .from("transactions")
+      .select("installment_number")
+      .eq("user_id", userId)
+      .eq("installment_id", item.id)
+      .eq("origin_type", "installment");
+
+    if (parcelError) {
+      showMessage(`Erro ao quitar parcelamento: ${parcelError.message}`, "error");
+      return;
+    }
+
+    const seen = new Set<number>(
+      (allParcels ?? [])
+        .map((row) => (row as { installment_number: number | null }).installment_number)
+        .filter((n): n is number => n != null),
+    );
+
+    const total = Number(item.total_installments);
+    const missingNumbers: number[] = [];
+    for (let n = 1; n <= total; n++) {
+      if (!seen.has(n)) missingNumbers.push(n);
+    }
+
+    if (missingNumbers.length === 0) {
+      showMessage("Esse parcelamento já não tem parcelas pendentes.", "success");
+      // ainda assim marca como inativo, já que a intenção era quitar
+      await supabase.from("installments").update({ is_active: false }).eq("id", item.id).eq("user_id", userId);
+      invalidateFinancialData();
+      await loadPage(true);
       return;
     }
 
     const confirmed = await confirm({
       title: "Quitar parcelamento antecipado",
-      message: `Isso lança as ${remainingCount} parcelas restantes de "${item.title}" hoje, de uma vez, e marca o parcelamento como quitado. Deseja continuar?`,
+      message: `Isso lança ${missingNumbers.length} parcela(s) pendente(s) de "${item.title}" hoje, de uma vez, e marca o parcelamento como quitado. Deseja continuar?`,
       confirmLabel: "Quitar agora",
     });
     if (!confirmed) return;
 
-    const userId = cachedUser!.id;
     const today = todayDateInput();
-    const remainingAmount = Number(item.total_amount) - paidAmount;
+    const parcelAmounts = splitInstallments(Number(item.total_amount), total);
 
-    const newTransactions = Array.from({ length: remainingCount }, (_, index) => {
-      const installmentNumber = paidCount + index + 1;
-      const isLast = index === remainingCount - 1;
-      const amount = isLast
-        ? Number((remainingAmount - item.installment_amount * (remainingCount - 1)).toFixed(2))
-        : item.installment_amount;
-      return {
-        user_id: userId,
-        type: "expense" as const,
-        amount,
-        description: item.title,
-        notes: item.description || null,
-        transaction_date: today,
-        competence_month: toCompetenceMonth(today),
-        category_id: item.category_id,
-        source: "web" as const,
-        status: "active" as const,
-        origin_type: "installment" as const,
-        installment_id: item.id,
-        installment_number: installmentNumber,
-        installment_total: item.total_installments,
-      };
-    });
+    const newTransactions = missingNumbers.map((number) => ({
+      user_id: userId,
+      type: "expense" as const,
+      amount: parcelAmounts[number - 1] ?? Number(item.installment_amount),
+      description: item.title,
+      notes: item.description || null,
+      transaction_date: today,
+      competence_month: toCompetenceMonth(today),
+      category_id: item.category_id,
+      source: "web" as const,
+      status: "active" as const,
+      origin_type: "installment" as const,
+      installment_id: item.id,
+      installment_number: number,
+      installment_total: total,
+    }));
 
     const { error: txError } = await supabase.from("transactions").insert(newTransactions);
     if (txError) {
-      showMessage(`Erro ao quitar parcelamento: ${txError.message}`, "error");
+      showMessage(
+        txError.code === "23505"
+          ? "Alguma parcela já foi lançada em paralelo. Recarregue a página."
+          : `Erro ao quitar parcelamento: ${txError.message}`,
+        "error",
+      );
       return;
     }
 
@@ -435,15 +444,15 @@ export default function ParcelamentosPage() {
       />
 
       <section className="grid gap-5 lg:grid-cols-3">
-        <Surface className="bg-[var(--hero-gradient)] p-6 text-[var(--text)] lg:col-span-2">
-          <p className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Total parcelado ativo</p>
-          <p className="mt-2 text-4xl font-bold">{formatCurrency(totalOpen)}</p>
-          <p className="mt-2 text-sm font-semibold text-[var(--muted)]">{activeItems.length} parcelamentos ativos em acompanhamento.</p>
+        <Surface className="bg-surface p-6 text-fg lg:col-span-2">
+          <p className="eyebrow">Total parcelado ativo</p>
+          <p className="mt-2 text-4xl font-semibold">{formatCurrency(totalOpen)}</p>
+          <p className="mt-2 text-sm font-semibold text-fg-muted">{activeItems.length} parcelamentos ativos em acompanhamento.</p>
         </Surface>
         <Surface>
-          <p className="text-xs font-bold uppercase text-[var(--muted)]">Parcelas geradas</p>
-          <p className="mt-2 text-4xl font-semibold text-[var(--brand-strong)]">{transactions.length}</p>
-          <p className="mt-2 text-sm text-[var(--muted)]">Somente registros já vencidos/ocorridos.</p>
+          <p className="text-xs font-semibold uppercase text-fg-muted">Parcelas geradas</p>
+          <p className="mt-2 text-4xl font-semibold text-primary-strong">{transactions.length}</p>
+          <p className="mt-2 text-sm text-fg-muted">Somente registros já vencidos/ocorridos.</p>
         </Surface>
       </section>
 
@@ -452,7 +461,7 @@ export default function ParcelamentosPage() {
           <SectionHeader title="Novo parcelamento" eyebrow="Compra parcelada" />
           <form onSubmit={handleSave} className="mt-4 space-y-4">
             <label className="block space-y-1.5">
-              <span className="text-sm font-semibold text-[var(--text)]">Nome</span>
+              <span className="text-sm font-semibold text-fg">Nome</span>
               <input
                 className="control"
                 type="text"
@@ -462,7 +471,7 @@ export default function ParcelamentosPage() {
               />
             </label>
             <label className="block space-y-1.5">
-              <span className="text-sm font-semibold text-[var(--text)]">Descrição (opcional)</span>
+              <span className="text-sm font-semibold text-fg">Descrição (opcional)</span>
               <textarea
                 className="control min-h-[96px]"
                 placeholder="Detalhes extras"
@@ -472,7 +481,7 @@ export default function ParcelamentosPage() {
             </label>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block space-y-1.5">
-                <span className="text-sm font-semibold text-[var(--text)]">Valor total</span>
+                <span className="text-sm font-semibold text-fg">Valor total</span>
                 <input
                   className="control"
                   type="text"
@@ -483,7 +492,7 @@ export default function ParcelamentosPage() {
                 />
               </label>
               <label className="block space-y-1.5">
-                <span className="text-sm font-semibold text-[var(--text)]">Quantidade de parcelas</span>
+                <span className="text-sm font-semibold text-fg">Quantidade de parcelas</span>
                 <input
                   className="control"
                   type="number"
@@ -493,7 +502,7 @@ export default function ParcelamentosPage() {
                 />
               </label>
               <label className="block space-y-1.5">
-                <span className="text-sm font-semibold text-[var(--text)]">Data da 1ª parcela</span>
+                <span className="text-sm font-semibold text-fg">Data da 1ª parcela</span>
                 <input
                   className="control"
                   type="date"
@@ -502,7 +511,7 @@ export default function ParcelamentosPage() {
                 />
               </label>
               <label className="block space-y-1.5">
-                <span className="text-sm font-semibold text-[var(--text)]">Categoria</span>
+                <span className="text-sm font-semibold text-fg">Categoria</span>
                 <select
                   className="control"
                   value={categoryId}
@@ -518,13 +527,13 @@ export default function ParcelamentosPage() {
               </label>
             </div>
             {installmentPreview !== null ? (
-              <p className="text-sm leading-6 text-[var(--muted)]">
+              <p className="text-sm leading-6 text-fg-muted">
                 Este parcelamento será salvo como {parsedInstallmentsPreview}x de{" "}
                 {formatCurrency(installmentPreview)}, totalizando {formatCurrency(parsedTotalPreview)}.
               </p>
             ) : null}
             {categories.length === 0 ? (
-              <p className="text-sm leading-6 text-[var(--muted)]">
+              <p className="text-sm leading-6 text-fg-muted">
                 Nenhuma categoria de despesa cadastrada. O parcelamento será salvo sem categoria.
               </p>
             ) : null}
@@ -552,46 +561,46 @@ export default function ParcelamentosPage() {
                 {items.map((item) => {
                   const stats = getInstallmentProgress(item);
                   return (
-                    <article key={item.id} className="rounded-[18px] border border-[var(--line)] px-4 py-4 transition hover:bg-[var(--bg-soft)]">
+                    <article key={item.id} className="rounded-md border border-line px-4 py-4 transition hover:bg-bg-soft">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h3 className="font-semibold text-[var(--navy)]">{item.title}</h3>
+                        <h3 className="font-semibold text-fg">{item.title}</h3>
                         <Badge tone={item.is_active ? "success" : "neutral"}>
                           {item.is_active ? "Ativo" : "Inativo"}
                         </Badge>
                       </div>
-                      <p className="mt-1 text-sm text-[var(--muted)]">
+                      <p className="mt-1 text-sm text-fg-muted">
                         {categoryName(item.categories)} - início {formatDate(item.start_date)}
                       </p>
                       <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                        <div className="rounded-xl bg-[var(--bg-soft)] p-3">
-                          <p className="text-xs text-[var(--muted)]">Valor total</p>
-                          <p className="text-sm font-semibold text-[var(--text)]">{formatCurrency(item.total_amount)}</p>
+                        <div className="rounded-md bg-bg-soft p-3">
+                          <p className="text-xs text-fg-muted">Valor total</p>
+                          <p className="text-sm font-semibold text-fg">{formatCurrency(item.total_amount)}</p>
                         </div>
-                        <div className="rounded-xl bg-[var(--bg-soft)] p-3">
-                          <p className="text-xs text-[var(--muted)]">Parcela</p>
-                          <p className="text-sm font-semibold text-[var(--text)]">{formatCurrency(item.installment_amount)}</p>
+                        <div className="rounded-md bg-bg-soft p-3">
+                          <p className="text-xs text-fg-muted">Parcela</p>
+                          <p className="text-sm font-semibold text-fg">{formatCurrency(item.installment_amount)}</p>
                         </div>
-                        <div className="rounded-xl bg-[var(--bg-soft)] p-3">
-                          <p className="text-xs text-[var(--muted)]">Progresso</p>
-                          <p className="text-sm font-semibold text-[var(--text)]">
+                        <div className="rounded-md bg-bg-soft p-3">
+                          <p className="text-xs text-fg-muted">Progresso</p>
+                          <p className="text-sm font-semibold text-fg">
                             {stats.paidCount}/{item.total_installments}
                           </p>
                         </div>
                       </div>
                       <div className="mt-3">
                         <div className="mb-1 flex items-center justify-between text-sm">
-                          <span className="text-[var(--muted)]">Pago</span>
-                          <span className="font-semibold text-[var(--text)]">{stats.progress.toFixed(0)}%</span>
+                          <span className="text-fg-muted">Pago</span>
+                          <span className="font-semibold text-fg">{stats.progress.toFixed(0)}%</span>
                         </div>
-                        <div className="h-2.5 rounded-full bg-[var(--bg-soft)]">
+                        <div className="h-2.5 rounded-full bg-bg-soft">
                           <div
                             className="h-2.5 rounded-full bg-[var(--brand)]"
                             style={{ width: `${stats.progress}%` }}
                           />
                         </div>
                         <div className="mt-2 flex items-center justify-between text-xs">
-                          <span className="text-[var(--success)]">Pago: {formatCurrency(stats.paidAmount)}</span>
-                          <span className="text-[var(--danger)]">Restante: {formatCurrency(stats.remainingAmount)}</span>
+                          <span className="text-income">Pago: {formatCurrency(stats.paidAmount)}</span>
+                          <span className="text-expense">Restante: {formatCurrency(stats.remainingAmount)}</span>
                         </div>
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">

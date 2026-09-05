@@ -5,12 +5,15 @@ import {
   Bell,
   Bot,
   Camera,
+  Check,
   CheckCircle2,
   CreditCard,
+  Crown,
   History,
   LockKeyhole,
   MessageCircle,
   Mic,
+  PartyPopper,
   PieChart,
   Repeat2,
   Send,
@@ -117,6 +120,39 @@ const features = [
   },
 ];
 
+const plans = [
+  {
+    name: "Standard",
+    icon: BarChart3,
+    price: "9,90",
+    tagline: "O painel inteirinho, do seu jeito.",
+    features: [
+      "Dashboard do mês: saldo, receitas e despesas",
+      "Metas e orçamentos com limite por categoria",
+      "Gastos fixos e parcelamentos no mesmo lugar",
+      "Histórico e planejamento mensal",
+      "Categorias com as suas cores",
+    ],
+    cta: "Criar conta",
+    highlighted: false,
+  },
+  {
+    name: "Pro",
+    icon: MessageCircle,
+    price: "19,90",
+    tagline: "Tudo do Standard + registrar gastos no WhatsApp.",
+    features: [
+      "Tudo do Standard, sem pegadinha",
+      "Registro pelo WhatsApp: texto, áudio e foto do recibo",
+      "IA que entende, categoriza e lança por você",
+      "Alertas de limite e lembretes no WhatsApp",
+      "Fila da frente nas novidades",
+    ],
+    cta: "Quero o Pro",
+    highlighted: true,
+  },
+];
+
 const chatMessages = [
   { text: "gastei 82 reais no mercado", fromUser: true },
   { text: "Pronto. Classifiquei como Mercado e atualizei seu mês.", fromUser: false },
@@ -148,13 +184,16 @@ export default function LandingPage() {
             <a href="#recursos" className="transition hover:text-[var(--brand-strong)]">
               Recursos
             </a>
+            <a href="#planos" className="transition hover:text-[var(--brand-strong)]">
+              Planos
+            </a>
             <a href="#seguranca" className="transition hover:text-[var(--brand-strong)]">
               Segurança
             </a>
           </nav>
 
           <div className="flex shrink-0 items-center gap-2">
-            <Link href="/login" className="btn-secondary px-4 py-2 text-sm">
+            <Link href="/login" className="btn-secondary inline-flex items-center px-4 py-2 text-sm">
               Entrar
             </Link>
             <Link href="/cadastro" className="btn-primary hidden px-4 py-2 text-sm sm:inline-flex">
@@ -197,36 +236,41 @@ export default function LandingPage() {
         <div className="relative mx-auto grid w-full max-w-[1180px] gap-10 px-5 pb-16 pt-10 sm:px-8 lg:min-h-[710px] lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:pb-20 lg:pt-14">
           <div className="min-w-0">
             <h1 data-hero-title className="max-w-3xl font-display text-4xl font-bold leading-[1.05] text-[var(--navy)] sm:text-5xl lg:text-6xl" style={{ textWrap: "balance" }}>
-              Seu dinheiro, <span className="text-[var(--primary)]">sem mistério.</span>
+              Seu dinheiro,{" "}
+              <span className="relative inline-block text-[var(--primary)]">
+                sem mistério
+                <Sparkles className="anim-sparkle absolute -right-6 -top-3 h-5 w-5 text-[var(--mint)] motion-reduce:hidden" strokeWidth={2.4} />
+              </span>
+              .
             </h1>
             <p data-hero-sub className="mt-6 max-w-xl text-base font-medium leading-8 text-[var(--muted)] sm:text-lg">
-              Manda um &ldquo;gastei 30 no mercado&rdquo; no WhatsApp e pronto: o Moedin.IA organiza, categoriza e te
-              mostra pra onde seu dinheiro vai.
+              Manda um &ldquo;gastei 30 no mercado&rdquo; no WhatsApp e pronto. O Moedin.IA organiza, bota na
+              categoria certa e te mostra pra onde o dinheiro tá indo. Sem economês, sem planilha, sem sermão.
             </p>
 
             <div data-hero-cta className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/cadastro"
-                className="btn-primary inline-flex animate-[glow-pulse_2.4s_ease-in-out_infinite] items-center justify-center gap-2 px-6 py-4 text-sm motion-reduce:animate-none"
+                className="btn-primary inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm"
               >
                 Começar grátis
                 <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
               </Link>
-              <a href="#como-funciona" className="btn-secondary inline-flex items-center justify-center px-6 py-4 text-sm">
+              <a href="#como-funciona" className="btn-secondary inline-flex items-center justify-center px-6 py-3.5 text-sm">
                 Ver como funciona
               </a>
             </div>
 
             <div data-hero-chips className="mt-8 flex flex-wrap gap-2">
               {trustItems.map((item) => (
-                <span key={item} className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-4 py-2 text-xs font-bold uppercase tracking-[0.1em] text-[var(--muted-strong)] shadow-[var(--shadow-soft)]">
+                <span key={item} className="anim-wiggle-hover rounded-lg border border-[var(--line)] bg-[var(--surface)] px-4 py-2 text-xs font-bold uppercase tracking-[0.1em] text-[var(--muted-strong)] shadow-[var(--shadow-soft)]">
                   {item}
                 </span>
               ))}
             </div>
 
             <p className="mt-5 max-w-lg text-sm font-bold leading-6 text-[var(--muted)]">
-              Feito para transformar mensagem, recibo e rotina financeira em uma visão clara do seu mês.
+              Mensagem, recibo e rotina financeira viram uma visão clara do seu mês. Simples assim.
             </p>
           </div>
 
@@ -330,8 +374,8 @@ export default function LandingPage() {
         {quickBenefits.map((benefit) => {
           const Icon = benefit.icon;
           return (
-            <div key={benefit.title} data-reveal-item className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-soft)] transition-colors hover:border-[rgba(16,185,129,0.32)]">
-              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand-strong)]">
+            <div key={benefit.title} data-reveal-item className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-soft)] hover-lift transition-colors hover:border-[rgba(16,185,129,0.32)]">
+              <div className="flex h-11 w-11 anim-wiggle-hover items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand-strong)]">
                 <Icon className="h-5 w-5" strokeWidth={2.4} />
               </div>
               <h3 className="mt-5 font-display text-lg font-bold text-[var(--navy)]">{benefit.title}</h3>
@@ -356,10 +400,10 @@ export default function LandingPage() {
           {flow.map((step, index) => {
             const Icon = step.icon;
             return (
-              <div key={step.title} data-reveal-item className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-5 shadow-[var(--shadow-soft)] transition-colors hover:border-[rgba(16,185,129,0.32)]">
+              <div key={step.title} data-reveal-item className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-5 shadow-[var(--shadow-soft)] hover-lift transition-colors hover:border-[rgba(16,185,129,0.32)]">
                 <div className="flex items-center justify-between gap-4">
                   <span className="font-display text-sm font-bold text-[var(--muted)]">0{index + 1}</span>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand-strong)]">
+                  <div className="flex h-11 w-11 anim-wiggle-hover items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand-strong)]">
                     <Icon className="h-5 w-5" strokeWidth={2.4} />
                   </div>
                 </div>
@@ -421,8 +465,8 @@ export default function LandingPage() {
             {features.map((feature) => {
               const Icon = feature.icon;
               return (
-                <div key={feature.title} data-reveal-item className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-6 shadow-[var(--shadow-soft)] transition-colors hover:border-[rgba(16,185,129,0.32)]">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand-strong)]">
+                <div key={feature.title} data-reveal-item className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-6 shadow-[var(--shadow-soft)] hover-lift transition-colors hover:border-[rgba(16,185,129,0.32)]">
+                  <div className="flex h-12 w-12 anim-wiggle-hover items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand-strong)]">
                     <Icon className="h-5 w-5" strokeWidth={2.4} />
                   </div>
                   <h3 className="mt-5 font-display text-xl font-bold text-[var(--navy)]">{feature.title}</h3>
@@ -431,6 +475,93 @@ export default function LandingPage() {
               );
             })}
           </div>
+        </div>
+      </section>
+
+      <section id="planos" className="border-b border-[var(--line)]">
+        <div className="mx-auto w-full max-w-[1180px] px-5 py-16 sm:px-8">
+          <div data-reveal className="mb-10 max-w-2xl">
+            <h2 data-reveal-item className="font-display text-3xl font-bold leading-tight text-[var(--navy)] sm:text-4xl">
+              Dois planos. <span className="text-[var(--primary)]">Escolhe o seu.</span>
+            </h2>
+            <p data-reveal-item className="mt-4 text-base font-medium leading-7 text-[var(--muted)]">
+              O Standard te dá o painel completo. O Pro traz o WhatsApp junto.
+            </p>
+          </div>
+
+          <div data-reveal className="grid gap-5 md:grid-cols-2 lg:max-w-[860px]">
+            {plans.map((plan) => {
+              const Icon = plan.icon;
+              return (
+                <div
+                  key={plan.name}
+                  data-reveal-item
+                  className={`hover-lift relative flex flex-col rounded-2xl border p-6 shadow-[var(--shadow-soft)] sm:p-7 ${
+                    plan.highlighted
+                      ? "border-[rgba(16,185,129,0.42)] bg-[linear-gradient(150deg,var(--surface-strong),var(--brand-soft))] shadow-[var(--shadow-glow)] ring-1 ring-[rgba(16,185,129,0.22)] lg:-translate-y-3"
+                      : "border-[var(--line)] bg-[var(--surface-strong)]"
+                  }`}
+                >
+                  {plan.highlighted ? (
+                    <span className="anim-bob absolute -top-3 right-6 inline-flex items-center gap-1.5 rounded-full bg-[var(--primary)] px-3 py-1 text-xs font-bold text-[var(--on-primary)] shadow-[var(--shadow-glow)]">
+                      <Crown className="h-3.5 w-3.5" strokeWidth={2.6} />
+                      Mais pedido
+                    </span>
+                  ) : null}
+
+                  <div className="flex items-center gap-3">
+                    <div className="anim-wiggle-hover flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand-strong)]">
+                      <Icon className="h-5 w-5" strokeWidth={2.4} />
+                    </div>
+                    <div>
+                      <h3 className="font-display text-xl font-bold text-[var(--navy)]">{plan.name}</h3>
+                      <p className="text-sm font-semibold text-[var(--muted)]">{plan.tagline}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex items-baseline gap-1.5">
+                    <span className="text-lg font-bold text-[var(--muted)]">R$</span>
+                    <span className="money text-4xl text-[var(--navy)]">{plan.price}</span>
+                    <span className="text-sm font-semibold text-[var(--muted)]">/ mês</span>
+                  </div>
+                  <span className="mt-2 inline-flex w-fit rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--muted-strong)]">
+                    Em breve
+                  </span>
+
+                  <div className="my-6 h-px bg-[var(--line)]" />
+
+                  <ul className="space-y-3">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex gap-3 text-sm font-semibold leading-6 text-[var(--muted-strong)]">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand)]" strokeWidth={2.6} />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="mt-auto pt-7">
+                    <Link
+                      href="/cadastro"
+                      className={`inline-flex w-full items-center justify-center gap-2 px-6 py-3.5 text-sm ${
+                        plan.highlighted ? "btn-primary" : "btn-secondary"
+                      }`}
+                    >
+                      {plan.cta}
+                      <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
+                    </Link>
+                    <p className="mt-3 text-center text-xs font-semibold text-[var(--muted)]">
+                      Sem cobrança por enquanto
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <p data-reveal className="mt-8 flex items-center gap-2 text-sm font-semibold text-[var(--muted)]">
+            <PartyPopper className="h-4 w-4 text-[var(--brand)]" strokeWidth={2.4} />
+            Crie sua conta agora e comece a usar — a cobrança entra só quando a assinatura for lançada.
+          </p>
         </div>
       </section>
 
@@ -472,11 +603,11 @@ export default function LandingPage() {
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Link href="/cadastro" className="btn-primary inline-flex items-center justify-center gap-2 px-6 py-4 text-sm">
+            <Link href="/cadastro" className="btn-primary inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm">
               Criar conta
               <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link href="/login" className="btn-secondary inline-flex items-center justify-center px-6 py-4 text-sm">
+            <Link href="/login" className="btn-secondary inline-flex items-center justify-center px-6 py-3.5 text-sm">
               Entrar
             </Link>
           </div>
@@ -499,9 +630,28 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="mx-auto flex w-full max-w-[1180px] flex-col gap-4 border-t border-[var(--line)] px-5 py-8 text-sm font-medium text-[var(--muted)] sm:px-8 md:flex-row md:items-center md:justify-between">
-        <ThemedLogo className="h-[54px] w-[160px]" />
-        <p className="max-w-md md:text-right">Controle financeiro com IA, WhatsApp e clareza.</p>
+      <footer className="mx-auto flex w-full max-w-[1180px] flex-col gap-4 border-t border-[var(--line)] px-5 py-8 text-sm font-medium text-[var(--muted)] sm:px-8 md:flex-row md:items-start md:justify-between">
+        <div className="space-y-2">
+          <ThemedLogo className="h-[54px] w-[160px]" />
+          <p className="max-w-md">Controle financeiro com IA, WhatsApp e clareza.</p>
+        </div>
+        <div className="space-y-1 text-xs md:text-right">
+          <p>
+            <Link href="/termos" className="font-semibold hover:text-[var(--brand-strong)]">
+              Termos de Uso e Privacidade
+            </Link>
+          </p>
+          <p>
+            Dados e privacidade:{" "}
+            <a
+              href={`mailto:${process.env.NEXT_PUBLIC_CONTACT_EMAIL || "contato@moedin.ia"}`}
+              className="font-semibold hover:text-[var(--brand-strong)]"
+            >
+              {process.env.NEXT_PUBLIC_CONTACT_EMAIL || "contato@moedin.ia"}
+            </a>
+          </p>
+          <p>© {new Date().getFullYear()} Moedin.IA</p>
+        </div>
       </footer>
     </main>
   );
