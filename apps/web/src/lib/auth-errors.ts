@@ -15,8 +15,12 @@ const PATTERNS: Array<{ match: RegExp; text: string }> = [
   { match: /for security purposes.*after (\d+) seconds/i, text: "Por segurança, espera alguns segundos antes de tentar de novo." },
   { match: /user not found/i, text: "Não encontramos uma conta com esse e-mail." },
   { match: /token has expired|otp expired|invalid.*token/i, text: "Esse link expirou ou já foi usado. Peça um novo." },
+  { match: /auth session missing|session[ _]?not[ _]?found|missing.*session|not authenticated/i, text: "O link de redefinição expirou ou foi aberto em outro navegador. Peça um novo e abra no mesmo aparelho." },
+  { match: /weak and easy to guess|known to be weak|pwned|leaked password/i, text: "Essa senha é muito comum e fácil de adivinhar. Escolhe uma mais forte." },
   { match: /network|fetch failed|failed to fetch/i, text: "Não conseguimos conectar. Confira sua internet e tente de novo." },
-  { match: /signups? not allowed|disabled/i, text: "Cadastro temporariamente indisponível. Tenta novamente em instantes." },
+  { match: /anonymous sign-?ins?.*disabled/i, text: "Preencha e-mail e senha para criar a conta." },
+  { match: /signups? not allowed|sign-?up.*disabled/i, text: "Cadastro temporariamente indisponível. Tenta novamente em instantes." },
+  { match: /password.*at least (\d+)/i, text: "A senha precisa ter pelo menos 8 caracteres." },
 ];
 
 export function translateAuthError(message: string | null | undefined): string {

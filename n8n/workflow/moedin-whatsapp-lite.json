@@ -2,25 +2,67 @@
   "name": "Moedin.IA - WhatsApp LITE (texto -> banco)",
   "nodes": [
     {
-      "parameters": { "httpMethod": "POST", "path": "moedin-whatsapp", "responseMode": "responseNode", "options": {} },
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "moedin-whatsapp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [-960, 300],
+      "position": [
+        -960,
+        300
+      ],
       "id": "wh-lite",
       "name": "Webhook WhatsApp",
       "webhookId": "moedin-whatsapp"
     },
     {
       "parameters": {
-        "assignments": { "assignments": [
-          { "id": "g1", "name": "telefone", "value": "={{ (($json.body && $json.body.telefone) || ($json.body && $json.body.data && $json.body.data.key && $json.body.data.key.remoteJid) || '').toString().split('@')[0] }}", "type": "string" },
-          { "id": "g2", "name": "text", "value": "={{ ($json.body && $json.body.text) || ($json.body && $json.body.data && $json.body.data.message && $json.body.data.message.conversation) || '' }}", "type": "string" }
-        ] },
+        "jsCode": "// AUDITORIA C-3: o webhook do n8n nao tinha autenticacao. Este no rejeita\n// qualquer requisicao que nao traga o header X-Webhook-Token com o valor\n// de $env.WHATSAPP_WEBHOOK_TOKEN. Fail-closed: se o env nao estiver setado,\n// nada passa.\nconst expected = ($env.WHATSAPP_WEBHOOK_TOKEN || '').trim();\nconst headers = ($input.first().json.headers) || {};\nconst got = (headers['x-webhook-token'] || headers['X-Webhook-Token'] || '').toString().trim();\nif (!expected || got !== expected) {\n  throw new Error('webhook nao autorizado (X-Webhook-Token ausente ou invalido)');\n}\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -850,
+        300
+      ],
+      "id": "guard-token-001",
+      "name": "Guard: token do webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "g1",
+              "name": "telefone",
+              "value": "={{ (($json.body && $json.body.telefone) || ($json.body && $json.body.data && $json.body.data.key && $json.body.data.key.remoteJid) || '').toString().split('@')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "g2",
+              "name": "text",
+              "value": "={{ ($json.body && $json.body.text) || ($json.body && $json.body.data && $json.body.data.message && $json.body.data.message.conversation) || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "g-msgid",
+              "name": "msgId",
+              "value": "={{ ($json.body && $json.body.data && $json.body.data.key && $json.body.data.key.id) || ($json.body && $json.body.msgId) || '' }}",
+              "type": "string"
+            }
+          ]
+        },
         "options": {}
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-740, 300],
+      "position": [
+        -740,
+        300
+      ],
       "id": "global-lite",
       "name": "global"
     },
@@ -29,39 +71,82 @@
         "method": "POST",
         "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/resolve_user_by_phone",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-          { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-          { "name": "Content-Type", "value": "application/json" }
-        ] },
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={ \"p_phone\": {{ JSON.stringify($json.telefone) }} }",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-520, 300],
+      "position": [
+        -520,
+        300
+      ],
       "id": "http-user-lite",
       "name": "Resolver usuario"
     },
     {
       "parameters": {
-        "conditions": { "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 }, "conditions": [
-          { "id": "c-found", "leftValue": "={{ $json.found }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true", "singleValue": true } }
-        ], "combinator": "and" },
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c-found",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
         "options": {}
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [-300, 300],
+      "position": [
+        -300,
+        300
+      ],
       "id": "if-user-lite",
       "name": "Usuario cadastrado?"
     },
     {
-      "parameters": { "respondWith": "json", "responseBody": "={{ JSON.stringify({ ok: false, mensagem: 'Numero nao cadastrado. Cadastre-se no app e salve este telefone no perfil.' }) }}", "options": {} },
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, mensagem: 'Numero nao cadastrado. Cadastre-se no app e salve este telefone no perfil.' }) }}",
+        "options": {}
+      },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [-80, 140],
+      "position": [
+        -80,
+        140
+      ],
       "id": "resp-naocad-lite",
       "name": "Responder nao cadastrado"
     },
@@ -70,35 +155,74 @@
         "method": "POST",
         "url": "={{ $env.AI_SERVICE_URL }}/parse-text",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "Content-Type", "value": "application/json" } ] },
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={ \"text\": {{ JSON.stringify($('global').item.json.text) }} }",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-80, 380],
+      "position": [
+        -80,
+        380
+      ],
       "id": "http-ia-lite",
       "name": "Interpretar (ai-service)"
     },
     {
       "parameters": {
-        "conditions": { "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 }, "conditions": [
-          { "id": "c-ok", "leftValue": "={{ $json.ok }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true", "singleValue": true } }
-        ], "combinator": "and" },
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c-ok",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
         "options": {}
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [140, 380],
+      "position": [
+        140,
+        380
+      ],
       "id": "if-ok-lite",
       "name": "Interpretou?"
     },
     {
-      "parameters": { "respondWith": "json", "responseBody": "={{ JSON.stringify({ ok: false, mensagem: $json.erro || 'Nao entendi. Ex: gastei 50 no mercado.' }) }}", "options": {} },
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, mensagem: $json.erro || 'Nao entendi. Ex: gastei 50 no mercado.' }) }}",
+        "options": {}
+      },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [360, 540],
+      "position": [
+        360,
+        540
+      ],
       "id": "resp-erro-lite",
       "name": "Responder erro"
     },
@@ -107,76 +231,225 @@
         "method": "POST",
         "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/resolve_category",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-          { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-          { "name": "Content-Type", "value": "application/json" }
-        ] },
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={ \"p_user_id\": {{ JSON.stringify($('Resolver usuario').item.json.user_id) }}, \"p_name\": {{ JSON.stringify($('Interpretar (ai-service)').item.json.categoria) }} }",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [360, 360],
+      "position": [
+        360,
+        360
+      ],
       "id": "http-cat-lite",
       "name": "Resolver categoria"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/transactions",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/transactions?on_conflict=user_id,external_message_id",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-          { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-          { "name": "Content-Type", "value": "application/json" },
-          { "name": "Prefer", "value": "return=representation" }
-        ] },
-        "sendBody": true, "specifyBody": "json",
-        "jsonBody": "={\n  \"user_id\": {{ JSON.stringify($('Resolver usuario').item.json.user_id) }},\n  \"type\": {{ JSON.stringify($('Interpretar (ai-service)').item.json.tipo) }},\n  \"amount\": {{ $('Interpretar (ai-service)').item.json.valor }},\n  \"description\": {{ JSON.stringify($('Interpretar (ai-service)').item.json.descricao) }},\n  \"notes\": {{ JSON.stringify($('Interpretar (ai-service)').item.json.texto_original) }},\n  \"transaction_date\": {{ JSON.stringify($('Interpretar (ai-service)').item.json.data) }},\n  \"competence_month\": {{ JSON.stringify($('Interpretar (ai-service)').item.json.competence_month) }},\n  \"category_id\": {{ JSON.stringify($json.category_id) }},\n  \"source\": \"whatsapp\",\n  \"status\": \"active\",\n  \"origin_type\": \"manual\"\n}",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation,resolution=ignore-duplicates"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"user_id\": {{ JSON.stringify($('Resolver usuario').item.json.user_id) }},\n  \"type\": {{ JSON.stringify($('Interpretar (ai-service)').item.json.tipo) }},\n  \"amount\": {{ $('Interpretar (ai-service)').item.json.valor }},\n  \"description\": {{ JSON.stringify($('Interpretar (ai-service)').item.json.descricao) }},\n  \"notes\": {{ JSON.stringify($('Interpretar (ai-service)').item.json.texto_original) }},\n  \"transaction_date\": {{ JSON.stringify($('Interpretar (ai-service)').item.json.data) }},\n  \"competence_month\": {{ JSON.stringify($('Interpretar (ai-service)').item.json.competence_month) }},\n  \"category_id\": {{ JSON.stringify($json.category_id) }},\n  \"source\": \"whatsapp\",\n  \"status\": \"active\",\n  \"origin_type\": \"manual\",\n  \"external_message_id\": {{ JSON.stringify($('global').item.json.msgId || null) }}\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [580, 360],
+      "position": [
+        580,
+        360
+      ],
       "id": "http-tx-lite",
       "name": "Criar transacao"
     },
     {
-      "parameters": { "respondWith": "json", "responseBody": "={{ JSON.stringify({ ok: true, mensagem: '✅ ' + ($('Interpretar (ai-service)').item.json.tipo === 'income' ? 'Receita' : 'Gasto') + ' de R$ ' + Number($('Interpretar (ai-service)').item.json.valor).toFixed(2) + ' em ' + ($('Interpretar (ai-service)').item.json.categoria || 'sem categoria') + ' registrado.' }) }}", "options": {} },
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, mensagem: '✅ ' + ($('Interpretar (ai-service)').item.json.tipo === 'income' ? 'Receita' : 'Gasto') + ' de R$ ' + Number($('Interpretar (ai-service)').item.json.valor).toFixed(2) + ' em ' + ($('Interpretar (ai-service)').item.json.categoria || 'sem categoria') + ' registrado.' }) }}",
+        "options": {}
+      },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [800, 360],
+      "position": [
+        800,
+        360
+      ],
       "id": "resp-ok-lite",
       "name": "Responder sucesso"
     },
     {
-      "parameters": { "content": "## Moedin.IA - WhatsApp LITE\n\nVersao simples e facil de rodar: so usa **variaveis de ambiente** (sem credenciais no n8n, sem Redis).\n\nFluxo: Webhook -> identifica usuario pelo telefone -> ai-service interpreta o texto -> grava em transactions -> aparece no site.\n\n**Env necessarias (ja no docker-compose):** SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, AI_SERVICE_URL\n\n**Testar:**\nPOST {webhook}/webhook/moedin-whatsapp\n```\n{ \"telefone\": \"5511999999999\", \"text\": \"gastei 50 no mercado\" }\n```\nObs: funciona sem OpenAI (parser por regra). Com OPENAI_API_KEY no ai-service, fica mais esperto.", "height": 360, "width": 520, "color": 4 },
+      "parameters": {
+        "content": "## Moedin.IA - WhatsApp LITE\n\nVersao simples e facil de rodar: so usa **variaveis de ambiente** (sem credenciais no n8n, sem Redis).\n\nFluxo: Webhook -> identifica usuario pelo telefone -> ai-service interpreta o texto -> grava em transactions -> aparece no site.\n\n**Env necessarias (ja no docker-compose):** SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, AI_SERVICE_URL\n\n**Testar:**\nPOST {webhook}/webhook/moedin-whatsapp\n```\n{ \"telefone\": \"5511999999999\", \"text\": \"gastei 50 no mercado\" }\n```\nObs: funciona sem OpenAI (parser por regra). Com OPENAI_API_KEY no ai-service, fica mais esperto.",
+        "height": 360,
+        "width": 520,
+        "color": 4
+      },
       "type": "n8n-nodes-base.stickyNote",
-      "position": [-960, -120],
+      "position": [
+        -960,
+        -120
+      ],
       "id": "note-lite",
       "name": "Doc"
     }
   ],
   "pinData": {},
   "connections": {
-    "Webhook WhatsApp": { "main": [[{ "node": "global", "type": "main", "index": 0 }]] },
-    "global": { "main": [[{ "node": "Resolver usuario", "type": "main", "index": 0 }]] },
-    "Resolver usuario": { "main": [[{ "node": "Usuario cadastrado?", "type": "main", "index": 0 }]] },
-    "Usuario cadastrado?": { "main": [
-      [{ "node": "Interpretar (ai-service)", "type": "main", "index": 0 }],
-      [{ "node": "Responder nao cadastrado", "type": "main", "index": 0 }]
-    ] },
-    "Interpretar (ai-service)": { "main": [[{ "node": "Interpretou?", "type": "main", "index": 0 }]] },
-    "Interpretou?": { "main": [
-      [{ "node": "Resolver categoria", "type": "main", "index": 0 }],
-      [{ "node": "Responder erro", "type": "main", "index": 0 }]
-    ] },
-    "Resolver categoria": { "main": [[{ "node": "Criar transacao", "type": "main", "index": 0 }]] },
-    "Criar transacao": { "main": [[{ "node": "Responder sucesso", "type": "main", "index": 0 }]] }
+    "Webhook WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Guard: token do webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "global": {
+      "main": [
+        [
+          {
+            "node": "Resolver usuario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolver usuario": {
+      "main": [
+        [
+          {
+            "node": "Usuario cadastrado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Usuario cadastrado?": {
+      "main": [
+        [
+          {
+            "node": "Interpretar (ai-service)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder nao cadastrado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpretar (ai-service)": {
+      "main": [
+        [
+          {
+            "node": "Interpretou?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpretou?": {
+      "main": [
+        [
+          {
+            "node": "Resolver categoria",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolver categoria": {
+      "main": [
+        [
+          {
+            "node": "Criar transacao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar transacao": {
+      "main": [
+        [
+          {
+            "node": "Responder sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard: token do webhook": {
+      "main": [
+        [
+          {
+            "node": "global",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "active": false,
-  "settings": { "executionOrder": "v1" },
+  "settings": {
+    "executionOrder": "v1"
+  },
   "meta": {}
 }

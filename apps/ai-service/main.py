@@ -95,15 +95,26 @@ INCOME_HINTS = [
 
 app = FastAPI(title="Moedin.IA - AI Service")
 
-# CORS: o dashboard (Next.js) chama /insight direto do navegador.
+# CORS — AUDITORIA A-1.
+# O dashboard não chama mais este serviço direto do navegador (passa pela rota
+# /api/insight do Next, server-to-server). Requisições server-to-server não usam
+# CORS, então o padrão aqui é NÃO liberar origem nenhuma. Se você realmente
+# precisar de acesso via browser de algum domínio, liste em
+# AI_SERVICE_ALLOWED_ORIGINS (separado por vírgula).
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+_allowed = [
+    o.strip()
+    for o in os.getenv("AI_SERVICE_ALLOWED_ORIGINS", "").split(",")
+    if o.strip()
+]
+if _allowed:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_allowed,
+        allow_methods=["POST", "GET", "OPTIONS"],
+        allow_headers=["Content-Type"],
+    )
 
 _openai_client = None
 _groq_client = None
@@ -140,25 +151,69 @@ def today_str() -> str:
 # ---------------------------------------------------------------------------
 # Fallback por regex (sem IA) — reaproveita a lógica do workflow n8n original
 # ---------------------------------------------------------------------------
-def parse_amount(text: str) -> float:
-    """Extrai valor monetário tratando formatos BR: 1.200,50 / 35,90 / 1200 / 23.50."""
-    m = re.search(r"(?:r\$\s*)?(\d[\d.,]*\d|\d)", text.lower())
-    if not m:
+_DATE_RE = re.compile(
+    r"\b\d{1,2}\s*[/-]\s*\d{1,2}(?:\s*[/-]\s*\d{2,4})?\b"  # 20/08 ou 20/08/2026
+    r"|\b20\d{2}-\d{2}-\d{2}\b"                             # ISO
+    r"|\b\d{1,2}h(?:\d{2})?\b"                              # 14h, 14h30
+)
+
+_MONEY_RE = re.compile(
+    r"r\$\s*(\d[\d.,]*\d|\d)"                       # R$ 80 / R$ 1.200,50
+    r"|(\d[\d.,]*\d|\d)\s*(?:reais|real|conto|pila|mangos?)\b"  # 80 reais
+    r"|\b(\d{1,3}(?:\.\d{3})*,\d{2})\b"             # 1.200,50 (BR com centavos)
+    r"|\b(\d+[.,]\d{2})\b",                         # 35,90 / 35.90
+    re.IGNORECASE,
+)
+
+
+def _normalize_amount_token(token: str) -> float:
+    """Converte '1.200,50' / '23.50' / '1200' para float, regra BR-first.
+    Mesma lógica de apps/web/src/lib/formatters.ts::parseMoneyInput."""
+    token = re.sub(r"[^\d.,]", "", token)
+    if not token:
         return 0.0
-    token = m.group(1)
     if "," in token:
-        # vírgula é o separador decimal; pontos são milhar
         token = token.replace(".", "").replace(",", ".")
-    elif token.count(".") == 1:
-        _, dec = token.split(".")
-        if len(dec) not in (1, 2):  # ponto é milhar (ex: 1.200)
-            token = token.replace(".", "")
     else:
-        token = token.replace(".", "")  # vários pontos = milhar
+        dot_count = token.count(".")
+        if dot_count == 1:
+            _, dec = token.split(".")
+            if len(dec) not in (1, 2):  # ponto com 3 casas = milhar
+                token = token.replace(".", "")
+        elif dot_count > 1:
+            token = token.replace(".", "")
     try:
         return round(float(token), 2)
     except ValueError:
         return 0.0
+
+
+def parse_amount(text: str) -> float:
+    """Extrai o VALOR MONETÁRIO da frase.
+
+    Achado 3.1 (revisão externa): a versão antiga pegava o primeiro número da
+    mensagem, então "Em 20/08/2026 gastei R$ 80" virava R$ 20 e "Comprei 2
+    pneus por R$ 600" virava R$ 2. Agora:
+      1) remove datas/horas antes de procurar;
+      2) prioriza números marcados como dinheiro (R$, "reais", ou com centavos);
+      3) só como último recurso pega um número solto.
+    """
+    lower = text.lower()
+    cleaned = _DATE_RE.sub("  ", lower)
+
+    m = _MONEY_RE.search(cleaned)
+    if m:
+        token = next((g for g in m.groups() if g), None)
+        if token:
+            return _normalize_amount_token(token)
+
+    # último recurso: primeiro número "solto" (evita quantidades minúsculas do
+    # tipo "2 pneus" exigindo pelo menos 2 dígitos OU valor >= 10)
+    for raw in re.findall(r"\d[\d.,]*\d|\d", cleaned):
+        value = _normalize_amount_token(raw)
+        if value >= 10 or len(re.sub(r"\D", "", raw)) >= 2:
+            return value
+    return 0.0
 
 
 def fallback_parse(text: str) -> dict:
@@ -337,17 +392,58 @@ def _as_obj(parsed):
     return parsed if isinstance(parsed, dict) else {}
 
 
-def normalize_result(parsed: dict, fonte: str, texto_original: str) -> dict:
+def _count_items(parsed) -> int:
+    """Quantos lançamentos válidos (com valor) o modelo devolveu."""
+    if isinstance(parsed, list):
+        return sum(
+            1
+            for it in parsed
+            if isinstance(it, dict) and _safe_float(it.get("valor")) > 0
+        )
+    return 1 if isinstance(parsed, dict) else 0
+
+
+def _safe_float(v) -> float:
+    try:
+        return round(float(v or 0), 2)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _valid_iso_date(value: str) -> bool:
+    """Achado 3.5: 2026-02-31 tem o formato certo mas não existe."""
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", str(value)):
+        return False
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+        return True
+    except ValueError:
+        return False
+
+
+# Fontes cujo texto é genérico (imagem/áudio): não dá para exigir palavra de
+# receita no "texto", porque não há texto do usuário. Achado 3.2.
+_GENERIC_SOURCES = {"imagem", "audio"}
+
+
+def normalize_result(parsed_raw, fonte: str, texto_original: str) -> dict:
     """Garante que o resultado tem todos os campos válidos para gravar."""
-    parsed = _as_obj(parsed)
+    multiplos = _count_items(parsed_raw) > 1
+    parsed = _as_obj(parsed_raw)
     tipo = parsed.get("tipo")
     if tipo not in ("income", "expense"):
         tipo = "expense"
 
     # rede de segurança: o modelo pequeno às vezes marca "income" sem motivo
-    # (ex: "1000 em facul"). Só aceita receita se houver sinal de dinheiro entrando.
+    # (ex: "1000 em facul"). Só corrige receita->despesa quando HÁ texto do
+    # usuário para checar — num comprovante de imagem/áudio confiamos no modelo
+    # (achado 3.2: comprovante de recebimento não pode virar despesa).
     text_lower = (texto_original or "").lower()
-    if tipo == "income" and not any(h in text_lower for h in INCOME_HINTS):
+    if (
+        tipo == "income"
+        and fonte not in _GENERIC_SOURCES
+        and not any(h in text_lower for h in INCOME_HINTS)
+    ):
         tipo = "expense"
 
     valid_categories = INCOME_CATEGORIES if tipo == "income" else EXPENSE_CATEGORIES
@@ -366,20 +462,33 @@ def normalize_result(parsed: dict, fonte: str, texto_original: str) -> dict:
         # nunca deixa sem categoria: cai na categoria "Outras"
         categoria = "Outras receitas" if tipo == "income" else "Outras despesas"
 
-    try:
-        valor = round(float(parsed.get("valor") or 0), 2)
-    except (TypeError, ValueError):
-        valor = 0.0
+    valor = _safe_float(parsed.get("valor"))
 
-    data = parsed.get("data") or today_str()
-    if not re.match(r"^\d{4}-\d{2}-\d{2}$", str(data)):
+    # Achado 3.5: valida o calendário de verdade (2026-02-31 tem formato ok mas
+    # não existe). Data futura também cai para hoje.
+    data_in = str(parsed.get("data") or "").strip()
+    if _valid_iso_date(data_in) and data_in <= today_str():
+        data = data_in
+    else:
         data = today_str()
 
     descricao = (parsed.get("descricao") or texto_original or "Lançamento via WhatsApp")[:255]
 
+    ok = valor > 0 and not multiplos
+    if valor <= 0:
+        erro = "Não consegui identificar o valor da transação."
+    elif multiplos:
+        erro = (
+            "Parece que você mandou mais de um lançamento na mesma mensagem. "
+            "Me manda um de cada vez que eu registro certinho."
+        )
+    else:
+        erro = None
+
     return {
-        "ok": valor > 0,
-        "erro": None if valor > 0 else "Não consegui identificar o valor da transação.",
+        "ok": ok,
+        "erro": erro,
+        "multiplos": multiplos,
         "tipo": tipo,
         "valor": valor,
         "categoria": categoria,
@@ -396,10 +505,34 @@ def normalize_result(parsed: dict, fonte: str, texto_original: str) -> dict:
 # ---------------------------------------------------------------------------
 INTENTS = ("lancamento", "consulta", "excluir", "outro")
 
-DELETE_HINTS = ["exclu", "apag", "remov", "deleta", "delete", "retir", "tira ", "tirar"]
 QUERY_HINTS = ["quanto", "relatorio", "relatório", "extrato", "resumo", "balanco",
                "balanço", "meus gastos", "gastos do mes", "gastos do mês", "gastei no mes",
                "gastei esse mes", "gastei esse mês", "total gasto"]
+
+# Achado 3.8 (revisão externa): "gastei 30 em removedor" era classificado como
+# EXCLUIR porque "removedor" contém "remov". Agora o verbo de exclusão precisa
+# ser palavra inteira (\b), no começo/perto do começo da frase, e não pode
+# haver verbo de gasto/registro na mesma mensagem.
+_DELETE_VERB_RE = re.compile(
+    r"\b(exclu\w+|apag\w+|apaga|remov\w+|remove|delet\w+|deleta|desfa\w+|cancel\w+)\b",
+    re.IGNORECASE,
+)
+_SPEND_VERB_RE = re.compile(
+    r"\b(gastei|paguei|comprei|recebi|ganhei|torrei)\b", re.IGNORECASE
+)
+
+
+def looks_like_delete(text: str) -> bool:
+    lower = (text or "").lower().strip()
+    m = _DELETE_VERB_RE.search(lower)
+    if not m:
+        return False
+    # se a pessoa também está registrando um gasto na mesma frase, não é exclusão
+    if _SPEND_VERB_RE.search(lower):
+        return False
+    # o verbo de exclusão precisa estar no começo da mensagem (comando), não no
+    # meio de uma descrição ("comprei removedor de esmalte")
+    return m.start() <= 20
 
 
 def build_intent_prompt() -> str:
@@ -421,8 +554,8 @@ def build_intent_prompt() -> str:
 
 def fallback_intent(text: str) -> dict:
     lower = text.lower()
-    if any(h in lower for h in DELETE_HINTS):
-        alvo = re.sub(r"\b(exclu\w*|apag\w*|remov\w*|delet\w*|retir\w*|tira\w*|o|a|os|as|meu|minha|gasto|lancamento|lançamento)\b",
+    if looks_like_delete(lower):
+        alvo = re.sub(r"\b(exclu\w*|apag\w*|remov\w*|delet\w*|desfa\w*|cancel\w*|retir\w*|tira\w*|o|a|os|as|meu|minha|gasto|lancamento|lançamento)\b",
                       "", lower, flags=re.IGNORECASE)
         alvo = re.sub(r"\s+", " ", alvo).strip()
         return {"intent": "excluir", "alvo": alvo or "ultimo"}
@@ -466,16 +599,18 @@ def llm_classify(text: str):
         return None
 
 
-def normalize_interpret(parsed: dict, texto: str) -> dict:
-    parsed = _as_obj(parsed)
+def normalize_interpret(parsed_raw, texto: str) -> dict:
+    parsed = _as_obj(parsed_raw)
     intent = parsed.get("intent")
     if intent not in INTENTS:
         # não classificou: tenta inferir pelo fallback
-        parsed = fallback_intent(texto)
+        parsed_raw = fallback_intent(texto)
+        parsed = parsed_raw
         intent = parsed["intent"]
 
     if intent == "lancamento":
-        base = normalize_result(parsed, "texto", texto)
+        # passa o cru para normalize_result detectar "vários lançamentos numa msg"
+        base = normalize_result(parsed_raw if isinstance(parsed_raw, list) else parsed, "texto", texto)
         base["intent"] = "lancamento"
         return base
     if intent == "consulta":
@@ -558,7 +693,7 @@ def interpret(body: TextIn):
     dados de um lançamento mas fraco em classificar intenção.
     """
     lower = body.text.lower()
-    if any(h in lower for h in DELETE_HINTS):
+    if looks_like_delete(lower):
         return normalize_interpret({"intent": "excluir"}, body.text)
     if any(h in lower for h in QUERY_HINTS):
         return normalize_interpret(fallback_intent(body.text), body.text)

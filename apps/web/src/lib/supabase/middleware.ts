@@ -13,10 +13,11 @@ export async function middleware(request: NextRequest) {
     "/perfil",
     "/historico",
     "/metas",
+    "/fixos",
+    "/categorias",
     "/gastos-fixos",
     "/parcelamentos",
     "/planejamento-mensal",
-    "/planos",
   ];
   const isAuthRoute = authRoutes.some((route) => pathname === route);
   const isProtectedRoute = protectedRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`));
@@ -47,13 +48,10 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  if (isAuthRoute && process.env.NODE_ENV === "development") {
-    return response;
-  }
-
-  if (isProtectedRoute && process.env.NODE_ENV === "development") {
-    return response;
-  }
+  // AUDITORIA A-2: removido o bypass incondicional de autenticação em
+  // desenvolvimento. A validação de sessão agora roda em todos os ambientes; o
+  // bloco catch abaixo ainda dá um fallback tolerante em dev quando o Supabase
+  // fica inacessível (rede offline), sem nunca liberar rota privada sem sessão.
 
   const key =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
@@ -123,10 +121,12 @@ export async function middleware(request: NextRequest) {
       return response;
     }
 
-    console.warn(
-      "Supabase auth check failed in middleware:",
-      error instanceof Error ? error.message : error
-    );
+    if (process.env.NODE_ENV === "development") {
+      console.warn(
+        "Supabase auth check failed in middleware:",
+        error instanceof Error ? error.message : error
+      );
+    }
 
     if (isProtectedRoute) {
       return redirect("/login");
@@ -155,9 +155,10 @@ export const config = {
     "/perfil/:path*",
     "/historico/:path*",
     "/metas/:path*",
+    "/fixos/:path*",
+    "/categorias/:path*",
     "/gastos-fixos/:path*",
     "/parcelamentos/:path*",
     "/planejamento-mensal/:path*",
-    "/planos/:path*",
   ],
 };

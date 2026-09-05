@@ -10,11 +10,48 @@ export function formatDate(date: string | null | undefined, fallback = "Não def
   return new Date(`${date}T00:00:00`).toLocaleDateString("pt-BR");
 }
 
-/** "5000,5" | "5000.5" | 5000 → 5000.5. Vazio/ inválido vira 0. */
+/**
+ * Interpreta um valor monetário digitado, aceitando tanto o formato BR
+ * ("1.200,50") quanto o com ponto decimal ("1200.50" / "23.50"). Vazio ou
+ * inválido vira 0. Sempre não-negativo (o tipo — receita/despesa — é separado).
+ *
+ * REVISÃO EXTERNA (ago/2026): a versão antiga fazia `.replace(/\./g, "")` cega,
+ * então "23.50" virava 2350 — um lançamento colado em formato decimal com
+ * ponto era gravado 100x maior. A regra abaixo é a mesma do parser do
+ * ai-service (apps/ai-service/main.py::parse_amount), para o WhatsApp e o site
+ * concordarem.
+ *
+ *   "1.200,50" -> 1200.5   (vírgula = decimal; pontos = milhar)
+ *   "23.50"    -> 23.5     (1 ponto, 2 casas  = decimal)
+ *   "5000.5"   -> 5000.5   (1 ponto, 1 casa   = decimal)
+ *   "1.200"    -> 1200     (1 ponto, 3 casas  = milhar)
+ *   "1.200.000"-> 1200000  (vários pontos     = milhar)
+ *   "1200"     -> 1200
+ */
 export function parseMoneyInput(value: string | number | null | undefined) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  const parsed = Number(String(value ?? "").replace(/\./g, "").replace(",", "."));
-  return Number.isFinite(parsed) ? parsed : 0;
+
+  // tira "R$", espaços, sinais e qualquer outra coisa que não seja dígito/./,
+  let token = String(value ?? "").replace(/[^\d.,]/g, "");
+  if (!token) return 0;
+
+  if (token.includes(",")) {
+    token = token.replace(/\./g, "").replace(",", ".");
+  } else {
+    const dotCount = (token.match(/\./g) ?? []).length;
+    if (dotCount === 1) {
+      const decimals = token.split(".")[1] ?? "";
+      if (decimals.length !== 1 && decimals.length !== 2) {
+        token = token.replace(/\./g, "");
+      }
+    } else if (dotCount > 1) {
+      token = token.replace(/\./g, "");
+    }
+  }
+
+  const parsed = Number(token);
+  if (!Number.isFinite(parsed) || parsed < 0) return 0;
+  return Math.round(parsed * 100) / 100;
 }
 
 /**

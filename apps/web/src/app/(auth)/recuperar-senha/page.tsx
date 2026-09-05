@@ -6,6 +6,7 @@ import { useState } from "react";
 import AuthShell from "@/components/auth-shell";
 import { createClient } from "@/lib/supabase/client";
 import { translateAuthError } from "@/lib/auth-errors";
+import { EMAIL_MAX, validateEmail } from "@/lib/auth-validation";
 
 export default function RecuperarSenhaPage() {
   const supabase = createClient();
@@ -16,11 +17,19 @@ export default function RecuperarSenhaPage() {
 
   async function handleReset(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setMessage("");
     setIsError(false);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const validationError = validateEmail(email);
+    if (validationError) {
+      setMessage(validationError);
+      setIsError(true);
+      return;
+    }
+
+    setLoading(true);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: `${window.location.origin}/atualizar-senha`,
     });
     setLoading(false);
@@ -51,10 +60,10 @@ export default function RecuperarSenhaPage() {
       <h1 className="mt-3 font-display text-4xl font-bold text-[var(--navy)]">Recuperar senha</h1>
       <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Informe o e-mail da conta para receber o link de redefinição.</p>
 
-      <form onSubmit={handleReset} className="mt-7 space-y-4">
+      <form onSubmit={handleReset} className="mt-7 space-y-4" noValidate>
         <div>
-          <label className="mb-2 block text-sm font-semibold text-[var(--text)]">E-mail</label>
-          <input className="control" type="email" placeholder="email@dominio.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <label htmlFor="recuperar-email" className="mb-2 block text-sm font-semibold text-[var(--text)]">E-mail</label>
+          <input id="recuperar-email" name="email" className="control" type="email" autoComplete="email" required maxLength={EMAIL_MAX} placeholder="email@dominio.com" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <button type="submit" disabled={loading} className="btn-primary w-full px-5 py-3.5 disabled:opacity-70">
           {loading ? "Enviando..." : "Enviar link"}

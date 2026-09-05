@@ -7,6 +7,17 @@ import AuthShell from "@/components/auth-shell";
 import GoogleSignInButton from "@/components/google-signin-button";
 import { createClient } from "@/lib/supabase/client";
 import { translateAuthError } from "@/lib/auth-errors";
+import {
+  EMAIL_MAX,
+  NAME_MAX,
+  PASSWORD_MAX,
+  PHONE_MAX,
+  firstError,
+  validateEmail,
+  validateFullName,
+  validatePassword,
+  validatePhoneOptional,
+} from "@/lib/auth-validation";
 
 export default function CadastroPage() {
   const supabase = createClient();
@@ -19,26 +30,43 @@ export default function CadastroPage() {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
+  // AUDITORIA A-4: honeypot. Um campo escondido que humanos nunca veem nem
+  // preenchem; bots que preenchem tudo caem nele. Não substitui um captcha
+  // (recomendado ativar no Supabase Auth), mas barra spam automatizado simples
+  // com atrito zero para o usuário real.
+  const [company, setCompany] = useState("");
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     setMessage("");
     setIsError(false);
 
-    if (password !== confirmPassword) {
-      setMessage("As senhas não coincidem.");
-      setIsError(true);
+    // Honeypot preenchido = bot. Finge sucesso e não cria nada.
+    if (company.trim() !== "") {
+      setMessage("Conta criada. Confirme seu e-mail para liberar o acesso.");
       return;
     }
 
+    const validationError = firstError(
+      validateFullName(fullName),
+      validatePhoneOptional(phone),
+      validateEmail(email),
+      validatePassword(password),
+      password !== confirmPassword ? "As senhas não coincidem." : null,
+    );
+    if (validationError) {
+      setMessage(validationError);
+      setIsError(true);
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.auth.signUp({
-      email,
+      email: email.trim(),
       password,
       options: {
         data: {
-          full_name: fullName,
-          phone,
+          full_name: fullName.trim(),
+          phone: phone.replace(/\D/g, "") || null,
         },
       },
     });
@@ -82,29 +110,42 @@ export default function CadastroPage() {
         <span className="h-px flex-1 bg-[var(--line)]" />
       </div>
 
-      <form onSubmit={handleRegister} className="space-y-4">
+      <form onSubmit={handleRegister} className="space-y-4" noValidate>
+        {/* honeypot — invisível para humanos, ignorado por leitores de tela */}
+        <div aria-hidden="true" className="absolute left-[-9999px] h-0 w-0 overflow-hidden">
+          <label htmlFor="cadastro-company">Empresa</label>
+          <input
+            id="cadastro-company"
+            name="company"
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+            value={company}
+            onChange={(e) => setCompany(e.target.value)}
+          />
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-2 block text-sm font-semibold text-[var(--text)]">Nome</label>
-            <input className="control" type="text" placeholder="Seu nome" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+            <label htmlFor="cadastro-nome" className="mb-2 block text-sm font-semibold text-[var(--text)]">Nome</label>
+            <input id="cadastro-nome" name="name" className="control" type="text" autoComplete="name" required maxLength={NAME_MAX} placeholder="Seu nome" value={fullName} onChange={(e) => setFullName(e.target.value)} />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-semibold text-[var(--text)]">Celular</label>
-            <input className="control" type="text" placeholder="(11) 99999-9999" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <label htmlFor="cadastro-celular" className="mb-2 block text-sm font-semibold text-[var(--text)]">Celular <span className="font-normal text-[var(--muted)]">(opcional)</span></label>
+            <input id="cadastro-celular" name="tel" className="control" type="tel" inputMode="tel" autoComplete="tel" maxLength={PHONE_MAX} placeholder="(11) 99999-9999" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
         </div>
         <div>
-          <label className="mb-2 block text-sm font-semibold text-[var(--text)]">E-mail</label>
-          <input className="control" type="email" placeholder="email@dominio.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <label htmlFor="cadastro-email" className="mb-2 block text-sm font-semibold text-[var(--text)]">E-mail</label>
+          <input id="cadastro-email" name="email" className="control" type="email" autoComplete="email" required maxLength={EMAIL_MAX} placeholder="email@dominio.com" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-2 block text-sm font-semibold text-[var(--text)]">Senha</label>
-            <input className="control" type="password" placeholder="********" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <label htmlFor="cadastro-senha" className="mb-2 block text-sm font-semibold text-[var(--text)]">Senha</label>
+            <input id="cadastro-senha" name="new-password" className="control" type="password" autoComplete="new-password" required minLength={8} maxLength={PASSWORD_MAX} placeholder="Mínimo 8 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-semibold text-[var(--text)]">Confirmar senha</label>
-            <input className="control" type="password" placeholder="********" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+            <label htmlFor="cadastro-confirmar" className="mb-2 block text-sm font-semibold text-[var(--text)]">Confirmar senha</label>
+            <input id="cadastro-confirmar" name="confirm-password" className="control" type="password" autoComplete="new-password" required minLength={8} maxLength={PASSWORD_MAX} placeholder="Repita a senha" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
           </div>
         </div>
         <button type="submit" disabled={loading} className="btn-primary w-full px-5 py-3.5 disabled:opacity-70">

@@ -2,7 +2,7 @@ import Link from "next/link";
 import ThemedLogo from "@/components/themed-logo";
 
 export const metadata = {
-  title: "Termos de Uso e Privacidade — Moedin.IA",
+  title: "Termos de Uso e Privacidade",
 };
 
 const TERMS_VERSION = "1.0";
@@ -59,8 +59,38 @@ export default function TermosPage() {
           <p>
             <strong className="text-[var(--text)]">LGPD:</strong> tratamos seus dados pessoais
             conforme a Lei Geral de Proteção de Dados, com medidas técnicas e organizacionais para
-            proteger as informações que você compartilha. Você pode pedir a exclusão da sua conta e
-            dos seus dados a qualquer momento pelo suporte.
+            proteger as informações que você compartilha.
+          </p>
+          <p>
+            <strong className="text-[var(--text)]">Seus direitos:</strong> você pode, a qualquer
+            momento, acessar e baixar uma cópia completa dos seus dados e solicitar a exclusão
+            definitiva da conta — ambos direto na página{" "}
+            <Link href="/perfil" className="font-semibold text-[var(--brand-strong)] underline">
+              Perfil
+            </Link>
+            , seção &quot;Privacidade e dados&quot;. Também pode pedir correção de dados ou
+            esclarecimentos pelo contato abaixo.
+          </p>
+          <p>
+            <strong className="text-[var(--text)]">Retenção:</strong> mantemos seus dados enquanto
+            a conta existir. Ao apagar a conta, os dados são removidos. Os registros de mensagens
+            do WhatsApp (<code>message_logs</code>) são mantidos por no máximo 180 dias para
+            depuração e então descartados.
+          </p>
+          <p>
+            <strong className="text-[var(--text)]">Compartilhamento:</strong> para funcionar, o
+            Moedin.IA usa provedores de infraestrutura e de IA (Supabase, Groq e/ou OpenAI). O
+            texto que você envia para categorização pode ser processado por esses provedores.
+            Não vendemos nem cedemos seus dados para fins comerciais ou publicitários.
+          </p>
+          <p>
+            <strong className="text-[var(--text)]">Contato / Encarregado (DPO):</strong>{" "}
+            <a
+              href={`mailto:${process.env.NEXT_PUBLIC_CONTACT_EMAIL || "contato@moedin.ia"}`}
+              className="font-semibold text-[var(--brand-strong)] underline"
+            >
+              {process.env.NEXT_PUBLIC_CONTACT_EMAIL || "contato@moedin.ia"}
+            </a>
           </p>
           <p>
             O uso do Moedin.IA implica a aceitação destes Termos de Uso e desta Política de

@@ -1,7 +1,7 @@
 services:
   web:
     container_name: moedin_web
-    image: node:20-alpine
+    image: node:20-slim
     working_dir: /app
     volumes:
       - ./apps/web:/app
@@ -10,9 +10,15 @@ services:
     command: sh -c "mkdir -p .next && find .next -mindepth 1 -maxdepth 1 -exec rm -rf {} + && npm install && npm run dev -- --hostname 0.0.0.0 --port 3333"
     ports:
       - "3333:3333"
+    stdin_open: true
+    tty: true
     environment:
       NODE_ENV: development
-      NEXT_PUBLIC_AI_URL: http://localhost:8000
+      # AUDITORIA A-1 + revisão externa 7.2: o dashboard chama /api/insight (rota
+      # do próprio Next), que por sua vez fala com o ai-service server-to-server.
+      # Dentro do container, o host correto é o nome do serviço na rede do
+      # compose — `localhost:8000` apontaria para o próprio container web.
+      AI_SERVICE_URL: http://ai:8000
       NEXT_TELEMETRY_DISABLED: "1"
     depends_on:
       - api
@@ -43,20 +49,27 @@ services:
       - ./apps/ai-service:/app
     command: sh -c "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
     ports:
-      - "8000:8000"
+      # Revisão externa 7.4: o ai-service não tem autenticação própria e carrega
+      # as chaves de IA. Publicado só em 127.0.0.1 para não ficar acessível na
+      # rede/internet se o host tiver a porta aberta. Os outros containers
+      # continuam alcançando via rede interna do compose (http://ai:8000).
+      - "127.0.0.1:8000:8000"
     environment:
       PYTHONUNBUFFERED: 1
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      AI_SERVICE_ALLOWED_ORIGINS: ${AI_SERVICE_ALLOWED_ORIGINS:-}
     restart: unless-stopped
 
   redis:
     container_name: moedin_redis
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      # Revisão externa 7.4: Redis sem senha — só localhost. O n8n usa a rede
+      # interna (redis:6379).
+      - "127.0.0.1:6379:6379"
     restart: unless-stopped
 
   evolution_db:
@@ -144,6 +157,9 @@ services:
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-}
       EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE:-moedin}
       DEFAULT_CURRENCY: ${DEFAULT_CURRENCY:-BRL}
+      # AUDITORIA C-3: token que o no "Guard: token do webhook" exige no header
+      # X-Webhook-Token. Configure o mesmo valor no webhook da Evolution API.
+      WHATSAPP_WEBHOOK_TOKEN: ${WHATSAPP_WEBHOOK_TOKEN:-}
     depends_on:
       - redis
       - ai

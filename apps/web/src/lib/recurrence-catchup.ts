@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { addMonthsClamped, toCompetenceMonth, todayDateInput } from "@/lib/dates";
+import { toCompetenceMonth, todayDateInput } from "@/lib/dates";
+import { installmentOccurrences, monthlyOccurrences } from "@/lib/recurrence";
+import { splitInstallments } from "@/lib/money";
 
 /**
  * Gera as transações vencidas de gastos fixos e parcelamentos que ficaram para
@@ -11,12 +13,16 @@ import { addMonthsClamped, toCompetenceMonth, todayDateInput } from "@/lib/dates
  * inclusive as excluídas pelo usuário) por origem + competência/parcela e só
  * insere o que estiver faltando — nunca duplica nem ressuscita algo apagado.
  *
- * Regras:
- *  - Gastos fixos: todos os ativos. A partir de `start_date` (ou do mês de
- *    `created_at`, quando criado pela página sem data), uma ocorrência por mês
- *    no `due_day`, até hoje, respeitando `end_date`/`months_ahead`. O controle
- *    de "não gerar mais" é feito inativando ou excluindo o gasto fixo.
- *  - Parcelamentos: todas as parcelas de `start_date` até hoje.
+ * Regras (datas vêm de lib/recurrence.ts — mesma lógica do modal):
+ *  - Gastos fixos / receitas fixas: uma ocorrência por mês no `due_day`, a
+ *    partir de `start_date` (ou do mês de `created_at`), nunca antes do início,
+ *    até hoje, respeitando `end_date`/`months_ahead`. "Parar de gerar" = inativar
+ *    ou excluir o registro de origem.
+ *  - Parcelamentos: parcelas 1..N de `start_date` até hoje; valores de
+ *    splitInstallments (a última fecha o total exato).
+ *
+ * Este é o ÚNICO ponto que gera transações de recorrência. O modal e as
+ * páginas de cadastro só criam o registro de origem e chamam esta função.
  */
 
 type FixedExpenseRow = {
@@ -38,6 +44,7 @@ type InstallmentRow = {
   title: string;
   description: string | null;
   installment_amount: number;
+  total_amount: number;
   total_installments: number;
   start_date: string;
   created_at: string;
@@ -57,13 +64,6 @@ type FixedIncomeRow = {
 
 type NewTransaction = Record<string, unknown>;
 
-const MAX_MONTHS = 600; // teto de segurança para fixos sem fim definido
-
-function clampDueDay(year: number, month: number, dueDay: number) {
-  const lastDay = new Date(year, month, 0).getDate();
-  return Math.min(dueDay, lastDay);
-}
-
 export async function catchUpRecurrences(
   supabase: SupabaseClient,
   userId: string
@@ -81,7 +81,7 @@ export async function catchUpRecurrences(
     supabase
       .from("installments")
       .select(
-        "id, category_id, title, description, installment_amount, total_installments, start_date, created_at"
+        "id, category_id, title, description, installment_amount, total_amount, total_installments, start_date, created_at"
       )
       .eq("user_id", userId)
       .eq("is_active", true),
@@ -95,16 +95,27 @@ export async function catchUpRecurrences(
       .gt("amount", 0),
   ]);
 
+  // REVISÃO EXTERNA (ago/2026) — achado 2.2: um erro numa das leituras de
+  // origem não pode virar "lista vazia". "Não achei nada" e "não consegui
+  // consultar" são coisas diferentes; tratar erro como vazio faz o catch-up
+  // gerar ocorrências que talvez já existam.
+  if (fixedRes.error) throw fixedRes.error;
+  if (instRes.error) throw instRes.error;
+  // fixed_incomes pode não existir ainda em bancos antigos (migration 011).
+  // Só ignoramos o erro se for exatamente "relação não existe".
+  if (incomeRes.error && !/relation .*fixed_incomes.* does not exist/i.test(incomeRes.error.message)) {
+    throw incomeRes.error;
+  }
+
   const fixedList = (fixedRes.data ?? []) as FixedExpenseRow[];
   const instList = (instRes.data ?? []) as InstallmentRow[];
-  // fixed_incomes pode não existir ainda (migration 011 pendente) — segue sem receitas.
   const incomeList = (incomeRes.data ?? []) as FixedIncomeRow[];
   if (fixedList.length === 0 && instList.length === 0 && incomeList.length === 0) return 0;
 
   // Transações de origem já existentes (qualquer status) para deduplicar.
   const originTypes = ["fixed_expense", "installment"];
   if (incomeList.length > 0) originTypes.push("fixed_income");
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("transactions")
     .select(
       incomeList.length > 0
@@ -113,6 +124,10 @@ export async function catchUpRecurrences(
     )
     .eq("user_id", userId)
     .in("origin_type", originTypes);
+
+  // achado 2.2: SEM esta consulta o catch-up estava cego — antes ignorava o
+  // erro e seguia inserindo tudo. Agora aborta e tenta de novo no próximo dia.
+  if (existingError) throw existingError;
 
   const existingFixed = new Set<string>();
   const existingInst = new Set<string>();
@@ -140,20 +155,16 @@ export async function catchUpRecurrences(
 
   for (const fx of fixedList) {
     const startBase = (fx.start_date ?? fx.created_at).slice(0, 10);
-    const startMonth = `${startBase.slice(0, 7)}-01`;
-    const cap = fx.months_ahead ?? MAX_MONTHS;
+    const occurrences = monthlyOccurrences({
+      startDate: startBase,
+      dueDay: fx.due_day,
+      today,
+      endDate: fx.end_date,
+      monthsAhead: fx.months_ahead,
+    });
 
-    for (let i = 0; i < cap; i++) {
-      const monthAnchor = addMonthsClamped(startMonth, i);
-      const year = Number(monthAnchor.slice(0, 4));
-      const month = Number(monthAnchor.slice(5, 7));
-      const day = clampDueDay(year, month, fx.due_day);
-      const txDate = `${monthAnchor.slice(0, 7)}-${String(day).padStart(2, "0")}`;
-
-      if (txDate > today) break;
-      if (fx.end_date && txDate > fx.end_date) break;
-
-      const key = `${fx.id}:${monthAnchor.slice(0, 7)}`;
+    for (const txDate of occurrences) {
+      const key = `${fx.id}:${txDate.slice(0, 7)}`;
       if (existingFixed.has(key)) continue;
       existingFixed.add(key);
 
@@ -176,50 +187,53 @@ export async function catchUpRecurrences(
 
   for (const inst of instList) {
     const startBase = (inst.start_date ?? inst.created_at).slice(0, 10);
-    for (let n = 1; n <= inst.total_installments; n++) {
-      const txDate = addMonthsClamped(startBase, n - 1);
-      if (txDate > today) break;
+    // Valores por parcela recomputados da regra única (última fecha o total).
+    const amounts = splitInstallments(
+      Number(inst.total_amount) || Number(inst.installment_amount) * inst.total_installments,
+      inst.total_installments,
+    );
 
-      const key = `${inst.id}:${n}`;
+    for (const { number, date } of installmentOccurrences({
+      startDate: startBase,
+      count: inst.total_installments,
+      today,
+    })) {
+      const key = `${inst.id}:${number}`;
       if (existingInst.has(key)) continue;
       existingInst.add(key);
 
       toInsert.push({
         user_id: userId,
         type: "expense",
-        amount: inst.installment_amount,
+        amount: amounts[number - 1] ?? inst.installment_amount,
         description: inst.title,
         notes: inst.description ?? null,
-        transaction_date: txDate,
-        competence_month: toCompetenceMonth(txDate),
+        transaction_date: date,
+        competence_month: toCompetenceMonth(date),
         category_id: inst.category_id,
         source: "web",
         status: "active",
         origin_type: "installment",
         installment_id: inst.id,
-        installment_number: n,
+        installment_number: number,
         installment_total: inst.total_installments,
       });
     }
   }
 
   // Receitas fixas (salário, vale-alimentação, vale-refeição): uma por mês no
-  // dia do pagamento, a partir do mês de início, até hoje.
+  // dia do pagamento, a partir do início, até hoje.
   for (const inc of incomeList) {
     const startBase = (inc.start_date ?? inc.created_at).slice(0, 10);
-    const startMonth = `${startBase.slice(0, 7)}-01`;
+    const occurrences = monthlyOccurrences({
+      startDate: startBase,
+      dueDay: inc.due_day,
+      today,
+      endDate: inc.end_date,
+    });
 
-    for (let i = 0; i < MAX_MONTHS; i++) {
-      const monthAnchor = addMonthsClamped(startMonth, i);
-      const year = Number(monthAnchor.slice(0, 4));
-      const month = Number(monthAnchor.slice(5, 7));
-      const day = clampDueDay(year, month, inc.due_day);
-      const txDate = `${monthAnchor.slice(0, 7)}-${String(day).padStart(2, "0")}`;
-
-      if (txDate > today) break;
-      if (inc.end_date && txDate > inc.end_date) break;
-
-      const key = `${inc.id}:${monthAnchor.slice(0, 7)}`;
+    for (const txDate of occurrences) {
+      const key = `${inc.id}:${txDate.slice(0, 7)}`;
       if (existingIncome.has(key)) continue;
       existingIncome.add(key);
 
@@ -242,7 +256,21 @@ export async function catchUpRecurrences(
 
   if (toInsert.length === 0) return 0;
 
-  const { error } = await supabase.from("transactions").insert(toInsert);
-  if (error) throw error;
-  return toInsert.length;
+  // Caminho normal: um lote só. Se outra aba/execução já criou alguma das
+  // ocorrências, o índice único (migration 019) recusa o lote com 23505 — aí
+  // caímos para inserção linha a linha, pulando as que já existem.
+  const batch = await supabase.from("transactions").insert(toInsert);
+  if (!batch.error) return toInsert.length;
+  if (batch.error.code !== "23505") throw batch.error;
+
+  let created = 0;
+  for (const row of toInsert) {
+    const { error } = await supabase.from("transactions").insert(row);
+    if (error) {
+      if (error.code === "23505") continue; // corrida perdida — ok
+      throw error;
+    }
+    created += 1;
+  }
+  return created;
 }

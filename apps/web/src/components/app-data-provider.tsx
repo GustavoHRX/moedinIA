@@ -118,7 +118,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
         setUser(currentUser);
         return currentUser;
-      } catch {
+      } catch (error) {
+        // Refresh token inválido/ausente (sessão antiga no navegador, projeto
+        // reiniciado, token já rotacionado): limpa o resíduo local para o erro
+        // não se repetir a cada carregamento e a navegação cair no /login.
+        const message = error instanceof Error ? error.message : String(error);
+        if (/refresh token/i.test(message) || /session/i.test(message)) {
+          await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+          setUser(null);
+          return null;
+        }
+
         const {
           data: { session },
         } = await supabase.auth.getSession();

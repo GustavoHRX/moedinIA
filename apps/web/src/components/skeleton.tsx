@@ -1,5 +1,5 @@
 export function Skeleton({ className = "" }: { className?: string }) {
-  return <div className={`skeleton-shimmer rounded-xl ${className}`} />;
+  return <div className={`skeleton-shimmer rounded-md ${className}`} />;
 }
 
 // Lista de "cards" de lançamento/registro enquanto carrega
@@ -9,7 +9,7 @@ export function SkeletonList({ rows = 4 }: { rows?: number }) {
       {Array.from({ length: rows }).map((_, index) => (
         <div
           key={index}
-          className="flex items-center gap-3 rounded-[18px] border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-4"
+          className="flex items-center gap-3 rounded-md border border-line bg-surface-strong px-4 py-4"
         >
           <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
           <div className="flex-1 space-y-2">

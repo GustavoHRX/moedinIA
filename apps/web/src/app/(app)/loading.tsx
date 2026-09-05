@@ -1,68 +1,57 @@
 /**
  * Skeleton de navegação para as páginas internas (App Router loading.js).
- * Aparece instantaneamente ao trocar de página, enquanto o conteúdo carrega,
- * espelhando o layout padrão (PageHeader + grade de cards). Server Component
- * estático — nenhuma dependência de dados, então é prefetchado e imediato.
+ * Aparece instantaneamente ao trocar de página. Espelha a estrutura nova:
+ * PageHeader enxuto + linha de números + cards. Sem sombra, raio unificado.
  */
 function Bar({ className = "" }: { className?: string }) {
-  return <div className={`skeleton-shimmer rounded-lg ${className}`} />;
+  return <div className={`skeleton-shimmer rounded-md ${className}`} />;
 }
 
 export default function AppLoading() {
   return (
-    <div className="min-h-screen px-4 py-5 sm:px-6 lg:px-8 lg:py-8" aria-hidden="true">
-      <div className="mx-auto w-full max-w-[1720px] space-y-6">
+    <div className="min-h-screen px-4 py-5 sm:px-6 lg:px-8 lg:py-7" aria-hidden="true">
+      <div className="mx-auto w-full max-w-app space-y-5">
         {/* PageHeader */}
-        <div className="rounded-[24px] border border-[var(--line)] bg-[var(--surface)] px-5 py-5 sm:px-7 sm:py-7">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-3">
-              <Bar className="h-3 w-28" />
-              <Bar className="h-9 w-64" />
-              <Bar className="h-4 w-80 max-w-full" />
+        <div className="rounded-lg border border-line bg-surface px-5 py-4 sm:px-6 sm:py-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-2">
+              <Bar className="h-7 w-52" />
+              <Bar className="h-4 w-72 max-w-full" />
             </div>
-            <Bar className="h-12 w-full sm:w-52" />
+            <Bar className="h-10 w-full sm:w-48" />
           </div>
         </div>
 
-        {/* Faixa de destaque / resumo */}
-        <div className="rounded-[20px] border border-[var(--line)] bg-[var(--card)] p-6">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-3">
-              <Bar className="h-10 w-40" />
-              <Bar className="h-4 w-64 max-w-full" />
-              <div className="flex gap-2 pt-1">
-                <Bar className="h-7 w-32" />
-                <Bar className="h-7 w-32" />
-              </div>
+        {/* Linha de números */}
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="rounded-lg border border-line bg-surface p-4 sm:p-5">
+              <Bar className="h-3 w-20" />
+              <Bar className="mt-2 h-7 w-28" />
             </div>
-            <div className="flex gap-4">
-              <Bar className="h-24 w-40" />
-              <Bar className="h-24 w-40" />
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Grade de cards */}
-        <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+        {/* Cards */}
+        <div className="grid gap-3 xl:grid-cols-[0.95fr_1.05fr]">
           {[0, 1].map((i) => (
-            <div key={i} className="rounded-[20px] border border-[var(--line)] bg-[var(--card)] p-6">
-              <Bar className="h-3 w-24" />
-              <Bar className="mt-3 h-6 w-40" />
-              <Bar className="mt-6 h-[220px] w-full" />
+            <div key={i} className="rounded-lg border border-line bg-surface p-4 sm:p-5">
+              <Bar className="h-4 w-32" />
+              <Bar className="mt-4 h-[200px] w-full" />
             </div>
           ))}
         </div>
 
         {/* Lista */}
-        <div className="rounded-[20px] border border-[var(--line)] bg-[var(--card)] p-6">
-          <Bar className="h-6 w-48" />
-          <div className="mt-5 space-y-3">
+        <div className="rounded-lg border border-line bg-surface p-4 sm:p-5">
+          <Bar className="h-4 w-40" />
+          <div className="mt-4 space-y-2">
             {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-3">
-                <Bar className="h-10 w-10 rounded-full" />
-                <div className="flex-1 space-y-2">
-                  <Bar className="h-4 w-1/2" />
-                  <Bar className="h-3 w-1/3" />
+              <div key={i} className="flex items-center gap-3 rounded-md border border-line px-4 py-3">
+                <Bar className="h-9 w-9 rounded-full" />
+                <div className="flex-1 space-y-1.5">
+                  <Bar className="h-3.5 w-1/3" />
+                  <Bar className="h-3 w-1/4" />
                 </div>
                 <Bar className="h-4 w-20" />
               </div>

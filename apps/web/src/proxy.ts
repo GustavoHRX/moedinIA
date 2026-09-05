@@ -14,9 +14,10 @@ export const config = {
     "/perfil/:path*",
     "/historico/:path*",
     "/metas/:path*",
+    "/fixos/:path*",
+    "/categorias/:path*",
     "/gastos-fixos/:path*",
     "/parcelamentos/:path*",
     "/planejamento-mensal/:path*",
-    "/planos/:path*",
   ],
 };

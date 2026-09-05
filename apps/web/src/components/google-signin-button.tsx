@@ -59,7 +59,7 @@ export default function GoogleSignInButton({ label = "Continuar com Google" }: {
         <GoogleGlyph />
         {loading ? "Abrindo o Google..." : label}
       </button>
-      {error ? <p className="mt-2 text-center text-xs font-semibold text-[var(--danger)]">{error}</p> : null}
+      {error ? <p className="mt-2 text-center text-xs font-semibold text-expense">{error}</p> : null}
     </div>
   );
 }

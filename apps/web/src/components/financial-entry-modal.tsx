@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAppData } from "@/components/app-data-provider";
-import { addMonthsClamped, isPastOrToday, todayDateInput, toCompetenceMonth } from "@/lib/dates";
+import { addMonthsClamped, todayDateInput, toCompetenceMonth } from "@/lib/dates";
+import { catchUpRecurrences } from "@/lib/recurrence-catchup";
+import { splitInstallments } from "@/lib/money";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, formatDate, formatMoneyInputValue, parseMoneyInput } from "@/lib/formatters";
 
@@ -40,7 +42,7 @@ function Field({
 }) {
   return (
     <label className="block space-y-2">
-      <span className="text-sm font-semibold text-[var(--text)]">{label}</span>
+      <span className="text-sm font-semibold text-fg">{label}</span>
       {children}
     </label>
   );
@@ -50,7 +52,7 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-[var(--text)] outline-none transition focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)] ${props.className ?? ""}`}
+      className={`w-full rounded-md border border-line bg-surface-strong px-4 py-3 text-fg outline-none transition focus:border-primary focus:ring-4 focus:ring-ring ${props.className ?? ""}`}
     />
   );
 }
@@ -59,7 +61,7 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className={`w-full rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-[var(--text)] outline-none transition focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--ring)] ${props.className ?? ""}`}
+      className={`w-full rounded-md border border-line bg-surface-strong px-4 py-3 text-fg outline-none transition focus:border-primary focus:ring-4 focus:ring-ring ${props.className ?? ""}`}
     />
   );
 }
@@ -79,19 +81,19 @@ function ModeCard({
     <button
       type="button"
       onClick={onClick}
-      className="group rounded-[20px] border border-[var(--line)] bg-[var(--surface-strong)] p-4 text-left shadow-[0_8px_18px_rgba(9,42,32,0.04)] transition hover:-translate-y-0.5 hover:border-[var(--brand)] hover:shadow-[var(--shadow-soft)]"
+      className="group rounded-lg border border-line bg-surface-strong p-4 text-left transition hover:-translate-y-0.5 hover:border-primary"
     >
       <span
         className={
           tone === "income"
-            ? "mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-lg font-bold text-[var(--brand-strong)]"
-            : "mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-red-100 text-lg font-bold text-red-600"
+            ? "mb-3 inline-flex h-9 w-9 items-center justify-center rounded-md bg-primary-soft text-lg font-semibold text-primary-strong"
+            : "mb-3 inline-flex h-9 w-9 items-center justify-center rounded-md bg-danger/10 text-lg text-danger"
         }
       >
         {tone === "income" ? "+" : "-"}
       </span>
-      <p className="text-base font-bold text-[var(--navy)]">{title}</p>
-      <p className="mt-1 text-sm leading-6 text-[var(--muted)]">{description}</p>
+      <p className="text-base font-semibold text-fg">{title}</p>
+      <p className="mt-1 text-sm leading-6 text-fg-muted">{description}</p>
     </button>
   );
 }
@@ -130,9 +132,54 @@ export default function FinancialEntryModal({
   const [fixedDueDay, setFixedDueDay] = useState("");
   const [fixedMonthsAhead, setFixedMonthsAhead] = useState("12");
 
+  // AUDITORIA / achado 6.3 — acessibilidade do modal.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previouslyFocused = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Foco inicial + devolução de foco + Escape + trap de Tab.
+  useEffect(() => {
+    if (!open) return;
+    previouslyFocused.current = document.activeElement as HTMLElement | null;
+    const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 0);
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusables = dialogRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown, true);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener("keydown", onKeyDown, true);
+      document.body.style.overflow = prevOverflow;
+      previouslyFocused.current?.focus?.();
+    };
+  }, [open, onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -284,7 +331,6 @@ export default function FinancialEntryModal({
       return;
     }
 
-    const endDate = addMonthsClamped(date, parsedMonths - 1);
     const { data: fixedExpense, error: fixedError } = await supabase
       .from("fixed_expenses")
       .insert({
@@ -297,7 +343,6 @@ export default function FinancialEntryModal({
         is_active: true,
         auto_create_transaction: true,
         start_date: date,
-        end_date: endDate,
         months_ahead: parsedMonths,
       })
       .select("id")
@@ -308,42 +353,16 @@ export default function FinancialEntryModal({
       return;
     }
 
-    const dueTransactions = Array.from({ length: parsedMonths }, (_, index) => {
-      const transactionDate = addMonthsClamped(date, index);
-      if (!isPastOrToday(transactionDate)) return null;
-
-      return {
-        user_id: userId,
-        type: "expense" as const,
-        amount: parsedAmount,
-        description: title.trim(),
-        notes: notes.trim() || null,
-        transaction_date: transactionDate,
-        competence_month: toCompetenceMonth(transactionDate),
-        category_id: categoryId || null,
-        source: "web" as const,
-        status: "active" as const,
-        origin_type: "fixed_expense" as const,
-        fixed_expense_id: fixedExpense.id,
-      };
-    }).filter(Boolean);
-
-    if (dueTransactions.length > 0) {
-      const { error: transactionsError } = await supabase
-        .from("transactions")
-        .insert(dueTransactions);
-
-      if (transactionsError) {
-        setMessage(`Erro ao gerar transações do gasto fixo: ${transactionsError.message}`);
-        return;
-      }
+    // Geração de transações é responsabilidade única do catch-up (mesma regra
+    // de datas para criação e para os meses seguintes). Idempotente.
+    try {
+      await catchUpRecurrences(supabase, userId);
+    } catch {
+      finish("Gasto fixo salvo. Os lançamentos vencidos serão gerados ao abrir o app.");
+      return;
     }
 
-    finish(
-      dueTransactions.length > 0
-        ? "Gasto fixo salvo. Apenas transações vencidas até hoje foram criadas para evitar poluição."
-        : "Gasto fixo salvo. Nenhuma transação vencida até hoje para gerar."
-    );
+    finish("Gasto fixo salvo. Só os lançamentos vencidos até hoje foram criados.");
   }
 
   async function saveExpenseInstallment() {
@@ -355,7 +374,6 @@ export default function FinancialEntryModal({
 
     const parsedTotal = toMoney(installmentTotal);
     const parsedCount = Number(installmentCount);
-    const parsedValue = Number((parsedTotal / parsedCount).toFixed(2));
 
     if (!title.trim()) {
       setMessage("Informe a descrição do gasto parcelado.");
@@ -374,6 +392,11 @@ export default function FinancialEntryModal({
       return;
     }
 
+    // installment_amount guarda o valor "de referência" (1ª parcela); os
+    // valores reais por parcela — com a última fechando o total — vêm de
+    // splitInstallments no catch-up.
+    const parcelas = splitInstallments(parsedTotal, parsedCount);
+
     const { data: installment, error: installmentError } = await supabase
       .from("installments")
       .insert({
@@ -382,7 +405,7 @@ export default function FinancialEntryModal({
         title: title.trim(),
         description: notes.trim() || null,
         total_amount: parsedTotal,
-        installment_amount: parsedValue,
+        installment_amount: parcelas[0],
         total_installments: parsedCount,
         start_date: date,
         is_active: true,
@@ -395,43 +418,14 @@ export default function FinancialEntryModal({
       return;
     }
 
-    const dueTransactions = Array.from({ length: parsedCount }, (_, index) => {
-      const transactionDate = addMonthsClamped(date, index);
-      if (!isPastOrToday(transactionDate)) return null;
-
-      return {
-        user_id: userId,
-        type: "expense" as const,
-        amount: parsedValue,
-        description: title.trim(),
-        notes: notes.trim() || null,
-        transaction_date: transactionDate,
-        competence_month: toCompetenceMonth(transactionDate),
-        category_id: categoryId || null,
-        source: "web" as const,
-        status: "active" as const,
-        origin_type: "installment" as const,
-        installment_id: installment.id,
-        installment_number: index + 1,
-        installment_total: parsedCount,
-      };
-    }).filter(Boolean);
-
-    if (dueTransactions.length > 0) {
-      const { error: txError } = await supabase
-        .from("transactions")
-        .insert(dueTransactions);
-      if (txError) {
-        setMessage(`Erro ao gerar parcelas vencidas: ${txError.message}`);
-        return;
-      }
+    try {
+      await catchUpRecurrences(supabase, userId);
+    } catch {
+      finish("Parcelamento salvo. As parcelas vencidas serão geradas ao abrir o app.");
+      return;
     }
 
-    finish(
-      dueTransactions.length > 0
-        ? "Parcelamento salvo. Apenas parcelas vencidas até hoje foram criadas."
-        : "Parcelamento salvo. Parcelas futuras não foram criadas automaticamente."
-    );
+    finish("Parcelamento salvo. Só as parcelas vencidas até hoje foram criadas.");
   }
 
   function finish(successMessage: string) {
@@ -516,30 +510,42 @@ export default function FinancialEntryModal({
   };
 
   return createPortal(
-    <div className="anim-modal-backdrop fixed inset-0 z-[100] bg-slate-950/50 p-3 backdrop-blur-md sm:p-6">
+    <div
+      className="anim-modal-backdrop fixed inset-0 z-[100] bg-black/45 p-3 backdrop-blur-md sm:p-6"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="mx-auto flex h-full max-w-5xl items-center">
-        <div className="anim-modal-card max-h-[92vh] w-full overflow-hidden rounded-[24px] border border-[var(--line)] bg-[var(--surface-strong)] shadow-[0_28px_70px_rgba(9,42,32,0.28)]">
-          <header className="flex items-center justify-between bg-[var(--hero-gradient)] px-5 py-5 text-[var(--text)] sm:px-6">
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="financial-entry-title"
+          className="anim-modal-card max-h-[92vh] w-full overflow-hidden rounded-lg border border-line bg-surface-strong shadow-modal"
+        >
+          <header className="flex items-center justify-between bg-surface px-5 py-5 text-fg sm:px-6">
             <div>
-              <p className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Moedin.IA</p>
-              <h2 className="text-2xl font-bold">{titleMap[mode]}</h2>
+              <p className="eyebrow">Moedin.IA</p>
+              <h2 id="financial-entry-title" className="text-2xl font-semibold">{titleMap[mode]}</h2>
             </div>
             <button
+              ref={closeButtonRef}
               type="button"
               onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--surface)] text-xl font-bold text-[var(--text)] hover:bg-[var(--bg-soft)]"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-xl font-semibold text-fg hover:bg-bg-soft focus:outline-none focus:ring-2 focus:ring-[var(--brand-strong)]"
               aria-label="Fechar"
             >
               X
             </button>
           </header>
 
-          <div className="max-h-[calc(92vh-88px)] overflow-y-auto bg-[var(--bg-soft)] px-5 py-5 sm:px-6">
+          <div className="max-h-[calc(92vh-88px)] overflow-y-auto bg-bg-soft px-5 py-5 sm:px-6">
             {message ? (
-              <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-semibold ${
+              <div className={`mb-4 rounded-md border px-4 py-3 text-sm font-semibold ${
                 message.startsWith("Erro") || message.startsWith("Informe") || message.startsWith("Usuário")
-                  ? "border-red-200 bg-red-50 text-red-700"
-                  : "border-green-200 bg-green-50 text-green-800"
+                  ? "border-danger/35 bg-danger/10 text-expense"
+                  : "border-success/35 bg-success/10 text-income"
               }`}>
                 {message}
               </div>
@@ -548,38 +554,38 @@ export default function FinancialEntryModal({
             {mode === "menu" ? (
               <div className="space-y-5">
                 <div>
-                  <p className="text-xs font-bold uppercase text-[var(--muted)]">Despesas</p>
+                  <p className="text-xs font-semibold uppercase text-fg-muted">Despesas</p>
                   <div className="mt-3 grid gap-3 md:grid-cols-3">
                     <ModeCard
                       title="Gasto normal"
-                      description="Lançamento único em transactions."
+                      description="Um gasto único, que já aconteceu."
                       onClick={() => setMode("expense_normal")}
                     />
                     <ModeCard
                       title="Gasto parcelado"
-                      description="Cria installments e parcelas vencidas."
+                      description="Divide o valor em parcelas mensais."
                       onClick={() => setMode("expense_installment")}
                     />
                     <ModeCard
                       title="Gasto fixo"
-                      description="Cria recorrência em fixed_expenses."
+                      description="Se repete todo mês, automaticamente."
                       onClick={() => setMode("expense_fixed")}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <p className="text-xs font-bold uppercase text-[var(--muted)]">Receitas</p>
+                  <p className="text-xs font-semibold uppercase text-fg-muted">Receitas</p>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <ModeCard
                       title="Receita normal"
-                      description="Lançamento único em transactions."
+                      description="Uma entrada única, sem repetição."
                       onClick={() => setMode("income_normal")}
                       tone="income"
                     />
                     <ModeCard
                       title="Receita fixa"
-                      description="Regra temporária: salva como receita normal."
+                      description="Entra todo mês, tipo salário."
                       onClick={() => setMode("income_fixed")}
                       tone="income"
                     />
@@ -587,7 +593,7 @@ export default function FinancialEntryModal({
                 </div>
               </div>
             ) : (
-              <div className="rounded-[24px] border border-[var(--line)] bg-[var(--surface-strong)] p-4 shadow-[var(--shadow-soft)] sm:p-5">
+              <div className="rounded-lg border border-line bg-surface-strong p-4 sm:p-5">
                 <div className="space-y-4">
                 <Field label={isExpense ? "Descrição do gasto" : "Descrição da receita"}>
                   <Input
@@ -618,11 +624,15 @@ export default function FinancialEntryModal({
                       </Field>
                       <Field label="Valor de cada parcela">
                         <Input
-                          value={
-                            toMoney(installmentTotal) > 0 && Number(installmentCount) > 0
-                              ? (toMoney(installmentTotal) / Number(installmentCount)).toFixed(2).replace(".", ",")
-                              : ""
-                          }
+                          value={(() => {
+                            const total = toMoney(installmentTotal);
+                            const count = Number(installmentCount);
+                            if (!(total > 0) || !(count >= 2)) return "";
+                            const parts = splitInstallments(total, count);
+                            const first = parts[0].toFixed(2).replace(".", ",");
+                            const last = parts[parts.length - 1].toFixed(2).replace(".", ",");
+                            return first === last ? first : `${first} (última ${last})`;
+                          })()}
                           readOnly
                           placeholder="Auto"
                         />
@@ -654,7 +664,7 @@ export default function FinancialEntryModal({
                       ))}
                     </Select>
                     {categoriesForMode.length === 0 ? (
-                      <p className="text-xs leading-5 text-[var(--muted)]">
+                      <p className="text-xs leading-5 text-fg-muted">
                         Nenhuma categoria deste tipo cadastrada. O lançamento será salvo sem categoria.
                       </p>
                     ) : null}
@@ -689,10 +699,10 @@ export default function FinancialEntryModal({
                     {/* Preview do que será salvo — mesmo espírito do "valor de cada
                         parcela" do parcelamento, mas pro gasto fixo. */}
                     {toMoney(amount) > 0 && Number(fixedDueDay) >= 1 && Number(fixedDueDay) <= 31 ? (
-                      <p className="rounded-xl border border-[var(--line)] bg-[var(--bg-soft)] px-3 py-2 text-sm text-[var(--muted-strong)]">
-                        <strong className="text-[var(--text)]">{formatCurrency(toMoney(amount))}</strong> por
+                      <p className="rounded-md border border-line bg-bg-soft px-3 py-2 text-sm text-fg">
+                        <strong className="text-fg">{formatCurrency(toMoney(amount))}</strong> por
                         mês, próxima em{" "}
-                        <strong className="text-[var(--text)]">{formatDate(nextFixedDueDate)}</strong>.
+                        <strong className="text-fg">{formatDate(nextFixedDueDate)}</strong>.
                       </p>
                     ) : null}
                   </>
@@ -713,7 +723,7 @@ export default function FinancialEntryModal({
                       setMessage("");
                       setMode("menu");
                     }}
-                    className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-5 py-3 font-semibold text-[var(--text)] transition hover:bg-[var(--bg-soft)]"
+                    className="rounded-md border border-line bg-surface-strong px-5 py-3 font-semibold text-fg transition hover:bg-bg-soft"
                   >
                     Voltar
                   </button>
