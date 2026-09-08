@@ -78,22 +78,28 @@ export function PageHeader({
   title,
   description,
   actions,
+  eyebrow,
 }: {
   title: string;
   description?: string;
   actions?: ReactNode;
-  /** @deprecated O rótulo maiúsculo foi removido — o título basta. */
+  /** Rótulo curto em maiúsculas acima do título (verde). Dá presença ao bloco. */
   eyebrow?: string;
 }) {
   return (
-    <header className="glow-card relative overflow-hidden rounded-lg border border-line bg-surface px-5 py-4 sm:px-6 sm:py-5">
+    <header className="glow-card relative overflow-hidden rounded-lg border border-line bg-surface px-6 py-6 sm:px-8 sm:py-8">
       {/* O único brilho decorativo permitido, uma vez por página. */}
       <div className="pointer-events-none absolute inset-0 bg-[image:var(--hero-glow)]" />
-      <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
-          <h1 className="font-display text-2xl font-semibold leading-tight text-fg sm:text-3xl">{title}</h1>
+          {eyebrow ? (
+            <p className="mb-2 font-display text-xs font-medium uppercase tracking-[0.14em] text-primary-strong">
+              {eyebrow}
+            </p>
+          ) : null}
+          <h1 className="font-display text-3xl font-bold leading-tight text-fg sm:text-4xl">{title}</h1>
           {description ? (
-            <p className="mt-1.5 max-w-2xl text-sm font-normal leading-6 text-fg-muted">{description}</p>
+            <p className="mt-2 max-w-2xl text-base font-normal leading-7 text-fg-muted">{description}</p>
           ) : null}
         </div>
         {actions ? (
@@ -108,17 +114,23 @@ export function SectionHeader({
   title,
   description,
   action,
+  eyebrow,
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
-  /** @deprecated O rótulo maiúsculo foi removido — o título basta. */
+  /** Rótulo curto em maiúsculas acima do título da secção (verde). */
   eyebrow?: string;
 }) {
   return (
     <div className="mb-3 flex items-start justify-between gap-3">
       <div className="min-w-0">
-        <h2 className="font-display text-base font-semibold text-fg">{title}</h2>
+        {eyebrow ? (
+          <p className="mb-1 font-display text-[11px] font-medium uppercase tracking-[0.14em] text-primary-strong">
+            {eyebrow}
+          </p>
+        ) : null}
+        <h2 className="font-display text-lg font-bold text-fg">{title}</h2>
         {description ? <p className="mt-0.5 text-sm font-normal text-fg-muted">{description}</p> : null}
       </div>
       {action}

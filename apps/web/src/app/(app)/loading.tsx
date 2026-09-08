@@ -12,24 +12,31 @@ export default function AppLoading() {
     <div className="min-h-screen px-4 py-5 sm:px-6 lg:px-8 lg:py-7" aria-hidden="true">
       <div className="mx-auto w-full max-w-app space-y-5">
         {/* PageHeader */}
-        <div className="rounded-lg border border-line bg-surface px-5 py-4 sm:px-6 sm:py-5">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-2">
-              <Bar className="h-7 w-52" />
+        <div className="rounded-lg border border-line bg-surface px-6 py-6 sm:px-8 sm:py-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-2.5">
+              <Bar className="h-3 w-32" />
+              <Bar className="h-9 w-56" />
               <Bar className="h-4 w-72 max-w-full" />
             </div>
             <Bar className="h-10 w-full sm:w-48" />
           </div>
         </div>
 
-        {/* Linha de números */}
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="rounded-lg border border-line bg-surface p-4 sm:p-5">
+        {/* Bloco de resumo */}
+        <div className="rounded-lg border border-line bg-surface p-4 sm:p-5">
+          <div className="flex flex-col gap-6 lg:flex-row lg:justify-between">
+            <div className="space-y-3">
+              <Bar className="h-11 w-40" />
               <Bar className="h-3 w-20" />
-              <Bar className="mt-2 h-7 w-28" />
+              <Bar className="h-10 w-56" />
+              <Bar className="h-4 w-72 max-w-full" />
             </div>
-          ))}
+            <div className="grid w-full gap-3 lg:w-[320px]">
+              <Bar className="h-20" />
+              <Bar className="h-20" />
+            </div>
+          </div>
         </div>
 
         {/* Cards */}

@@ -25,10 +25,8 @@ import {
 import ThemedLogo from "@/components/themed-logo";
 import LandingMotion from "@/components/landing-motion";
 import LandingSkeleton from "@/components/landing-skeleton";
-import { Hominho, HOMINHO_LABEL, type HominhoName } from "@/components/hominhos";
 import { categoryVisual } from "@/lib/categories";
 
-const TEAM: HominhoName[] = ["alefe", "gustavo", "marcinho", "joao", "timachi"];
 
 // Categorias reais do sistema, cada uma com sua cor da paleta da marca.
 const SHOWCASE_CATEGORIES = [
@@ -610,22 +608,6 @@ export default function LandingPage() {
             <Link href="/login" className="btn-secondary inline-flex items-center justify-center px-6 py-3.5 text-sm">
               Entrar
             </Link>
-          </div>
-        </div>
-      </section>
-
-      <section data-reveal className="mx-auto w-full max-w-[1180px] px-5 pb-14 sm:px-8">
-        <div className="flex flex-col items-center gap-6 rounded-[24px] border border-[var(--line)] bg-[var(--surface)] px-6 py-8 text-center">
-          <p className="max-w-md text-base font-medium leading-7 text-[var(--muted)]">
-            Feito por gente de verdade — a equipe Moedin, desenhada no traço da nossa moeda.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-8">
-            {TEAM.map((name) => (
-              <div key={name} data-reveal-item className="anim-coin-flip flex flex-col items-center gap-2">
-                <Hominho name={name} size={64} />
-                <span className="text-xs font-semibold text-[var(--text-soft)]">{HOMINHO_LABEL[name]}</span>
-              </div>
-            ))}
           </div>
         </div>
       </section>

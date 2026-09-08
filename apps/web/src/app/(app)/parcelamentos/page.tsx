@@ -12,8 +12,6 @@ import { splitInstallments } from "@/lib/money";
 import { catchUpRecurrences } from "@/lib/recurrence-catchup";
 import { createClient } from "@/lib/supabase/client";
 import { ActionButton, Alert, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
-import { HominhoTip } from "@/components/hominho-tip";
-import { parcelamentosTips } from "@/lib/tips";
 
 type InstallmentItem = {
   id: string;
@@ -422,26 +420,6 @@ export default function ParcelamentosPage() {
 
       <div className="space-y-5">
       {message ? <Alert type={messageType}>{message}</Alert> : null}
-
-      <HominhoTip
-        page="parcelamentos"
-        hominho="alefe"
-        tips={useMemo(
-          () =>
-            parcelamentosTips({
-              installments: items.map((item) => ({
-                id: item.id,
-                title: item.title,
-                installment_amount: Number(item.installment_amount),
-                total_installments: Number(item.total_installments),
-                paid_installments: getInstallmentProgress(item).paidCount,
-                is_active: item.is_active,
-              })),
-            }),
-          // getInstallmentProgress depende só de transactions, já listado abaixo
-          [items, transactions]
-        )}
-      />
 
       <section className="grid gap-5 lg:grid-cols-3">
         <Surface className="bg-surface p-6 text-fg lg:col-span-2">

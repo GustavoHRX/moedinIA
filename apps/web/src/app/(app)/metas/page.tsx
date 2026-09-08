@@ -9,9 +9,7 @@ import { todayDateInput } from "@/lib/dates";
 import { formatCurrency, formatDate, formatMoneyInputValue, parseMoneyInput } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
 import { ActionButton, Alert, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, StatCard, Surface } from "@/components/ui-kit";
-import { HominhoTip } from "@/components/hominho-tip";
 import { CelebrateBurst } from "@/components/celebrate";
-import { metasTips } from "@/lib/tips";
 
 type Goal = {
   id: string;
@@ -242,15 +240,6 @@ export default function MetasPage() {
         eyebrow="Objetivos financeiros"
       />
       <div className="space-y-5">
-        <HominhoTip
-          page="metas"
-          hominho="marcinho"
-          tips={useMemo(
-            () => metasTips({ goals, todayISO: new Date().toISOString().slice(0, 10) }),
-            [goals]
-          )}
-        />
-
       {message ? <Alert type={messageType}>{message}</Alert> : null}
 
       <section className="grid gap-5 xl:grid-cols-[1fr_0.95fr]">

@@ -11,8 +11,6 @@ import { formatCurrency, formatDate, formatMoneyInputValue, parseMoneyInput } fr
 import { createClient } from "@/lib/supabase/client";
 import NewEntryButton from "@/components/new-entry-button";
 import { ActionButton, Alert, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
-import { HominhoTip } from "@/components/hominho-tip";
-import { historicoTips } from "@/lib/tips";
 
 type TransactionItem = {
   id: string;
@@ -429,19 +427,6 @@ export default function HistoricoPage() {
 
       <div className="space-y-5">
         {message ? <Alert type={messageType}>{message}</Alert> : null}
-
-        <HominhoTip
-          page="historico"
-          hominho="gustavo"
-          tips={useMemo(
-            () =>
-              historicoTips({
-                totalCount: transactions.length,
-                monthKey: todayDateInput().slice(0, 7),
-              }),
-            [transactions.length]
-          )}
-        />
 
         <div className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
           <Surface className="min-w-0 bg-surface">
