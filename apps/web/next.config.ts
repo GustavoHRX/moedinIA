@@ -18,10 +18,12 @@ try {
 }
 
 // AUDITORIA A-3 — Content-Security-Policy.
-// Começa em Report-Only (não bloqueia nada, só reporta no console do navegador)
-// para validar que nenhum recurso legítimo é barrado. Depois de confirmar,
-// troque a chave abaixo para "Content-Security-Policy".
-const CSP_HEADER_NAME = "Content-Security-Policy-Report-Only";
+// Ativada (enforcing) em 07/09/2026, depois de validar em Report-Only na
+// produção que nenhum recurso legítimo era barrado (dashboard, histórico,
+// login e landing — só warnings cosméticos de gráfico, sem relação).
+// Dívida registrada: migrar script-src de 'unsafe-inline'/'unsafe-eval'
+// para nonce.
+const CSP_HEADER_NAME = "Content-Security-Policy";
 
 const csp = [
   "default-src 'self'",
