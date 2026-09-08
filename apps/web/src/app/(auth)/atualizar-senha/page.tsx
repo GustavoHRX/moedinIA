@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import AuthShell from "@/components/auth-shell";
+import PasswordInput from "@/components/password-input";
 import { createClient } from "@/lib/supabase/client";
 import { translateAuthError } from "@/lib/auth-errors";
 import { PASSWORD_MAX, firstError, validatePassword } from "@/lib/auth-validation";
@@ -133,11 +134,11 @@ export default function AtualizarSenhaPage() {
         <form onSubmit={handleUpdate} className="mt-7 space-y-4" noValidate>
           <div>
             <label htmlFor="atualizar-senha" className="mb-2 block text-sm font-semibold text-[var(--text)]">Nova senha</label>
-            <input id="atualizar-senha" name="new-password" className="control" type="password" autoComplete="new-password" required minLength={8} maxLength={PASSWORD_MAX} placeholder="Mínimo 8 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <PasswordInput id="atualizar-senha" name="new-password" autoComplete="new-password" required minLength={8} maxLength={PASSWORD_MAX} placeholder="Mínimo 8 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           <div>
             <label htmlFor="atualizar-confirmar" className="mb-2 block text-sm font-semibold text-[var(--text)]">Confirmar nova senha</label>
-            <input id="atualizar-confirmar" name="confirm-password" className="control" type="password" autoComplete="new-password" required minLength={8} maxLength={PASSWORD_MAX} placeholder="Repita a nova senha" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+            <PasswordInput id="atualizar-confirmar" name="confirm-password" autoComplete="new-password" required minLength={8} maxLength={PASSWORD_MAX} placeholder="Repita a nova senha" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
           </div>
           <button type="submit" disabled={loading || sessionState === "checking"} className="btn-primary w-full px-5 py-3.5 disabled:opacity-70">
             {sessionState === "checking" ? "Validando link..." : loading ? "Salvando..." : "Salvar nova senha"}
