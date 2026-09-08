@@ -6,9 +6,7 @@ import dynamic from "next/dynamic";
 import { categoryName, type CategoryRelation } from "@/lib/categories";
 import { CategoryIcon } from "@/components/category-icon";
 import { useCategoryVisual } from "@/components/use-category-visual";
-import { HominhoTip } from "@/components/hominho-tip";
 import { Money } from "@/components/money";
-import { dashboardTips } from "@/lib/tips";
 import { ArrowLeftRight, Lightbulb, TrendingUp, TriangleAlert } from "lucide-react";
 import { Skeleton, SkeletonBlock, SkeletonList } from "@/components/skeleton";
 import { addMonthsClamped, currentMonthRef, todayDateInput } from "@/lib/dates";
@@ -18,7 +16,7 @@ import { fetchAllRows } from "@/lib/supabase/paginate";
 import { CHART_COLORS } from "@/lib/chart-palette";
 import { useAppData } from "@/components/app-data-provider";
 import NewEntryButton from "@/components/new-entry-button";
-import { EmptyState, PageFrame, PageHeader, SectionHeader, StatCard, Surface } from "@/components/ui-kit";
+import { EmptyState, IconBox, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
 
 type TransactionItem = {
   id: string;
@@ -396,19 +394,6 @@ export default function DashboardPage() {
       );
   }, [budgets, monthlyTransactions, monthRef]);
 
-  const hominhoTips = useMemo(
-    () =>
-      dashboardTips({
-        monthKey: monthRef.slice(0, 7),
-        expenseTotal,
-        incomeTotal,
-        budgetAmount,
-        topCategory: topCategory ? { name: topCategory.name, total: topCategory.total } : null,
-        transactionsCount: monthlyTransactions.length,
-      }),
-    [monthRef, expenseTotal, incomeTotal, budgetAmount, topCategory, monthlyTransactions.length]
-  );
-
   // Dados com a cor já resolvida — os componentes de gráfico (lazy) recebem prontos.
   const pieData = useMemo(
     () =>
@@ -551,6 +536,7 @@ export default function DashboardPage() {
   return (
     <PageFrame>
       <PageHeader
+        eyebrow="Dashboard financeiro"
         title="Visão geral"
         description={`Seu mês em ${monthName}.`}
         actions={
@@ -573,33 +559,73 @@ export default function DashboardPage() {
         ) : null}
 
         {loading ? (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {[0, 1, 2, 3].map((i) => (
-              <Surface key={i}>
-                <Skeleton className="h-3 w-20" />
-                <Skeleton className="mt-2 h-7 w-28" />
-              </Surface>
-            ))}
-          </div>
+          <Surface>
+            <Skeleton className="h-12 w-40" />
+            <Skeleton className="mt-4 h-3 w-20" />
+            <Skeleton className="mt-2 h-10 w-56" />
+            <Skeleton className="mt-4 h-4 w-72 max-w-full" />
+          </Surface>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              label="Saldo do mês"
-              value={<Money value={balance} size="xl" tone={balance >= 0 ? "neutral" : "expense"} animate />}
-              detail={`${monthlyTransactions.length} lançamentos em ${monthName}`}
-            />
-            <StatCard label="Entradas" value={<Money value={incomeTotal} size="xl" tone="income" animate />} tone="success" />
-            <StatCard label="Saídas" value={<Money value={expenseTotal} size="xl" tone="expense" animate />} tone="danger" />
-            {projectedBalance !== null ? (
-              <StatCard label="Previsão fim do mês" value={<Money value={projectedBalance} size="xl" animate />} />
-            ) : (
-              <StatCard
-                label="Top categoria"
-                value={<span className="font-display text-xl font-semibold text-fg">{topCategory ? topCategory.name : "—"}</span>}
-                detail={topCategory ? `${formatCurrency(topCategory.total)} no mês` : "Sem gastos ainda"}
-              />
-            )}
-          </div>
+          <Surface className="overflow-hidden">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch lg:justify-between">
+              <div className="min-w-0">
+                <p className="font-display text-4xl font-bold leading-none text-fg sm:text-5xl">Resumo</p>
+                <p className="mt-4 font-display text-[11px] font-medium uppercase tracking-[0.14em] text-primary-strong">
+                  Saldo do mês
+                </p>
+                <div className="mt-1.5">
+                  <Money value={balance} size="xxl" tone={balance >= 0 ? "neutral" : "expense"} animate />
+                </div>
+                <p className="mt-3 max-w-xl text-sm font-normal leading-6 text-fg-muted">
+                  Uma leitura consolidada de {monthName}, com recorrências, parcelamentos e metas no mesmo fluxo.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="inline-flex items-center rounded-full bg-success/10 px-3 py-1.5 text-xs font-medium text-income">
+                    Entradas {formatCurrency(incomeTotal)}
+                  </span>
+                  <span className="inline-flex items-center rounded-full bg-danger/10 px-3 py-1.5 text-xs font-medium text-expense">
+                    Saídas {formatCurrency(expenseTotal)}
+                  </span>
+                  {projectedBalance !== null ? (
+                    <span className="inline-flex items-center rounded-full bg-bg-soft px-3 py-1.5 text-xs font-medium text-fg-muted">
+                      Previsão fim do mês {formatCurrency(projectedBalance)}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="grid w-full gap-3 lg:w-[320px] lg:grid-rows-2">
+                <div className="flex items-center gap-4 rounded-lg border border-line bg-bg-soft p-5">
+                  <IconBox tone="brand" size="lg">
+                    <ArrowLeftRight className="h-5 w-5" />
+                  </IconBox>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-fg-muted">Lançamentos</p>
+                    <p className="font-display text-3xl font-bold leading-none text-fg">{monthlyTransactions.length}</p>
+                    <p className="mt-1 text-xs text-fg-muted">Em {monthName}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 rounded-lg border border-line bg-bg-soft p-5">
+                  {topCategory ? (
+                    <CategoryIcon name={topCategory.name} box={48} size={22} />
+                  ) : (
+                    <IconBox tone="muted" size="lg">
+                      —
+                    </IconBox>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-fg-muted">Top categoria</p>
+                    <p className="truncate font-display text-xl font-bold leading-tight text-fg">
+                      {topCategory ? topCategory.name : "—"}
+                    </p>
+                    <p className="mt-1 text-xs text-fg-muted">
+                      {topCategory ? `${formatCurrency(topCategory.total)} no mês` : "Sem gastos ainda"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Surface>
         )}
 
         <section className="grid gap-3 sm:grid-cols-2">
@@ -629,8 +655,6 @@ export default function DashboardPage() {
             </span>
           </button>
         </section>
-
-        {!loading ? <HominhoTip page="dashboard" hominho="joao" tips={hominhoTips} /> : null}
 
         {!loading && (insights.length > 0 || aiInsight) ? (
           <Surface>
@@ -669,7 +693,7 @@ export default function DashboardPage() {
 
         <section className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
           <Surface className="min-w-0">
-            <SectionHeader title="Gastos por categoria" />
+            <SectionHeader title="Gastos por categoria" eyebrow="Distribuição" />
             <div className="h-[320px]">
               {loading || !chartsReady ? (
                 <SkeletonBlock className="h-full" />
@@ -718,6 +742,7 @@ export default function DashboardPage() {
             <Surface>
               <SectionHeader
                 title="Orçamento do mês"
+                eyebrow="Limite de gastos"
                 action={<button onClick={() => router.push("/perfil")} className="text-sm font-medium text-primary-strong">Ajustar</button>}
               />
               {generalBudget ? (
@@ -777,6 +802,7 @@ export default function DashboardPage() {
         <Surface>
             <SectionHeader
               title="Últimos lançamentos"
+              eyebrow="Transações recentes"
               action={<button onClick={() => router.push("/historico")} className="text-sm font-medium text-primary-strong">Ver todos</button>}
             />
             {loading ? (
@@ -819,7 +845,7 @@ export default function DashboardPage() {
             têm tela própria (Fixos, Parcelamentos) e duplicavam informação. */}
 
         <Surface>
-          <SectionHeader title="Evolução dos últimos meses" />
+          <SectionHeader title="Evolução dos últimos meses" eyebrow="Receitas x despesas no tempo" />
           <div className="h-[300px]">
             {chartsReady ? (
               <MonthlyBars data={monthlySeries} />

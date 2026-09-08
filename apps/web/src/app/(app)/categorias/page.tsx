@@ -11,6 +11,7 @@ export default function CategoriasPage() {
   return (
     <PageFrame>
       <PageHeader
+        eyebrow="Organização"
         title="Categorias"
         description="As etiquetas que colorem seus lançamentos, gráficos e resumos."
       />

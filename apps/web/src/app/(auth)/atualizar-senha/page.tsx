@@ -106,7 +106,6 @@ export default function AtualizarSenhaPage() {
       features={["Senha renovada", "Conta protegida", "Retorno ao login"]}
       spotlightTitle="Segurança"
       spotlightText="Depois de salvar a nova senha, você será levado para entrar novamente no Moedin.IA."
-      hominho="timachi"
     >
       <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--brand-soft)] text-[var(--brand-strong)]">
         <KeyRound className="h-6 w-6" />

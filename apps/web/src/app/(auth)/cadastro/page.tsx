@@ -94,7 +94,6 @@ export default function CadastroPage() {
       features={["Registro pelo WhatsApp", "Orçamentos e metas", "Histórico limpo"]}
       formMaxWidth="max-w-2xl"
       formSide="left"
-      hominho="gustavo"
     >
       <p className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Nova conta</p>
       <h1 className="mt-3 font-display text-4xl font-bold text-[var(--navy)]">Criar conta</h1>

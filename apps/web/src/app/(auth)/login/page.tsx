@@ -64,7 +64,6 @@ export default function LoginPage() {
       title="Seu painel financeiro continua daqui."
       description="Entre para acompanhar lançamentos, recorrências, metas e orçamentos conectados à IA e ao WhatsApp."
       features={["Dashboard do mês", "WhatsApp integrado", "IA para categorizar"]}
-      hominho="joao"
     >
       <p className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Acessar conta</p>
       <h1 className="mt-3 font-display text-4xl font-bold text-[var(--navy)]">Entrar</h1>

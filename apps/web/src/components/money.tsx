@@ -16,6 +16,7 @@ const SIZES = {
   md: "text-base font-semibold",
   lg: "text-xl font-semibold",
   xl: "text-2xl font-semibold sm:text-3xl",
+  xxl: "text-4xl font-bold leading-none sm:text-5xl",
 } as const;
 
 const TONES = {

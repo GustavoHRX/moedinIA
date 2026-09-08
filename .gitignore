@@ -42,3 +42,6 @@ n8n/files/
 *.sqlite
 *.sqlite-*
 n8n/qrcode*.png
+
+# Link local do projeto na Vercel (vercel link)
+.vercel

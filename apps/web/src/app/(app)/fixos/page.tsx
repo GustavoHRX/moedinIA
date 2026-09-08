@@ -228,7 +228,11 @@ export default function FixosPage() {
 
   return (
     <PageFrame>
-      <PageHeader title="Fixos" description="O que entra e o que sai todo mês, no automático." />
+      <PageHeader
+        eyebrow="Recorrências"
+        title="Fixos"
+        description="O que entra e o que sai todo mês, no automático."
+      />
 
       <div className="space-y-4">
         <Segmented<Mode>

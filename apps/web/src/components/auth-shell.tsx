@@ -3,7 +3,6 @@ import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import ThemeToggle from "@/components/theme-toggle";
 import ThemedLogo from "@/components/themed-logo";
-import { Hominho, HOMINHO_LABEL, type HominhoName } from "@/components/hominhos";
 
 type AuthShellProps = {
   eyebrow: string;
@@ -15,7 +14,6 @@ type AuthShellProps = {
   formSide?: "left" | "right";
   spotlightTitle?: string;
   spotlightText?: string;
-  hominho?: HominhoName;
 };
 
 export default function AuthShell({
@@ -28,7 +26,6 @@ export default function AuthShell({
   formSide = "right",
   spotlightTitle = "Finance + IA",
   spotlightText = "Organize gastos, metas, fixos e parcelas com uma rotina simples conectada ao WhatsApp.",
-  hominho = "joao",
 }: AuthShellProps) {
   const formOrder = formSide === "left" ? "lg:order-1" : "lg:order-2";
   const heroOrder = formSide === "left" ? "lg:order-2" : "lg:order-1";
@@ -59,14 +56,9 @@ export default function AuthShell({
           </div>
 
           <div className="grid gap-4">
-            <div className="anim-coin-flip flex items-start gap-4 rounded-lg border border-line bg-surface-strong p-5">
-              <Hominho name={hominho} size={44} className="mt-0.5 shrink-0" />
-              <div className="min-w-0">
-                <p className="eyebrow">
-                  {HOMINHO_LABEL[hominho]} · {spotlightTitle}
-                </p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-fg-muted">{spotlightText}</p>
-              </div>
+            <div className="rounded-lg border border-line bg-surface-strong p-5">
+              <p className="eyebrow">{spotlightTitle}</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-fg-muted">{spotlightText}</p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
