@@ -5,6 +5,7 @@ import { CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import AuthShell from "@/components/auth-shell";
 import GoogleSignInButton from "@/components/google-signin-button";
+import PasswordInput from "@/components/password-input";
 import { createClient } from "@/lib/supabase/client";
 import { translateAuthError } from "@/lib/auth-errors";
 import {
@@ -140,11 +141,11 @@ export default function CadastroPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="cadastro-senha" className="mb-2 block text-sm font-semibold text-[var(--text)]">Senha</label>
-            <input id="cadastro-senha" name="new-password" className="control" type="password" autoComplete="new-password" required minLength={8} maxLength={PASSWORD_MAX} placeholder="Mínimo 8 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <PasswordInput id="cadastro-senha" name="new-password" autoComplete="new-password" required minLength={8} maxLength={PASSWORD_MAX} placeholder="Mínimo 8 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           <div>
             <label htmlFor="cadastro-confirmar" className="mb-2 block text-sm font-semibold text-[var(--text)]">Confirmar senha</label>
-            <input id="cadastro-confirmar" name="confirm-password" className="control" type="password" autoComplete="new-password" required minLength={8} maxLength={PASSWORD_MAX} placeholder="Repita a senha" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+            <PasswordInput id="cadastro-confirmar" name="confirm-password" autoComplete="new-password" required minLength={8} maxLength={PASSWORD_MAX} placeholder="Repita a senha" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
           </div>
         </div>
         <button type="submit" disabled={loading} className="btn-primary w-full px-5 py-3.5 disabled:opacity-70">

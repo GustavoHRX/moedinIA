@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import AuthShell from "@/components/auth-shell";
 import GoogleSignInButton from "@/components/google-signin-button";
+import PasswordInput from "@/components/password-input";
 import { createClient } from "@/lib/supabase/client";
 import { translateAuthError } from "@/lib/auth-errors";
 import {
@@ -86,7 +87,7 @@ export default function LoginPage() {
         </div>
         <div>
           <label htmlFor="login-senha" className="mb-2 block text-sm font-semibold text-[var(--text)]">Senha</label>
-          <input id="login-senha" name="current-password" className="control" type="password" autoComplete="current-password" required maxLength={PASSWORD_MAX} placeholder="Sua senha" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <PasswordInput id="login-senha" name="current-password" autoComplete="current-password" required maxLength={PASSWORD_MAX} placeholder="Sua senha" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
         <div className="flex justify-end">
           <Link href="/recuperar-senha" className="text-sm font-bold text-[var(--brand)] hover:text-[var(--brand-strong)]">
