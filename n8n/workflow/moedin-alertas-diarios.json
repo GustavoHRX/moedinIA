@@ -1,0 +1,302 @@
+{
+  "id": "MoedinAlertasDia1",
+  "name": "Moedin.IA — Alertas diários (WhatsApp)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "e4d33936-0acc-4748-b927-7068f0091621",
+      "name": "Todo dia às 9h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/whatsapp_daily_alerts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}",
+        "options": {}
+      },
+      "id": "1521f75e-b5c6-45b9-987a-41ea020276a7",
+      "name": "Buscar alertas (RPC)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 20 * * 0"
+            }
+          ]
+        }
+      },
+      "id": "e8107f2c-50bb-4a1b-932b-b64d4d05741b",
+      "name": "Domingo às 20h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/whatsapp_weekly_summaries",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}",
+        "options": {}
+      },
+      "id": "d42fa62d-0e28-4999-a9d9-86e436ee8b41",
+      "name": "Buscar resumos semanais (RPC)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        520
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// A RPC devolve {alertas:[{user_id, wa_id, external_id, mensagem}]} já deduplicado por message_logs.\nconst a = $input.first().json.alertas || [];\nreturn a.map(x => ({ json: x }));"
+      },
+      "id": "21dba681-d6fd-44b9-86f8-a97d5d81d8ed",
+      "name": "Um item por alerta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $json.wa_id, text: $json.mensagem }) }}",
+        "options": {}
+      },
+      "id": "e2165027-c6a9-4b4d-af26-e33b83b3fb56",
+      "name": "Enviar alerta (Evolution)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        300
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/message_logs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ user_id: $('Um item por alerta').item.json.user_id, channel: 'whatsapp', direction: 'out', raw_text: $('Um item por alerta').item.json.mensagem, external_id: $('Um item por alerta').item.json.external_id, parsed_json: { alerta: true } }) }}",
+        "options": {}
+      },
+      "id": "b116bd2c-2c6a-4fdf-aa95-e257f7948eba",
+      "name": "Registrar envio (Supabase)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## 🔔 Alertas diários do Moedin.IA\nTodo dia às 9h (America/Sao_Paulo) a RPC `whatsapp_daily_alerts` devolve, por usuário vinculado ao WhatsApp e com notificações ligadas:\n• gastos fixos que **vencem hoje**\n• limite mensal em **≥ 80%** ou **estourado** (uma vez por mês cada)\n• **fatura importada** vencendo em até 2 dias\n\n**Domingo 20h**: resumo semanal (`whatsapp_weekly_summaries`, top 5 categorias e comparação com a semana anterior).\nUsuário pode silenciar/pausar pelo próprio bot (`user_settings.whatsapp_muted_until` / `whatsapp_notifications`).\n\nO envio é registrado em `message_logs` (direction=out, external_id=chave do alerta) — é isso que impede repetir o mesmo alerta. Sem alertas → o Code devolve 0 itens e nada é enviado.",
+        "height": 220,
+        "width": 1080,
+        "color": 5
+      },
+      "id": "31468e75-7bba-4b8b-a4dd-92ff021e9d46",
+      "name": "nota-alertas",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        40
+      ]
+    }
+  ],
+  "connections": {
+    "Todo dia às 9h": {
+      "main": [
+        [
+          {
+            "node": "Buscar alertas (RPC)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar alertas (RPC)": {
+      "main": [
+        [
+          {
+            "node": "Um item por alerta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Um item por alerta": {
+      "main": [
+        [
+          {
+            "node": "Enviar alerta (Evolution)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar alerta (Evolution)": {
+      "main": [
+        [
+          {
+            "node": "Registrar envio (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Domingo às 20h": {
+      "main": [
+        [
+          {
+            "node": "Buscar resumos semanais (RPC)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar resumos semanais (RPC)": {
+      "main": [
+        [
+          {
+            "node": "Um item por alerta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "executionTimeout": 300
+  },
+  "meta": {},
+  "tags": []
+}
