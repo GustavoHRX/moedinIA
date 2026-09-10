@@ -1,0 +1,89 @@
+{
+  "id": "MoedinErrosWfaaa",
+  "name": "Moedin.IA — Erros (Error Trigger)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "b48f893c-b7e8-47c5-bb86-c7fc3af86071",
+      "name": "Erro em qualquer workflow",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $env.N8N_ALERT_WA_ID, text: '🚨 *n8n: falha em \"' + ($json.workflow?.name || '?') + '\"*\\nNó: ' + ($json.execution?.lastNodeExecuted || '?') + '\\nErro: ' + String($json.execution?.error?.message || $json.trigger?.error?.message || 'sem detalhe').slice(0, 300) + '\\nExecução: ' + ($json.execution?.url || '-') }) }}",
+        "options": {}
+      },
+      "id": "9984dcfe-c641-45ba-9635-3d07dd1d8a4c",
+      "name": "Avisar admin (Evolution)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        300
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "content": "## 🚑 Workflow de erros (Error Trigger)\nApontado em *Settings → Error workflow* dos outros workflows. Quando uma execução falha fora dos caminhos de erro tratados (ex.: Redis fora, Supabase fora antes da identificação), manda um resumo no WhatsApp do admin (`$env.N8N_ALERT_WA_ID`): workflow, nó, mensagem de erro e link da execução. Nunca inclui segredos.",
+        "height": 190,
+        "width": 760,
+        "color": 4
+      },
+      "id": "3234c0e5-b901-4ee7-9205-91fe76e5324f",
+      "name": "nota-erros",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        80
+      ]
+    }
+  ],
+  "connections": {
+    "Erro em qualquer workflow": {
+      "main": [
+        [
+          {
+            "node": "Avisar admin (Evolution)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "executionTimeout": 300
+  },
+  "meta": {},
+  "tags": []
+}

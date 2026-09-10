@@ -20,7 +20,16 @@ Acesse:
 http://localhost:5678
 ```
 
-## Workflow do TCC
+## Agente de WhatsApp v2 (atual)
+
+Workflow ativo em produção local: `workflow/moedin-agente-v2.json` (AI Agent + 12 tools →
+RPCs do Supabase). Documentação completa, testes e limitações em **`AGENTE-V2.md`**; system
+prompt em `SYSTEM-PROMPT-AGENTE-V2.md`. Endpoint: `POST /webhook/moedin-agente`.
+
+> Nunca abra `data/database.sqlite` com `sqlite3` no host nem rode `n8n import/update` pelo CLI
+> com o container rodando — corrompeu o banco em 08/09/2026 (ver `AGENTE-V2.md`, seção 8).
+
+## Workflow do TCC (v0, histórico)
 
 Workflow importado:
 

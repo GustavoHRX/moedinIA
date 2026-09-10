@@ -16,6 +16,7 @@ import { fetchAllRows } from "@/lib/supabase/paginate";
 import { CHART_COLORS } from "@/lib/chart-palette";
 import { useAppData } from "@/components/app-data-provider";
 import NewEntryButton from "@/components/new-entry-button";
+import WhatsAppConnectCard from "@/components/whatsapp-connect-card";
 import { EmptyState, IconBox, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
 
 type TransactionItem = {
@@ -557,6 +558,9 @@ export default function DashboardPage() {
             {message}
           </div>
         ) : null}
+
+        {/* Some sozinho quando a conta já tem WhatsApp vinculado. */}
+        <WhatsAppConnectCard />
 
         {loading ? (
           <Surface>

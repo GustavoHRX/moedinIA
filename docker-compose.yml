@@ -160,6 +160,15 @@ services:
       # AUDITORIA C-3: token que o no "Guard: token do webhook" exige no header
       # X-Webhook-Token. Configure o mesmo valor no webhook da Evolution API.
       WHATSAPP_WEBHOOK_TOKEN: ${WHATSAPP_WEBHOOK_TOKEN:-}
+      # Modelo e chave da OpenAI usados pelo AI Agent do workflow v2. Sem isto,
+      # $env.OPENAI_MODEL fica indefinido dentro dos nos do n8n.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.6-luna}
+      EVOLUTION_INSTANCE_TOKEN: ${EVOLUTION_INSTANCE_TOKEN:-}
+      # Número que recebe o aviso do workflow de erros (Error Trigger)
+      N8N_ALERT_WA_ID: ${N8N_ALERT_WA_ID:-}
+      # URL do painel citada nas mensagens de onboarding do bot
+      MOEDIN_APP_URL: ${MOEDIN_APP_URL:-https://moedin-ia.vercel.app}
     depends_on:
       - redis
       - ai
