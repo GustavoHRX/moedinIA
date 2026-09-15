@@ -6,10 +6,12 @@ import {
   History,
   LayoutDashboard,
   Menu,
+  MessageCircle,
   Repeat2,
   Tag,
   Target,
   UserRound,
+  Wallet,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -32,6 +34,8 @@ const navItems: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: "/parcelamentos", label: "Parcelamentos", icon: CreditCard },
   { href: "/categorias", label: "Categorias", icon: Tag },
   { href: "/metas", label: "Metas", icon: Target },
+  { href: "/limite", label: "Limite", icon: Wallet },
+  { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
   { href: "/perfil", label: "Conta", icon: UserRound },
 ];
 

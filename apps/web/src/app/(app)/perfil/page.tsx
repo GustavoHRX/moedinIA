@@ -5,14 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAppData, type AppProfile } from "@/components/app-data-provider";
 import { createClient } from "@/lib/supabase/client";
-import { Check, Crown, MessageCircle, RefreshCw, Unlink, Wallet } from "lucide-react";
-import { ActionButton, Alert, IconBox, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
+import { Check, ChevronRight, Crown, MessageCircle, Wallet } from "lucide-react";
+import { ActionButton, Alert, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
 import { Skeleton } from "@/components/skeleton";
-import { Money } from "@/components/money";
-import { formatMoneyInputValue, parseMoneyInput } from "@/lib/formatters";
-import { currentMonthRef } from "@/lib/dates";
 import { useConfirm } from "@/components/confirm-dialog";
-import { WHATSAPP_CONFIGURED, whatsappDeepLink, whatsappNumberDisplay } from "@/lib/whatsapp";
 
 type Profile = {
   id: string;
@@ -44,20 +40,8 @@ export default function PerfilPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error">("success");
-  const [activationCode, setActivationCode] = useState<string>("");
-  const [waLinkedCount, setWaLinkedCount] = useState<number>(0);
-  const [waLinkedAt, setWaLinkedAt] = useState<string | null>(null);
-  const [regenerating, setRegenerating] = useState(false);
-  const [unlinking, setUnlinking] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
-  // Limite de gasto mensal = orçamento geral (budgets com category_id nulo).
-  // Vale todo mês: ao salvar, grava o mesmo valor para os próximos 12 meses.
-  const [limitInput, setLimitInput] = useState("");
-  const [limitValue, setLimitValue] = useState<number | null>(null);
-  const [savingLimit, setSavingLimit] = useState(false);
 
   const confirm = useConfirm();
 
@@ -111,134 +95,6 @@ export default function PerfilPage() {
 
     if (data) {
       fillForm(data as Profile);
-    }
-  }
-
-  useEffect(() => {
-    if (!cachedUser?.id) return;
-    loadWhatsApp(cachedUser.id);
-  }, [cachedUser?.id]);
-
-  async function loadWhatsApp(userId: string) {
-    const { data: codeData } = await supabase.rpc("ensure_activation_code");
-    if (codeData?.code) setActivationCode(codeData.code);
-
-    const { data: links } = await supabase
-      .from("whatsapp_links")
-      .select("id, updated_at, created_at")
-      .eq("user_id", userId)
-      .order("updated_at", { ascending: false });
-    setWaLinkedCount(links?.length ?? 0);
-    setWaLinkedAt(links?.[0]?.updated_at ?? links?.[0]?.created_at ?? null);
-
-    // Orçamento geral mais recente (o valor "vale todo mês")
-    const { data: budgetRow } = await supabase
-      .from("budgets")
-      .select("amount")
-      .eq("user_id", userId)
-      .is("category_id", null)
-      .order("month_ref", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (budgetRow?.amount != null) {
-      setLimitValue(Number(budgetRow.amount));
-      setLimitInput(formatMoneyInputValue(String(budgetRow.amount)));
-    }
-  }
-
-  async function handleSaveLimit(e: React.FormEvent) {
-    e.preventDefault();
-    const userId = cachedUser?.id;
-    if (!userId) return;
-    const parsed = parseMoneyInput(limitInput);
-    if (!parsed || parsed <= 0) {
-      showMessage("Informe um valor de limite válido.", "error");
-      return;
-    }
-
-    setSavingLimit(true);
-    const startMonth = currentMonthRef(); // "YYYY-MM-01"
-    // Reescreve o orçamento geral do mês atual e dos próximos 12.
-    await supabase
-      .from("budgets")
-      .delete()
-      .eq("user_id", userId)
-      .is("category_id", null)
-      .gte("month_ref", startMonth);
-
-    const rows = Array.from({ length: 13 }, (_, i) => {
-      const d = new Date(`${startMonth}T00:00:00`);
-      d.setMonth(d.getMonth() + i);
-      return {
-        user_id: userId,
-        category_id: null,
-        month_ref: `${d.toISOString().slice(0, 7)}-01`,
-        amount: parsed,
-      };
-    });
-    const { error } = await supabase.from("budgets").insert(rows);
-    setSavingLimit(false);
-
-    if (error) {
-      showMessage(`Erro ao salvar limite: ${error.message}`, "error");
-      return;
-    }
-    setLimitValue(parsed);
-    setLimitInput(formatMoneyInputValue(String(parsed)));
-    showMessage("Limite de gasto mensal atualizado.", "success");
-  }
-
-  // Vazou num print, numa tela compartilhada? Um código novo invalida o antigo
-  // na hora — quem tiver o velho não consegue mais vincular.
-  async function handleRegenerateCode() {
-    const ok = await confirm({
-      title: "Gerar um novo código?",
-      message:
-        "O código atual para de funcionar imediatamente. Quem já está vinculado continua vinculado.",
-      confirmLabel: "Gerar novo código",
-    });
-    if (!ok) return;
-    setRegenerating(true);
-    const { data, error } = await supabase.rpc("regenerate_activation_code");
-    setRegenerating(false);
-    const novo = (data as { code?: string } | null)?.code;
-    if (error || !novo) {
-      showMessage("Não consegui gerar um novo código. Tente de novo.", "error");
-      return;
-    }
-    setActivationCode(novo);
-    showMessage("Novo código gerado. O anterior não vale mais.", "success");
-  }
-
-  // Perdeu o aparelho, trocou de número, emprestou o celular: corta o acesso.
-  async function handleUnlink() {
-    const ok = await confirm({
-      title: "Desvincular o WhatsApp?",
-      message:
-        "Aquele número para de registrar e consultar seus dados. Seus lançamentos continuam aqui. Você pode vincular de novo quando quiser.",
-      confirmLabel: "Desvincular",
-      tone: "danger",
-    });
-    if (!ok) return;
-    setUnlinking(true);
-    const { error } = await supabase.rpc("whatsapp_unlink");
-    setUnlinking(false);
-    if (error) {
-      showMessage("Não consegui desvincular. Tente de novo.", "error");
-      return;
-    }
-    setWaLinkedCount(0);
-    setWaLinkedAt(null);
-    showMessage("WhatsApp desvinculado.", "success");
-  }
-
-  async function handleCopyCode() {
-    try {
-      await navigator.clipboard.writeText(activationCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } catch {
-      showMessage("Não consegui copiar. Copie o código manualmente.", "error");
     }
   }
 
@@ -514,137 +370,39 @@ export default function PerfilPage() {
               <p className="text-xs text-fg-muted">Fuso horário</p>
               <p className="font-semibold text-fg">{timezone}</p>
             </div>
-            <div className="rounded-md border border-line bg-bg-soft px-4 py-3">
-              <p className="text-xs text-fg-muted">WhatsApp</p>
-              <p className="text-sm font-semibold text-fg">
-                {waLinkedCount > 0 ? (
-                  <span className="text-primary-strong">✅ Vinculado</span>
-                ) : (
-                  <span className="text-fg-muted">Não vinculado</span>
-                )}
-              </p>
-            </div>
           </div>
         </Surface>
       </section>
 
       <Surface>
-        <SectionHeader
-          title="Limite de gasto mensal"
-          description="Um teto para o mês. O alerta de 'perto do limite' usa esse valor. Vale para todos os meses."
-        />
-        <form onSubmit={handleSaveLimit} className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="flex items-center gap-3">
-            <IconBox tone="brand" size="lg">
-              <Wallet className="h-5 w-5" strokeWidth={2.2} />
-            </IconBox>
-            {limitValue != null ? (
-              <Money value={limitValue} size="lg" />
-            ) : (
-              <span className="text-sm text-fg-muted">Sem limite definido</span>
-            )}
-          </div>
-          <label className="block flex-1 space-y-1.5">
-            <span className="text-xs font-medium text-fg-muted">Novo valor</span>
-            <input
-              className="control"
-              type="text"
-              inputMode="decimal"
-              placeholder="Ex: 3.500,00"
-              value={limitInput}
-              onChange={(e) => setLimitInput(e.target.value)}
-              onBlur={(e) => setLimitInput(formatMoneyInputValue(e.target.value))}
-            />
-          </label>
-          <ActionButton type="submit" disabled={savingLimit}>
-            {savingLimit ? "Salvando..." : "Salvar limite"}
-          </ActionButton>
-        </form>
-      </Surface>
-
-      <Surface>
-        <SectionHeader
-          title="WhatsApp"
-          eyebrow="Integração"
-          description={
-            WHATSAPP_CONFIGURED
-              ? `Assistente do Moedin.IA no ${whatsappNumberDisplay()}.`
-              : "O número do assistente ainda não foi configurado neste ambiente."
-          }
-        />
-        {waLinkedCount > 0 ? (
-          <div className="mt-3 space-y-4">
-            <div className="rounded-md border border-line bg-bg-soft px-4 py-4">
-              <p className="font-semibold text-primary-strong">✅ Seu WhatsApp está vinculado</p>
-              <p className="mt-1 text-sm text-fg-muted">
-                Você pode lançar gastos, pedir relatório, definir limite e importar a fatura do cartão
-                direto pela conversa.
-                {waLinkedAt
-                  ? ` Vinculado em ${new Date(waLinkedAt).toLocaleDateString("pt-BR")}.`
-                  : ""}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              {WHATSAPP_CONFIGURED ? (
-                <a
-                  href={whatsappDeepLink()}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-secondary inline-flex items-center gap-2 px-4 py-2.5 text-sm"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  Abrir a conversa
-                </a>
-              ) : null}
-              <ActionButton type="button" tone="danger" onClick={handleUnlink} disabled={unlinking}>
-                <Unlink className="h-4 w-4" />
-                {unlinking ? "Desvinculando..." : "Desvincular"}
-              </ActionButton>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-3 space-y-4">
-            <p className="text-sm text-fg-muted">
-              Ainda não conectado. A tela de conexão traz o botão que já abre a conversa com o código
-              escrito, e um QR para quem está no computador.
-            </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <Link
-                href="/onboarding"
-                className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 text-sm"
-              >
-                <MessageCircle className="h-4 w-4" />
-                Conectar o WhatsApp
-              </Link>
-              <div className="rounded-md border border-dashed border-line bg-bg-soft px-4 py-2.5">
-                <p className="text-[11px] text-fg-muted">Código de ativação</p>
-                <p className="font-display text-lg font-semibold tracking-[0.18em] text-fg">
-                  {activationCode || "••••••••"}
-                </p>
-              </div>
-              <ActionButton type="button" tone="secondary" onClick={handleCopyCode} disabled={!activationCode}>
-                {copied ? "Copiado!" : "Copiar"}
-              </ActionButton>
-            </div>
-          </div>
-        )}
-
-        <div className="mt-5 border-t border-line pt-4">
-          <p className="text-sm font-semibold text-fg">Segurança do código</p>
-          <p className="mt-1 text-sm text-fg-muted">
-            O código de ativação é a chave da sua conta no WhatsApp: quem tiver ele consegue vincular
-            o próprio número. Se aparecer num print ou numa tela compartilhada, gere outro.
-          </p>
-          <ActionButton
-            type="button"
-            tone="secondary"
-            className="mt-3"
-            onClick={handleRegenerateCode}
-            disabled={regenerating}
+        <SectionHeader title="Atalhos" eyebrow="Configurações" />
+        <div className="space-y-2">
+          <Link
+            href="/limite"
+            className="flex items-center gap-3 rounded-md border border-line bg-bg-soft px-4 py-3.5 transition hover:border-primary"
           >
-            <RefreshCw className="h-4 w-4" />
-            {regenerating ? "Gerando..." : "Gerar novo código"}
-          </ActionButton>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary-strong">
+              <Wallet className="h-4 w-4" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-fg">Limite de gasto</p>
+              <p className="text-sm text-fg-muted">Teto mensal geral e por categoria.</p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-fg-muted" />
+          </Link>
+          <Link
+            href="/whatsapp"
+            className="flex items-center gap-3 rounded-md border border-line bg-bg-soft px-4 py-3.5 transition hover:border-primary"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary-strong">
+              <MessageCircle className="h-4 w-4" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-fg">WhatsApp</p>
+              <p className="text-sm text-fg-muted">Vincular, desvincular e código de ativação.</p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-fg-muted" />
+          </Link>
         </div>
       </Surface>
 
