@@ -313,27 +313,41 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, [loadCategories, loadProfile, refreshUser, supabase]);
 
-  // Realtime: atualiza o site automaticamente quando lançamentos mudam
+  // Realtime: atualiza o site automaticamente quando dados financeiros mudam
   // (ex: registro/exclusão feitos pelo WhatsApp), sem precisar recarregar.
+  // Cobre lançamentos, metas, gastos fixos, receitas fixas, parcelamentos,
+  // orçamentos e planejamento mensal — todas as telas que dependem de
+  // financialVersion reagem sozinhas.
   useEffect(() => {
     const userId = user?.id;
     if (!userId) return;
 
-    const channel = supabase
-      .channel(`rt-transactions-${userId}`)
-      .on(
+    const realtimeTables = [
+      "transactions",
+      "goals",
+      "fixed_expenses",
+      "fixed_incomes",
+      "installments",
+      "budgets",
+      "monthly_controls",
+    ] as const;
+
+    let channel = supabase.channel(`rt-financial-${userId}`);
+    for (const table of realtimeTables) {
+      channel = channel.on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "transactions", filter: `user_id=eq.${userId}` },
+        { event: "*", schema: "public", table, filter: `user_id=eq.${userId}` },
         (payload) => {
-          if (payload.eventType === "INSERT") {
+          if (table === "transactions" && payload.eventType === "INSERT") {
             const newId = (payload.new as { id?: string })?.id;
             if (newId) setLastRealtimeArrival({ id: newId, at: Date.now() });
           }
           setFinancialCacheState({});
           setFinancialVersion((version) => version + 1);
         }
-      )
-      .subscribe();
+      );
+    }
+    channel.subscribe();
 
     return () => {
       void supabase.removeChannel(channel);
