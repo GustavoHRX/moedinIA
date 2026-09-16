@@ -19,7 +19,7 @@
       "typeVersion": 1.2,
       "position": [
         0,
-        300
+        420
       ]
     },
     {
@@ -54,7 +54,7 @@
       "typeVersion": 4.2,
       "position": [
         220,
-        300
+        420
       ],
       "retryOnFail": true,
       "maxTries": 3,
@@ -77,7 +77,7 @@
       "typeVersion": 1.2,
       "position": [
         0,
-        520
+        640
       ]
     },
     {
@@ -112,7 +112,7 @@
       "typeVersion": 4.2,
       "position": [
         220,
-        520
+        640
       ],
       "retryOnFail": true,
       "maxTries": 3,
@@ -128,7 +128,7 @@
       "typeVersion": 2,
       "position": [
         440,
-        300
+        420
       ]
     },
     {
@@ -159,7 +159,7 @@
       "typeVersion": 4.2,
       "position": [
         660,
-        300
+        420
       ],
       "onError": "continueRegularOutput",
       "retryOnFail": true,
@@ -202,15 +202,15 @@
       "typeVersion": 4.2,
       "position": [
         880,
-        300
+        420
       ],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "content": "## 🔔 Alertas diários do Moedin.IA\nTodo dia às 9h (America/Sao_Paulo) a RPC `whatsapp_daily_alerts` devolve, por usuário vinculado ao WhatsApp e com notificações ligadas:\n• gastos fixos que **vencem hoje**\n• limite mensal em **≥ 80%** ou **estourado** (uma vez por mês cada)\n• **fatura importada** vencendo em até 2 dias\n\n**Domingo 20h**: resumo semanal (`whatsapp_weekly_summaries`, top 5 categorias e comparação com a semana anterior).\nUsuário pode silenciar/pausar pelo próprio bot (`user_settings.whatsapp_muted_until` / `whatsapp_notifications`).\n\nO envio é registrado em `message_logs` (direction=out, external_id=chave do alerta) — é isso que impede repetir o mesmo alerta. Sem alertas → o Code devolve 0 itens e nada é enviado.",
-        "height": 220,
-        "width": 1080,
+        "content": "## 🔔 Alertas diários do Moedin.IA\nTodo dia às 9h (America/Sao_Paulo) a RPC `whatsapp_daily_alerts` devolve, por usuário vinculado ao WhatsApp e com notificações ligadas:\n• gastos fixos que **vencem hoje**\n• limite mensal em **≥ 80%** ou **estourado** (uma vez por mês cada)\n• **fatura importada** vencendo em até 2 dias\n\n**Domingo 20h**: resumo semanal (`whatsapp_weekly_summaries`, top 5 categorias e comparação com a semana anterior).\nUsuário pode silenciar/pausar pelo próprio bot (`user_settings.whatsapp_muted_until` / `whatsapp_notifications`).\n\nO envio é registrado em `message_logs` (direction=out, external_id=chave do alerta) — é isso que impede repetir o mesmo alerta. Sem alertas → o Code devolve 0 itens e nada é enviado.\n\n**7h10 — cotações.** Busca o câmbio do dia numa API pública e gratuita (sem chave) e guarda em `fx_rates`. É o que deixa o bot aceitar *\"gastei 40 dólares\"*. Se a API falhar, o dia passa com a cotação anterior em vez de quebrar o fluxo.",
+        "height": 1000,
+        "width": 1320,
         "color": 5
       },
       "id": "31468e75-7bba-4b8b-a4dd-92ff021e9d46",
@@ -220,6 +220,82 @@
       "position": [
         -40,
         40
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7,
+              "triggerAtMinute": 10
+            }
+          ]
+        }
+      },
+      "id": "97c35d5d-1e04-58da-8a67-28298b61e94e",
+      "name": "Todo dia às 7h10",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        860
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://open.er-api.com/v6/latest/BRL",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "7b5037d2-a124-570b-a5fa-bce21a89bed9",
+      "name": "Cotações do dia (API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        860
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/whatsapp_fx_upsert",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_rates: ($json.result === 'success' && $json.rates) ? $json.rates : null }) }}",
+        "options": {}
+      },
+      "id": "3f6613d2-914b-5ea1-b63d-da524b3c8955",
+      "name": "Guardar cotações (RPC)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        860
       ]
     }
   ],
@@ -284,6 +360,28 @@
         [
           {
             "node": "Um item por alerta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Todo dia às 7h10": {
+      "main": [
+        [
+          {
+            "node": "Cotações do dia (API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cotações do dia (API)": {
+      "main": [
+        [
+          {
+            "node": "Guardar cotações (RPC)",
             "type": "main",
             "index": 0
           }

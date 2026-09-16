@@ -1,0 +1,133 @@
+# Moedin.IA — o bot do WhatsApp rodando num servidor, sem depender do Mac.
+#
+# São só os quatro serviços que o assistente precisa. O painel está na Vercel e
+# o ai-service não é usado pelo agente v2, então nenhum dos dois vem para cá.
+#
+# NENHUMA PORTA FICA ABERTA PARA A INTERNET, de propósito:
+#   • a Evolution conecta para fora até o WhatsApp;
+#   • o n8n conecta para fora até Supabase e OpenAI;
+#   • Evolution → n8n acontece dentro da rede do Docker (http://n8n:5678).
+# Ou seja, o bot funciona sem domínio, sem certificado e sem proxy reverso.
+# Para abrir o editor do n8n, faça um túnel SSH da sua máquina:
+#   ssh -L 5678:127.0.0.1:5678 usuario@SEU_SERVIDOR
+#   e acesse http://localhost:5678 no navegador.
+#
+# As portas abaixo estão presas em 127.0.0.1 justamente para que só o túnel
+# alcance. Trocar para "5678:5678" exporia o n8n à internet inteira.
+
+services:
+  redis:
+    container_name: moedin_redis
+    image: redis:7-alpine
+    # Buffer das mensagens e memória de conversa do agente. Sem senha porque
+    # não sai da rede interna.
+    ports:
+      - "127.0.0.1:6379:6379"
+    restart: always
+
+  evolution_db:
+    container_name: moedin_evolution_db
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: evolution
+      POSTGRES_DB: evolution
+    volumes:
+      - evolution_db_data:/var/lib/postgresql/data
+    # Sem `ports`: só a Evolution fala com ele, pela rede do compose.
+    # NÃO troque usuário/senha: o dump restaurado espera exatamente estes.
+    restart: always
+
+  evolution:
+    container_name: moedin_evolution
+    image: evoapicloud/evolution-api:v2.3.7
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      SERVER_URL: http://localhost:8080
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
+      AUTHENTICATION_TYPE: apikey
+      CONFIG_SESSION_PHONE_VERSION: ${EVOLUTION_WA_VERSION:-2.3000.1023204200}
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:evolution@evolution_db:5432/evolution?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME: evolution
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
+      DATABASE_SAVE_MESSAGE_UPDATE: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "true"
+      DATABASE_SAVE_DATA_CHATS: "false"
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379/6
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_REDIS_SAVE_INSTANCES: "false"
+      CACHE_LOCAL_ENABLED: "false"
+      DEL_INSTANCE: "false"
+      QRCODE_LIMIT: "30"
+      QRCODE_COLOR: "#198754"
+      LOG_LEVEL: ERROR,WARN
+      LOG_BAILEYS: error
+      TZ: ${DEFAULT_TIMEZONE:-America/Sao_Paulo}
+    depends_on:
+      - evolution_db
+      - redis
+    volumes:
+      - evolution_instances:/evolution/instances
+    restart: always
+
+  n8n:
+    container_name: moedin_n8n
+    image: n8nio/n8n:latest
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      N8N_EDITOR_BASE_URL: http://localhost:5678
+      WEBHOOK_URL: http://localhost:5678
+      GENERIC_TIMEZONE: ${DEFAULT_TIMEZONE:-America/Sao_Paulo}
+      TZ: ${DEFAULT_TIMEZONE:-America/Sao_Paulo}
+      # PRECISA ser a mesma chave da máquina de origem. Se mudar, as três
+      # credenciais salvas (OpenAI, Redis, Supabase) viram lixo ilegível.
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      DB_SQLITE_POOL_SIZE: 2
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
+      EXECUTIONS_DATA_SAVE_ON_ERROR: all
+      # O guard do webhook e as ferramentas leem segredos por $env dentro dos
+      # nós Code; por isso o acesso não pode ser bloqueado.
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      N8N_RUNNERS_ENABLED: "true"
+      N8N_GIT_NODE_DISABLE_BARE_REPOS: "true"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "false"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      # Limpeza automática: sem isso o SQLite cresce para sempre num servidor
+      # que fica meses ligado.
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "336"
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      EVOLUTION_API_URL: http://evolution:8080
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
+      EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE}
+      EVOLUTION_INSTANCE_TOKEN: ${EVOLUTION_INSTANCE_TOKEN:-}
+      WHATSAPP_WEBHOOK_TOKEN: ${WHATSAPP_WEBHOOK_TOKEN}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.4-mini}
+      N8N_ALERT_WA_ID: ${N8N_ALERT_WA_ID:-}
+      MOEDIN_APP_URL: ${MOEDIN_APP_URL:-https://moedin-ia.vercel.app}
+    depends_on:
+      - redis
+      - evolution
+    volumes:
+      # Banco do n8n (workflows, credenciais, dono). Vem do Mac no pacote.
+      - ./n8n/data:/home/node/.n8n
+      - ./n8n/workflow:/workflows
+      - ./n8n/files:/files
+    restart: always
+
+volumes:
+  evolution_db_data:
+  evolution_instances:
