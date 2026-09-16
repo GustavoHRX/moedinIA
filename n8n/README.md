@@ -22,9 +22,19 @@ http://localhost:5678
 
 ## Agente de WhatsApp v2 (atual)
 
-Workflow ativo em produção local: `workflow/moedin-agente-v2.json` (AI Agent + 12 tools →
-RPCs do Supabase). Documentação completa, testes e limitações em **`AGENTE-V2.md`**; system
-prompt em `SYSTEM-PROMPT-AGENTE-V2.md`. Endpoint: `POST /webhook/moedin-agente`.
+Workflow ativo em produção local: `workflow/moedin-agente-v2.json` — **v2.6**, 98 nós e 24 tools
+que chamam RPCs do Supabase. Documentação completa, testes e limitações em **`AGENTE-V2.md`**;
+system prompt em `SYSTEM-PROMPT-AGENTE-V2.md`. Endpoint: `POST /webhook/moedin-agente`.
+
+Dois workflows acompanham: `workflow/moedin-alertas-diarios.json` (vencimento e limite às 9h,
+resumo semanal domingo 20h, cotações de câmbio às 7h10) e `workflow/moedin-erros.json`.
+
+> **Editar não basta: tem que publicar.** O n8n 2.36 separa rascunho de versão publicada, e o
+> webhook continua executando a publicada. Depois de importar ou editar, clique em **Publish**.
+
+> **Antes de mexer na "Rota rápida?"**, leia a seção 13 do `AGENTE-V2.md`: respostas curtas como
+> "ok", "tudo" e "sim" precisam continuar indo para o agente, senão a confirmação de importação de
+> fatura quebra.
 
 > Nunca abra `data/database.sqlite` com `sqlite3` no host nem rode `n8n import/update` pelo CLI
 > com o container rodando — corrompeu o banco em 08/09/2026 (ver `AGENTE-V2.md`, seção 8).

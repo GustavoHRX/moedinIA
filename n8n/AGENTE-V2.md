@@ -2,7 +2,11 @@
 
 Workflow: `n8n/workflow/moedin-agente-v2.json` · id no n8n local: `MoedinAgenteV2aa`
 (http://localhost:5678/workflow/MoedinAgenteV2aa) · path do webhook: `POST /webhook/moedin-agente`.
-System prompt: `n8n/SYSTEM-PROMPT-AGENTE-V2.md` · Migration: `supabase/migrations/022_whatsapp_agent_tools.sql`.
+System prompt: `n8n/SYSTEM-PROMPT-AGENTE-V2.md` · Migrations: `022` a `029` em `supabase/migrations/`.
+
+**Versão atual: v2.6** (15/09/2026) — 98 nós, 24 ferramentas. O que mudou depois da v2 original
+está nas seções 10 a 13, em ordem cronológica; o começo deste documento descreve o desenho que
+continua valendo.
 
 Escrito do zero em 08/09/2026, em torno do nó **AI Agent** (a v1, `moedin-whatsapp-ia.json`,
 era um `switch` de 4 intenções + serviço externo de IA). Toda a inteligência roda dentro do n8n;
@@ -23,13 +27,19 @@ o `ai-service` não é usado.
 4 BUFFER          Redis SET moedin:buf:{wa_id}:{msg_id} (TTL 120s) + SET moedin:last:{wa_id} (TTL 120s)
                   → Wait 4s → GET last → sou a última (por msg_id)? → KEYS moedin:buf:{wa_id}:*
                   → Consolidar (ordena por chegada, junta) → DEL cada chave
-5 AGENTE          Entrada do agente (Set, executeOnce) → AI Agent 3.1
+5 ROTA + AGENTE   Entrada do agente (Set, executeOnce) → Rota rápida? (Code) → Caminho (Switch)
+                  saída "texto"  → resposta pronta, sem IA          (setor 6)
+                  saída "pdf"    → relatório em PDF, sem IA         (setor 5b)
+                  fallback       → AI Agent 3.1
                   + OpenAI Chat Model 1.3 ($env.OPENAI_MODEL, Responses API ON, reasoning low)
-                  + Redis Chat Memory 1.6 (moedin:mem:{user_id}, 10 turnos, TTL 24h)
-                  + 12 HTTP Request Tools → RPCs do Supabase (service_role)
+                  + Redis Chat Memory 1.6 (moedin:mem:{user_id}, 6 mensagens, TTL 24h)
+                  + 24 HTTP Request Tools → RPCs do Supabase (service_role)
                   (log de entrada em message_logs em paralelo)
-6 RESPOSTA        Evolution sendText (onError: continue) → message_logs (out) → Respond 200
-7 ERROS           saídas de erro do agente / mídia / RPCs de identificação
+5b PDF            whatsapp_report_pdf_data (RPC) → Montar PDF (Code, sem biblioteca)
+                  → Evolution sendMedia (document) → message_logs (out) → Respond 200
+6 RESPOSTA        Resposta final (Set) ← agente E rota "texto" convergem aqui
+                  → Evolution sendText (onError: continue) → message_logs (out) → Respond 200
+7 ERROS           saídas de erro do agente / mídia / PDF / RPCs de identificação
                   → aviso amigável no WhatsApp → Respond 500
 ```
 
@@ -47,7 +57,9 @@ Lidas por `$env` dentro do container (já mapeadas no `docker-compose.yml`):
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | RPCs e `message_logs` (PostgREST) |
 | `EVOLUTION_API_URL`, `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCE` | download de mídia e `sendText` |
 | `WHATSAPP_WEBHOOK_TOKEN` | guard do webhook (`X-Webhook-Token`) — fail-closed |
-| `OPENAI_MODEL` | modelo do agente (`gpt-5.6-luna`) — **nunca** hardcoded no JSON |
+| `OPENAI_MODEL` | modelo do agente (`gpt-5.4-mini` desde a v2.2) — **nunca** hardcoded no JSON |
+| `MOEDIN_APP_URL` | URL do painel, usada nas boas-vindas (v2.5) |
+| `N8N_ALERT_WA_ID` | número que recebe o aviso do workflow de erros |
 
 Credenciais do n8n referenciadas pelo id (já existentes no banco local):
 
@@ -334,3 +346,113 @@ tenho sessão no navegador e não manipulo a senha do dono. O dev server do host
 fica em `http://localhost:3010` para essa conferência.
 **Atenção:** o container `moedin_web` está travado num `npm install` que não
 completa (timeout de rede dentro do container), então `localhost:3333` não sobe.
+
+## 13. v2.6 — sete funções novas e economia de token (15/09/2026)
+
+Migration `029_whatsapp_v4_features.sql` (aplicada via MCP). Workflow com **98 nós e 24
+ferramentas**, publicado; alertas com 11 nós. Testado ponta a ponta pelo webhook (8 casos) e os
+efeitos nos dados reais foram desfeitos depois.
+
+### As funções
+
+| Função | Como funciona | Teste real |
+|---|---|---|
+| **Comparar meses** | `comparar_meses` → `whatsapp_compare_months`. Gastos, receitas, saldo e as 6 categorias que mais mudaram, com ▲/▼. Quando **um dos meses é o atual**, compara o mesmo recorte nos dois (dia 1 até hoje) e diz isso na resposta — senão o mês corrente sempre pareceria mais barato. | "setembro x agosto" → -2%, com a quebra por categoria ✅ |
+| **Consulta livre** | `consultar_gastos` → `whatsapp_query_transactions`. Categoria **e/ou** termo livre, em qualquer período, com total, média, quebra por mês (quando o período cruza meses) e os maiores. | "quanto gastei com transporte esse ano" → R$ 4.113,69 em 45 lançamentos, 9 meses listados ✅ |
+| **Editar gasto/receita fixa** | `editar_fixo` → `whatsapp_update_recurrence`. Valor, dia de vencimento, nome e categoria; manda só o que mudou e a resposta lista campo a campo o "de → para". Ambíguo devolve os candidatos. | "muda o valor da internet pra 130" ✅ |
+| **Pausar sem excluir** | `pausar_fixo` → `whatsapp_toggle_recurrence`. Ver a seção "Pausar ≠ excluir" abaixo. `listar_fixos` ganhou a linha "⏸️ Pausados: …". | "pausa a netflix" → pausado; a lista mostrou o rodapé ✅ |
+| **Limite por categoria** | `definir_limite_mensal` ganhou `p_category` (0 remove); `ver_limite_mensal` mostra o geral **e** cada categoria com ⚠️ acima de 80% e 🚨 estourada. Grava em `budgets.category_id`, a mesma tabela da tela `/limite` do site. `criar_lancamento` avisa **no ato** quando o lançamento cruza 80% ou 100%, e `whatsapp_daily_alerts` cobre categorias (uma vez por mês, chave `alert:cat80/100:<mês>:<categoria>`). | "limite de 300 pro lazer" ✅ |
+| **Moeda estrangeira** | Tabela `fx_rates` + `whatsapp_fx_upsert`, alimentada **todo dia às 7h10** pelo workflow de alertas a partir de `https://open.er-api.com/v6/latest/BRL` (pública, gratuita, sem chave — 166 moedas). `criar_lancamento` recebe `p_currency`: o modelo manda o **valor original** e o código ISO, a conversão é no SQL. A descrição guarda o valor original. `cotacao` converte sem registrar. | "gastei 20 dólares no jantar" → ❌ R$ 103,00 (US$ 20,00 × 5,15) ✅ |
+| **Gasto e receita na mesma mensagem** | Regra 4 do prompt passou a dizer explicitamente que os itens de uma mesma mensagem podem ter **tipos diferentes**, e que cada um vai com o seu `tipo` e o seu ícone. | ✅ |
+| **Relatório em PDF** | Ver "PDF sem biblioteca" abaixo. | "relatório em pdf" → arquivo de 2 páginas entregue no WhatsApp ✅ |
+
+### Pausar ≠ excluir (a decisão que não é óbvia)
+
+O site já tinha o conceito: a tela `/fixos` mostra "Inativo" com um botão **Ativar**, e o motor de
+recorrência (`apps/web/src/lib/recurrence-catchup.ts`) só gera ocorrências de registros ativos.
+A v2.6 usa esse mesmo estado em vez de inventar outro, e distingue os dois casos assim:
+
+- **Pausado** = `is_active = false` **sem** `end_date`. Ao **reativar**, o `start_date` é movido para
+  o mês atual. Sem isso o catch-up do site, que gera de `start_date` até hoje, preencheria
+  justamente os meses que a pessoa pediu para pular.
+- **Excluído** = apagado de vez quando **não há transação nenhuma** ligada a ele; quando há
+  histórico, vira `is_active = false` **com** `end_date = hoje` (o histórico continua explicável).
+
+É a presença do `end_date` que separa "pausado" de "excluído" nas listagens.
+
+### PDF sem biblioteca
+
+O sandbox do Code node do n8n não traz nenhuma biblioteca de PDF e não permite instalar uma. O nó
+**Montar PDF** escreve o arquivo byte a byte: PDF 1.4, fontes base-14 (Helvetica e Helvetica-Bold),
+tabela `xref` com os deslocamentos calculados sobre o buffer final. Sai com cartões de receita/
+despesa/saldo, barra do limite, barras por categoria (com marca do limite quando existe), metas e a
+tabela de lançamentos paginada. Vai pelo `sendMedia` da Evolution como `document`, com legenda.
+
+Três detalhes que custaram tempo:
+
+- **Acento funciona, emoji não.** O texto vai em `WinAnsiEncoding`. A Helvetica não tem glifo de
+  emoji, então emoji é removido — por isso o PDF não usa nenhum, mesmo a legenda do WhatsApp usando.
+- **WinAnsi não é Latin-1.** Travessão, aspas curvas, bullet, reticências e euro ficam nas posições
+  `0x80`–`0x9F`, fora do Latin-1. Sem um mapa explícito, um simples `—` (que a RPC usa para
+  "sem categoria") vira lixo. O primeiro teste saiu com `?` no lugar dele.
+- **O corpo do `sendMedia` na Evolution v2 é achatado**: `number`, `mediatype`, `mimetype`, `media`
+  (base64), `fileName`, `caption` — sem o envelope `mediaMessage` da v1.
+
+### Economia de token
+
+Três mudanças, da mais barata para a mais cara de fazer:
+
+1. **Rota rápida (setor 5).** Um nó de código antes do agente responde sozinho saudação, *ajuda*,
+   agradecimento e o **pedido de relatório em PDF** — inclusive descobrindo o mês pedido. Essas
+   mensagens passaram a custar **zero token**. "ajuda" responde em ~6 s contra 8–16 s pelo agente.
+2. **Prompt reordenado.** O cache de prompt da OpenAI é de **prefixo**: só reaproveita o texto
+   idêntico desde o primeiro caractere. O nome do usuário e a data estavam no topo, o que garantia
+   0% de cache — cada mensagem pagava o preço cheio das regras fixas. Agora as regras vêm primeiro e
+   o bloco "Contexto desta conversa" é o último. **Não mova esse bloco para cima.**
+3. **Memória de 10 → 6 mensagens.** O histórico é reenviado inteiro a cada chamada. Medição antes da
+   rodada: ~4.400 tokens de entrada por chamada ao modelo, e uma mensagem com ferramenta faz duas ou
+   mais chamadas.
+
+**O cuidado que a rota rápida exigiu — e que tem teste:** confirmações como *"tudo"*, *"sim"*,
+*"ok"*, *"nada"*, *"só os parcelados"*, *"o 2"* **não podem** ser atalhadas. Elas parecem triviais,
+mas quase sempre são resposta a uma pergunta que o próprio agente fez (a confirmação de importação
+de fatura, por exemplo). Atalhar essas quebraria o fluxo no meio. Outras duas guardas: mensagem que
+contém marcador de mídia já interpretada (`[PDF —`, `[Foto —`, `[Áudio`) e texto acima de 120
+caracteres vão sempre para o agente. A bateria de 38 casos que cobre isso está em
+`testa_rota.js` (fora do repo, no scratchpad da sessão); vale refazê-la se a rota mudar.
+
+### Identidade visual
+
+O emoji do assistente é a **moedinha 🪙**. O porquinho 🐷 saiu de tudo (rota rápida, adesivos do
+canvas do v2 e do v1) — a marca é "Moedin", de moeda.
+
+### Conferência de segurança depois da migration
+
+`get_advisors(security)` não apontou nada novo. Os três avisos que aparecem já existiam e são
+intencionais (`ensure_activation_code`, `regenerate_activation_code` e `whatsapp_unlink` são
+chamáveis por usuário logado de propósito — operam só sobre `auth.uid()`), mais a proteção de senha
+vazada, desativada por decisão anterior do projeto.
+
+Aparece também um **INFO novo: "`fx_rates` tem RLS ligado e nenhuma policy"**. Isso é o desenho
+pretendido, não um esquecimento: sem policy nenhuma, `anon` e `authenticated` não enxergam a tabela,
+e a `service_role` (que ignora RLS) é a única que lê e escreve. Confirmado na prática — a mesma
+consulta responde `401 / permission denied for table fx_rates` com a chave pública.
+
+As 16 funções da migration foram conferidas no banco: todas com `search_path = public` fixo e
+`EXECUTE` só para `postgres` e `service_role`. As duas que mudaram de assinatura
+(`whatsapp_create_transaction` e `whatsapp_set_monthly_limit`) foram dropadas antes de recriadas, e
+não ficou nenhuma sobrecarga duplicada — o PostgREST não saberia qual chamar.
+
+### Limitações honestas desta rodada
+
+- A cotação é de fechamento diário, não intradiária, e a API é de terceiro sem SLA. Se ela falhar às
+  7h10, o dia inteiro usa a cotação anterior (o nó segue com `onError: continueRegularOutput` e a RPC
+  recusa `rates` nulo em vez de gravar lixo). Para um controle financeiro pessoal isso basta.
+- O PDF não tem gráfico de pizza nem fonte personalizada: é Helvetica e barras retangulares. Trocar a
+  fonte exigiria embutir o arquivo da fonte no PDF.
+- As larguras de texto usadas para cortar strings são uma aproximação da métrica da Helvetica, não a
+  tabela real. Descrição muito longa pode cortar um ou dois caracteres antes do ideal.
+- O mês pedido no PDF é descoberto por regex em português ("agosto", "mês passado"). Escrita muito
+  fora do comum cai no mês atual em vez de errar.
+- `whatsapp_query_transactions` casa categoria e termo por `like '%…%'`, então "uber" também pegaria
+  "uberaba" numa descrição. Mesmo compromisso já aceito nas regras de categoria aprendida.
