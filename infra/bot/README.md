@@ -83,9 +83,42 @@ docker compose pull evolution-api && docker compose up -d evolution-api   # mens
 Depois de uma queda de energia, confira se o notebook religou sozinho. Isso depende da opção "AC Recovery"
 da BIOS, que ainda precisa ser ligada.
 
-**Backup:** hoje os workflows, as credenciais do n8n, o banco da Evolution e a sessão do WhatsApp moram só no
-volume do notebook. Guarde a `N8N_ENCRYPTION_KEY` do servidor separadamente: sem ela, as credenciais salvas
-no n8n viram lixo ilegível.
+## Backup (configurado em 20/09/2026)
+
+**Como funciona:** o servidor gera um backup toda madrugada (cron às 03:30) e o **Mac busca uma cópia todo dia às 20h**
+(launchd), pedindo antes um backup novo, para a cópia das 20h ser do próprio dia. Cada backup é um arquivo de ~2 MB
+com o banco da Evolution (inclui a sessão do WhatsApp), o n8n (workflows, credenciais e o SQLite) e o `.env` com a
+`N8N_ENCRYPTION_KEY`. O servidor guarda os últimos 7; o Mac guarda os últimos 14 em `~/Backups/moedin-homelab`.
+
+**Criptografia com chave pública.** O servidor só tem a chave pública, então consegue **criar** backups mas nunca
+**abri-los** (conferido: zero chaves secretas lá). Se o servidor for invadido, os backups antigos continuam fechados.
+A chave privada `moedin-backup` fica só no Mac.
+
+**Instalar (uma vez, no Mac):** `bash infra/bot/backup/instalar-backup.sh`. É idempotente.
+
+**Testar que o backup serve (o passo que importa):** `bash ~/.moedin-backup/restaurar-teste.sh`. Descriptografa o
+mais novo, restaura o banco da Evolution num Postgres descartável, roda o `integrity_check` do SQLite do n8n e confere
+workflows, credenciais e os nomes das variáveis do `.env`. Não toca no servidor nem no bot. Rode de vez em quando:
+backup que nunca foi restaurado é uma aposta.
+
+**O que precisa de você:**
+1. **Guardar uma cópia da chave privada FORA deste Mac** (gerenciador de senhas ou pendrive). Sem ela, se o Mac morrer
+   junto com o notebook, os backups não abrem:
+   `gpg --export-secret-keys --armor moedin-backup > moedin-backup-CHAVE-PRIVADA.asc`
+2. Guardar também uma cópia da `N8N_ENCRYPTION_KEY` do servidor. Ela já vai dentro do backup, mas se o backup não
+   abrir, ela é a única coisa que salva as credenciais.
+
+**Limites honestos**
+- O job das 20h só roda com o Mac **ligado ou dormindo**. Desligado, ele não roda; é por isso que o servidor também faz
+  o seu backup às 03:30 (mas essa cópia só chega ao Mac na próxima vez que ele puxar).
+- A chave privada não tem senha, para o restore de teste rodar sozinho. Quem depende de proteção é o disco do Mac
+  (FileVault).
+- Não é cópia em outro lugar da casa: Mac e notebook do home lab podem ter o mesmo problema (incêndio, roubo). Uma
+  terceira cópia (pendrive ou nuvem, já criptografada) cobre isso.
+- O n8n é pausado por ~2 s durante o backup para o SQLite ficar consistente. Mensagem que chegar nesse instante só
+  demora um pouco mais.
+- **Restaurar de verdade** num servidor novo: descriptografe com `gpg -d`, suba o `.env` e o compose de `stack/`, restaure
+  o `evolution.sql.gz` no Postgres e o `n8n/database.sqlite` (+ `-wal`/`-shm`/`config`) no volume do n8n com ele parado.
 
 ## Plano B: servidor novo do zero
 
