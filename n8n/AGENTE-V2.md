@@ -4,8 +4,8 @@ Workflow: `n8n/workflow/moedin-agente-v2.json` · id no n8n local: `MoedinAgente
 (http://localhost:5678/workflow/MoedinAgenteV2aa) · path do webhook: `POST /webhook/moedin-agente`.
 System prompt: `n8n/SYSTEM-PROMPT-AGENTE-V2.md` · Migrations: `022` a `030` em `supabase/migrations/`.
 
-**Versão atual: v2.8** (20/09/2026) — 99 nós, 25 ferramentas. O que mudou depois da v2 original
-está nas seções 10 a 15, em ordem cronológica; o começo deste documento descreve o desenho que
+**Versão atual: v2.9** (20/09/2026) — 101 nós, 25 ferramentas. O que mudou depois da v2 original
+está nas seções 10 a 16, em ordem cronológica; o começo deste documento descreve o desenho que
 continua valendo.
 
 Escrito do zero em 08/09/2026, em torno do nó **AI Agent** (a v1, `moedin-whatsapp-ia.json`,
@@ -513,4 +513,38 @@ lançamentos de teste foram apagados no fim.
 
 **Limitação honesta:** a edição não recalcula alertas de limite. Se editar um gasto para um valor que
 cruza 80% ou 100% de um limite, o aviso só chega no próximo alerta diário.
+
+## 16. v2.9 — tick azul e "digitando" (20/09/2026)
+
+Dois nós novos, encaixados logo depois de **"Excedeu o limite?"** (saída "não excedeu"), antes do switch de tipo:
+`Marcar como lida (Evolution)` → `Digitando (Evolution)`.
+
+| Nó | Chamada | Detalhe |
+|---|---|---|
+| Marcar como lida | `POST /chat/markMessageAsRead/{instância}` | Um `readMessages` com `remoteJid`, `fromMe: false` e o `msg_id`. Volta em ~0,2 s. |
+| Digitando | `POST /chat/sendPresence/{instância}` | `presence: composing`, `delay: 25000`. **A Evolution segura a resposta durante todo o `delay`** (testado: 6000 ms voltaram em 6,0 s), então o nó usa `timeout: 400`: a requisição sai, o efeito continua no servidor por 25 s e o n8n segue em frente. **O erro de timeout desse nó é esperado.** |
+
+Os dois têm `onError: continueRegularOutput`: nunca derrubam nem travam a conversa, e o vínculo com o workflow de
+erros não dispara por causa deles.
+
+**Por que ali e não antes.** O ponto vem depois da identificação: só usuário vinculado recebe tick e "digitando". O
+número do bot também é o WhatsApp de uso do João, e marcar tudo como lido (a opção `readMessages` da instância faria
+isso) apagaria as notificações das conversas de verdade. Vem antes da leitura de mídia, então o "digitando" já aparece
+enquanto a IA lê um PDF ou foto. Mensagem barrada pelo limite não ganha tick.
+
+**Custo de tempo medido no servidor:** cerca de +0,5 s por mensagem (ajuda 5,8 → 6,4 s; relatório 11,7 → 12,1 s).
+
+**Limitações honestas**
+- O tick azul só aparece para quem deixa a "confirmação de leitura" ligada no WhatsApp.
+- Em áudio, o WhatsApp marca como lido mas o microfone só fica azul quando a pessoa ouve, que é regra do próprio app.
+- O "digitando" dura no máximo 25 s. Se o bot demorar mais que isso (PDF grande), o efeito some antes da resposta.
+- Se a resposta sair em 6 s, o WhatsApp apaga o "digitando" ao receber a mensagem; a Evolution manda o "paused" depois, sem efeito.
+- A execução mostra o nó "Digitando" em vermelho (timeout). É o comportamento desenhado, não um defeito.
+
+## 17. Publicar mudanças no home lab (script)
+
+`bash infra/bot/publicar-workflow.sh n8n/workflow/moedin-agente-v2.json` copia o JSON por SSH, **para o n8n (~20 s
+fora do ar)**, importa, publica e liga de novo, e só termina bem se achar a linha de ativação no log. Não passa por
+login. Faça fora do horário de uso. O repositório é a fonte: se alguém editar direto na tela do servidor, exporte de
+volta antes de publicar por aqui, senão a próxima publicação sobrescreve a alteração.
 
