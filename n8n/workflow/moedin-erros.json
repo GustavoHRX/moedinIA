@@ -1,5 +1,5 @@
 {
-  "id": "MoedinErrosWfaaa",
+  "id": "VvStsIFCMWpV7YUu",
   "name": "Moedin.IA — Erros (Error Trigger)",
   "nodes": [
     {
@@ -32,7 +32,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ number: $env.N8N_ALERT_WA_ID, text: '🚨 *n8n: falha em \"' + ($json.workflow?.name || '?') + '\"*\\nNó: ' + ($json.execution?.lastNodeExecuted || '?') + '\\nErro: ' + String($json.execution?.error?.message || $json.trigger?.error?.message || 'sem detalhe').slice(0, 300) + '\\nExecução: ' + ($json.execution?.url || '-') }) }}",
+        "jsonBody": "={{ JSON.stringify({ linkPreview: false, number: $env.N8N_ALERT_WA_ID, text: '🚨 *n8n: falha em \"' + ($json.workflow?.name || '?') + '\"*\\nNó: ' + ($json.execution?.lastNodeExecuted || '?') + '\\nErro: ' + String($json.execution?.error?.message || $json.trigger?.error?.message || 'sem detalhe').slice(0, 300) + '\\nExecução: ' + ($json.execution?.url || '-') }) }}",
         "options": {}
       },
       "id": "9984dcfe-c641-45ba-9635-3d07dd1d8a4c",

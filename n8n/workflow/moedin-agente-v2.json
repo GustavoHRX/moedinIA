@@ -339,7 +339,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ number: $('Normalizar payload').first().json.wa_id, text: '✅ *Número ativado com sucesso!* 🎉\\n\\nO seu WhatsApp agora está vinculado à sua conta do Moedin.IA, ' + ($json.full_name || 'tudo certo') + '.\\n\\nPra começar, é só me mandar mensagem como você fala no dia a dia:\\n\\n1️⃣ *Registrar um gasto* — \"gastei 35,90 no mercado\"\\n\\n2️⃣ *Ver o relatório* — \"quanto gastei esse mês?\"\\n\\n3️⃣ *Ver o limite* — \"qual meu limite?\"\\n\\nTambém entendo áudio, foto de comprovante e PDF de fatura.\\n\\nPode voltar ao painel: ' + ($env.MOEDIN_APP_URL || 'https://moedin-ia.vercel.app') + '/dashboard — a ativação já apareceu por lá. Bora organizar? 💰' }) }}",
+        "jsonBody": "={{ JSON.stringify({ linkPreview: false, number: $('Normalizar payload').first().json.wa_id, text: '✅ *Número ativado com sucesso!* 🎉\\n\\nO seu WhatsApp agora está vinculado à sua conta do Moedin.IA, ' + ($json.full_name || 'tudo certo') + '.\\n\\nPra começar, é só me mandar mensagem como você fala no dia a dia:\\n\\n1️⃣ *Registrar um gasto* — \"gastei 35,90 no mercado\"\\n\\n2️⃣ *Ver o relatório* — \"quanto gastei esse mês?\"\\n\\n3️⃣ *Ver o limite* — \"qual meu limite?\"\\n\\nTambém entendo áudio, foto de comprovante e PDF de fatura.\\n\\nPode voltar ao painel: ' + ($env.MOEDIN_APP_URL || 'https://moedin-ia.vercel.app') + '/dashboard — a ativação já apareceu por lá. Bora organizar? 💰' }) }}",
         "options": {}
       },
       "id": "1a9e530b-d6c6-4b7b-b578-152bf3e2ef3a",
@@ -389,7 +389,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ number: $('Normalizar payload').first().json.wa_id, text: '👋 *Bem-vindo ao Moedin.IA!* 💰\\n\\nEsse WhatsApp ainda não está vinculado a uma conta. Pra ativar leva dois minutos:\\n\\n1️⃣ Entre (ou crie sua conta) em ' + ($env.MOEDIN_APP_URL || 'https://moedin-ia.vercel.app') + '/onboarding\\n\\n2️⃣ Toque em *Abrir conversa no WhatsApp* — a mensagem já vai escrita\\n\\n3️⃣ É só enviar. A própria tela confirma a ativação sozinha ✅\\n\\nPrefere digitar? Copie o *código de ativação* que aparece lá e me mande aqui. ✨' }) }}",
+        "jsonBody": "={{ JSON.stringify({ linkPreview: false, number: $('Normalizar payload').first().json.wa_id, text: '👋 *Bem-vindo ao Moedin.IA!* 💰\\n\\nEsse WhatsApp ainda não está vinculado a uma conta. Pra ativar leva dois minutos:\\n\\n1️⃣ Entre (ou crie sua conta) em ' + ($env.MOEDIN_APP_URL || 'https://moedin-ia.vercel.app') + '/onboarding\\n\\n2️⃣ Toque em *Abrir conversa no WhatsApp* — a mensagem já vai escrita\\n\\n3️⃣ É só enviar. A própria tela confirma a ativação sozinha ✅\\n\\nPrefere digitar? Copie o *código de ativação* que aparece lá e me mande aqui. ✨' }) }}",
         "options": {}
       },
       "id": "2d25eb74-1ae0-4d97-a1e4-c413fd108cab",
@@ -973,7 +973,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ number: $('Normalizar payload').first().json.wa_id, text: ($('Normalizar payload').first().json.motivo === 'grande' ? 'Esse arquivo é grande demais (máximo 15 MB). Me manda uma foto ou um PDF menor que eu leio. 🙂' : 'Por enquanto eu entendo *texto*, *áudio*, *foto* (comprovante ou fatura) e *PDF*. Me manda de um desses jeitos que eu registro. 🙂') }) }}",
+        "jsonBody": "={{ JSON.stringify({ linkPreview: false, number: $('Normalizar payload').first().json.wa_id, text: ($('Normalizar payload').first().json.motivo === 'grande' ? 'Esse arquivo é grande demais (máximo 15 MB). Me manda uma foto ou um PDF menor que eu leio. 🙂' : 'Por enquanto eu entendo *texto*, *áudio*, *foto* (comprovante ou fatura) e *PDF*. Me manda de um desses jeitos que eu registro. 🙂') }) }}",
         "options": {}
       },
       "id": "9771e3c5-a11e-4e42-81c2-b867c059e0a6",
@@ -1146,7 +1146,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ number: $('Normalizar payload').first().json.wa_id, text: (Number(Object.values($('Contar mensagens do dia (Redis)').first().json)[0] || 0) > 150 ? '⏸️ Você chegou ao limite de mensagens de hoje. Amanhã a gente continua! 🙂' : '⏸️ Muitas mensagens em pouco tempo. Espera uns minutinhos e manda de novo, por favor. 🙂') }) }}",
+        "jsonBody": "={{ JSON.stringify({ linkPreview: false, number: $('Normalizar payload').first().json.wa_id, text: (Number(Object.values($('Contar mensagens do dia (Redis)').first().json)[0] || 0) > 150 ? '⏸️ Você chegou ao limite de mensagens de hoje. Amanhã a gente continua! 🙂' : '⏸️ Muitas mensagens em pouco tempo. Espera uns minutinhos e manda de novo, por favor. 🙂') }) }}",
         "options": {}
       },
       "id": "b85422d2-d858-4144-b607-0a02c4e7a2f2",
@@ -2342,7 +2342,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ number: $('Entrada do agente').first().json.wa_id, text: (((s) => String(s || '').replace(/[ \\t]+\\n/g, '\\n').replace(/\\*\\*(.+?)\\*\\*/g, '*$1*').replace(/\\n{3,}/g, '\\n\\n').trim())($json.output) || 'Não consegui montar uma resposta agora. Pode repetir? 🙏') }) }}",
+        "jsonBody": "={{ JSON.stringify({ linkPreview: false, number: $('Entrada do agente').first().json.wa_id, text: (((s) => String(s || '').replace(/[ \\t]+\\n/g, '\\n').replace(/\\*\\*(.+?)\\*\\*/g, '*$1*').replace(/\\n{3,}/g, '\\n\\n').trim())($json.output) || 'Não consegui montar uma resposta agora. Pode repetir? 🙏') }) }}",
         "options": {}
       },
       "id": "dc931df6-de78-4f6d-bb8a-aa426925ab8e",
@@ -2432,7 +2432,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ number: $('Normalizar payload').first().json.wa_id, text: '😕 Tive um problema aqui do meu lado e não consegui processar sua mensagem agora. Tenta de novo em um minutinho, por favor.' }) }}",
+        "jsonBody": "={{ JSON.stringify({ linkPreview: false, number: $('Normalizar payload').first().json.wa_id, text: '😕 Tive um problema aqui do meu lado e não consegui processar sua mensagem agora. Tenta de novo em um minutinho, por favor.' }) }}",
         "options": {}
       },
       "id": "dd4395a2-185e-4d13-a726-98db05ab1819",
