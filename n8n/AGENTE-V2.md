@@ -2,10 +2,10 @@
 
 Workflow: `n8n/workflow/moedin-agente-v2.json` · id no n8n local: `MoedinAgenteV2aa`
 (http://localhost:5678/workflow/MoedinAgenteV2aa) · path do webhook: `POST /webhook/moedin-agente`.
-System prompt: `n8n/SYSTEM-PROMPT-AGENTE-V2.md` · Migrations: `022` a `030` em `supabase/migrations/`.
+System prompt: `n8n/SYSTEM-PROMPT-AGENTE-V2.md` · Migrations: `022` a `031` em `supabase/migrations/`.
 
-**Versão atual: v2.9** (20/09/2026) — 101 nós, 25 ferramentas. O que mudou depois da v2 original
-está nas seções 10 a 16, em ordem cronológica; o começo deste documento descreve o desenho que
+**Versão atual: v2.10** (20/09/2026) — 102 nós, 27 ferramentas. O que mudou depois da v2 original
+está nas seções 10 a 16 e 18, em ordem cronológica; o começo deste documento descreve o desenho que
 continua valendo.
 
 Escrito do zero em 08/09/2026, em torno do nó **AI Agent** (a v1, `moedin-whatsapp-ia.json`,
@@ -516,6 +516,9 @@ cruza 80% ou 100% de um limite, o aviso só chega no próximo alerta diário.
 
 ## 16. v2.9 — tick azul e "digitando" (20/09/2026)
 
+> **Atualização (v2.10):** o nó "Digitando" foi **removido** (§18). Ficou só o tick azul. O resto desta seção descreve
+> como o "digitando" funcionava e o motivo de ele ter saído.
+
 Dois nós novos, encaixados logo depois de **"Excedeu o limite?"** (saída "não excedeu"), antes do switch de tipo:
 `Marcar como lida (Evolution)` → `Digitando (Evolution)`.
 
@@ -555,4 +558,37 @@ como `conversation` em ambos, antes de o WhatsApp montar o cartão), então a ú
 fora do ar)**, importa, publica e liga de novo, e só termina bem se achar a linha de ativação no log. Não passa por
 login. Faça fora do horário de uso. O repositório é a fonte: se alguém editar direto na tela do servidor, exporte de
 volta antes de publicar por aqui, senão a próxima publicação sobrescreve a alteração.
+
+## 18. v2.10 — categorias pelo WhatsApp (20/09/2026)
+
+**Mudanças:** o nó `Digitando (Evolution)` saiu (o `Marcar como lida` agora liga direto em `Tipo da mensagem`) e o bot
+passou a **consultar, criar e reaproveitar categorias**. Antes a lista era fechada em 14 nomes; qualquer coisa fora
+dela caía em "Outras despesas".
+
+**Ferramentas novas (27 no total):** `consultar_categorias` (lista tudo, ou confere se existe uma; ✨ marca as criadas
+pelo usuário) e `criar_categoria` (nome, tipo, `forcar`).
+
+**Regra única, no banco (migration `031`):** todas as operações que recebem um nome de categoria passam por
+`whatsapp_resolve_category`, na ordem:
+1. Nome em branco, `null` ou "sem categoria" → "Outras despesas" / "Outras receitas".
+2. **Acha a existente**, do mesmo tipo (despesa/receita), ignorando acento, maiúscula, espaço duplo e plural
+   ("pet" = "Pets"). Categoria de despesa nunca é reaproveitada para receita.
+3. **Trava de erro de digitação:** nome com 4+ letras a 1 letra de distância de uma existente (2 se tiver 8+) não é criado.
+   Devolve "Não achei *Lazr*, mas você tem *Lazer*. Foi essa?". Se for nova mesmo, a mesma chamada é repetida com `forcar=true`.
+4. **Cria** se não existir: 60 categorias próprias no máximo, cor da paleta do site (a primeira ainda não usada) e ícone
+   Lucide escolhido pelo nome (pet → `PawPrint`, viagem → `Plane`; sem palavra conhecida, `Tag`). Aparece no painel na hora.
+   Lock advisory por usuário evita duplicata com duas mensagens simultâneas.
+
+**Onde vale:** `corrigir_categoria` e `editar_lancamento` (têm o parâmetro `forcar`; mudar de categoria agora cria a nova
+e avisa "🆕 Criei a categoria X (não existia)"), e, sem a trava de digitação, `criar_lancamento`, gasto fixo, parcelamento,
+importação de extrato e limite por categoria, quando o nome vem de uma dessas ferramentas. O prompt manda o modelo usar as
+categorias padrão pelo guia de encaixe e só passar outro nome quando **o usuário** o disser, para não virar uma categoria por
+descrição.
+
+**Testado em 20/09/2026** no banco (bloco desfeito com rollback) e ponta a ponta pelo webhook do servidor: criar "Pets" e
+repetir (reaproveita), "Pet" → "Pets", "Lazr" → pergunta, "Petz" + "é nova mesmo" → cria, receita "Vendas", lista, busca,
+isolamento entre usuários, limite de 60. Os dados de teste foram apagados.
+
+**Limites conhecidos:** o modelo não vê as categorias próprias do usuário no contexto (para não gastar token a cada mensagem);
+ele só as usa quando o usuário cita o nome. Renomear ou apagar categoria continua sendo só pelo painel.
 
