@@ -541,9 +541,17 @@ enquanto a IA lê um PDF ou foto. Mensagem barrada pelo limite não ganha tick.
 - Se a resposta sair em 6 s, o WhatsApp apaga o "digitando" ao receber a mensagem; a Evolution manda o "paused" depois, sem efeito.
 - A execução mostra o nó "Digitando" em vermelho (timeout). É o comportamento desenhado, não um defeito.
 
+### Sem prévia de link (20/09/2026)
+
+Toda mensagem de texto do bot vai com `linkPreview: false`: sem o cartão que o WhatsApp monta abaixo do link
+(título, descrição e endereço do site). São 8 pontos de envio nos 3 workflows (resposta principal, boas-vindas,
+ativação, tipo não suportado, limite de mensagens, erro, alerta diário/semanal e aviso ao admin). A legenda do PDF
+não muda: legenda de arquivo não gera prévia. **A resposta da API não distingue os dois casos** (devolve o texto
+como `conversation` em ambos, antes de o WhatsApp montar o cartão), então a única prova é olhar o celular.
+
 ## 17. Publicar mudanças no home lab (script)
 
-`bash infra/bot/publicar-workflow.sh n8n/workflow/moedin-agente-v2.json` copia o JSON por SSH, **para o n8n (~20 s
+`bash infra/bot/publicar-workflow.sh n8n/workflow/*.json` (um ou vários arquivos, uma só parada do n8n) copia o JSON por SSH, **para o n8n (~20 s
 fora do ar)**, importa, publica e liga de novo, e só termina bem se achar a linha de ativação no log. Não passa por
 login. Faça fora do horário de uso. O repositório é a fonte: se alguém editar direto na tela do servidor, exporte de
 volta antes de publicar por aqui, senão a próxima publicação sobrescreve a alteração.

@@ -1,5 +1,5 @@
 {
-  "id": "MoedinAlertasDia1",
+  "id": "Kb4P8EblM3RYHOdx",
   "name": "Moedin.IA — Alertas diários (WhatsApp)",
   "nodes": [
     {
@@ -150,7 +150,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ number: $json.wa_id, text: $json.mensagem }) }}",
+        "jsonBody": "={{ JSON.stringify({ linkPreview: false, number: $json.wa_id, text: $json.mensagem }) }}",
         "options": {}
       },
       "id": "e2165027-c6a9-4b4d-af26-e33b83b3fb56",
@@ -393,7 +393,8 @@
   "settings": {
     "executionOrder": "v1",
     "timezone": "America/Sao_Paulo",
-    "executionTimeout": 300
+    "executionTimeout": 300,
+    "errorWorkflow": "VvStsIFCMWpV7YUu"
   },
   "meta": {},
   "tags": []
