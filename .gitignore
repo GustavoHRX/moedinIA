@@ -45,3 +45,7 @@ n8n/qrcode*.png
 
 # Link local do projeto na Vercel (vercel link)
 .vercel
+
+# Chaves privadas exportadas (backup do home lab): NUNCA versionar
+*.asc
+*CHAVE-PRIVADA*
