@@ -2,10 +2,10 @@
 
 Workflow: `n8n/workflow/moedin-agente-v2.json` · id no n8n local: `MoedinAgenteV2aa`
 (http://localhost:5678/workflow/MoedinAgenteV2aa) · path do webhook: `POST /webhook/moedin-agente`.
-System prompt: `n8n/SYSTEM-PROMPT-AGENTE-V2.md` · Migrations: `022` a `029` em `supabase/migrations/`.
+System prompt: `n8n/SYSTEM-PROMPT-AGENTE-V2.md` · Migrations: `022` a `030` em `supabase/migrations/`.
 
-**Versão atual: v2.7** (20/09/2026) — 98 nós, 24 ferramentas. O que mudou depois da v2 original
-está nas seções 10 a 14, em ordem cronológica; o começo deste documento descreve o desenho que
+**Versão atual: v2.8** (20/09/2026) — 99 nós, 25 ferramentas. O que mudou depois da v2 original
+está nas seções 10 a 15, em ordem cronológica; o começo deste documento descreve o desenho que
 continua valendo.
 
 Escrito do zero em 08/09/2026, em torno do nó **AI Agent** (a v1, `moedin-whatsapp-ia.json`,
@@ -33,7 +33,7 @@ o `ai-service` não é usado.
                   fallback       → AI Agent 3.1
                   + OpenAI Chat Model 1.3 ($env.OPENAI_MODEL, Responses API ON, reasoning low)
                   + Redis Chat Memory 1.6 (moedin:mem:{user_id}, 6 mensagens, TTL 24h)
-                  + 24 HTTP Request Tools → RPCs do Supabase (service_role)
+                  + 25 HTTP Request Tools → RPCs do Supabase (service_role)
                   (log de entrada em message_logs em paralelo)
 5b PDF            whatsapp_report_pdf_data (RPC) → Montar PDF (Code, sem biblioteca)
                   → Evolution sendMedia (document) → message_logs (out) → Respond 200
@@ -483,4 +483,34 @@ site", "paguei o site", "limite do painel").
 **Limitação honesta:** a detecção do relatório é pelo emoji da primeira linha. Se um dia uma
 ferramenta nova devolver relatório começando com outro emoji, ele não ganha o link até entrar na
 expressão do nó *Resposta final*.
+
+## 15. v2.8 — editar lançamento (20/09/2026)
+
+Migration `030_whatsapp_update_transaction.sql` (aplicada via MCP) e a ferramenta `editar_lancamento`.
+Até aqui só dava para excluir e lançar de novo. Agora: "era 5 e não 50", "muda o último pra 40",
+"o mercado foi ontem", "muda a descrição pra Padaria", "isso foi receita".
+
+| Regra | Motivo |
+|---|---|
+| Só edita lançamento **avulso** (`origin_type = 'manual'`) | Ocorrência de gasto/receita fixa se altera pelo cadastro (`editar_fixo`); parcela solta não se edita. A resposta explica o caminho certo. |
+| Termo que bate em **mais de um** lançamento devolve a lista e pergunta | A exclusão atual escolhe o mais recente sem perguntar. Aqui um engano mudaria o valor errado sem ninguém notar. Quando a pessoa responde ("o 2"), a chamada seguinte usa o prefixo do id. |
+| Prefixo que parece hexadecimal mas não é id ("cafe", "bebe") cai para a busca por descrição | Sem isso, "muda o café pra 8" respondia "não encontrei". Fica anotado que `whatsapp_delete_transaction` ainda tem esse defeito. |
+| Data no futuro é recusada; mudar a data recalcula o mês de competência | Evita lançamento invisível no mês seguinte e mantém o relatório do mês certo. |
+| Mudar o tipo sem dizer a categoria manda para "Outras despesas/receitas" | A categoria antiga não existe no outro tipo. |
+| Não aprende regra de categoria | Isso continua sendo do `corrigir_categoria`. |
+| Mostra o "de → para" de cada campo | Quem errou a correção consegue desfazer editando de volta. |
+
+Cada `p_*` opcional chega como `null` quando o modelo não o preenche; data fora do formato e tipo
+diferente de `income`/`expense` também viram `null` na própria expressão do nó.
+
+**Teste no banco (transação desfeita no fim):** 14 situações — valor, descrição, data, tipo, categoria,
+ambiguidade, hexadecimal falso, data futura, valor zero, nada para mudar, sem mudança real, não achou,
+ocorrência de fixo e parcela recusadas, usuário sem acesso ao lançamento alheio.
+
+**Teste ponta a ponta pelo webhook:** criar um lançamento e editá-lo por valor, data, descrição e tipo
+com frases do dia a dia; dois lançamentos parecidos geraram a pergunta e "o 2" alterou o certo. Os
+lançamentos de teste foram apagados no fim.
+
+**Limitação honesta:** a edição não recalcula alertas de limite. Se editar um gasto para um valor que
+cruza 80% ou 100% de um limite, o aviso só chega no próximo alerta diário.
 
