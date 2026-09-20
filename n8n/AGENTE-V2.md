@@ -4,8 +4,8 @@ Workflow: `n8n/workflow/moedin-agente-v2.json` · id no n8n local: `MoedinAgente
 (http://localhost:5678/workflow/MoedinAgenteV2aa) · path do webhook: `POST /webhook/moedin-agente`.
 System prompt: `n8n/SYSTEM-PROMPT-AGENTE-V2.md` · Migrations: `022` a `029` em `supabase/migrations/`.
 
-**Versão atual: v2.6** (15/09/2026) — 98 nós, 24 ferramentas. O que mudou depois da v2 original
-está nas seções 10 a 13, em ordem cronológica; o começo deste documento descreve o desenho que
+**Versão atual: v2.7** (20/09/2026) — 98 nós, 24 ferramentas. O que mudou depois da v2 original
+está nas seções 10 a 14, em ordem cronológica; o começo deste documento descreve o desenho que
 continua valendo.
 
 Escrito do zero em 08/09/2026, em torno do nó **AI Agent** (a v1, `moedin-whatsapp-ia.json`,
@@ -456,3 +456,31 @@ não ficou nenhuma sobrecarga duplicada — o PostgREST não saberia qual chamar
   fora do comum cai no mês atual em vez de errar.
 - `whatsapp_query_transactions` casa categoria e termo por `like '%…%'`, então "uber" também pegaria
   "uberaba" numa descrição. Mesmo compromisso já aceito nas regras de categoria aprendida.
+
+## 14. v2.7 — link do painel (20/09/2026)
+
+Dois pedidos: quem pedir o painel pelo WhatsApp recebe o link, e todo relatório enviado vem com o
+link do painel no fim. Feito de forma **determinística**, sem depender de o modelo lembrar.
+
+| Caso | Como funciona |
+|---|---|
+| **Pedir o painel** ("painel", "manda o link", "cadê o site", "abre o app") | A *Rota rápida?* responde sozinha, sem IA (3 s). Só vale para pedido curto (até 8 palavras), sem número e sem verbo de lançamento ou comando (*gastei*, *paguei*, *exclui*, *limite*, *meta*, *pdf*). "gastei 30 no site" continua indo para o agente. |
+| **Relatório em texto** (relatório, comparar meses, consulta por período, resumo do mês) | O nó *Resposta final* anexa `🔗 Ver no painel: <url>` quando a resposta começa com 📊, 📋 ou 🔎. Uma vez só: se a resposta já tiver o link, não duplica. |
+| **Relatório em PDF** | O link entra na legenda do arquivo. |
+| **Resumo semanal** (domingo 20h) | O nó *Um item por alerta* do workflow de alertas acrescenta o link só nos itens `alert:week`. Vencimento, limite e fatura não ganham link. |
+
+O endereço vem de `$env.MOEDIN_APP_URL` (padrão `https://moedin-ia.vercel.app`) mais `/dashboard`,
+a mesma variável que as boas-vindas já usavam. Ao mudar de domínio, é uma variável só.
+
+O prompt do agente também recebe o endereço, no bloco final (para não quebrar o cache), com a regra
+de responder com o link se um pedido de painel chegar até ele. Nos relatórios ele é instruído a
+**não** escrever o link, porque o nó já anexa.
+
+**Teste:** 7 mensagens reais pelo webhook (2 pedidos de painel, 4 relatórios em texto, 1 PDF), todas
+com o link; 27 frases no harness local, incluindo as que **não** podem virar painel ("gastei 30 no
+site", "paguei o site", "limite do painel").
+
+**Limitação honesta:** a detecção do relatório é pelo emoji da primeira linha. Se um dia uma
+ferramenta nova devolver relatório começando com outro emoji, ele não ganha o link até entrar na
+expressão do nó *Resposta final*.
+

@@ -120,7 +120,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// A RPC devolve {alertas:[{user_id, wa_id, external_id, mensagem}]} já deduplicado por message_logs.\nconst a = $input.first().json.alertas || [];\nreturn a.map(x => ({ json: x }));"
+        "jsCode": "// A RPC devolve {alertas:[{user_id, wa_id, external_id, mensagem}]} já deduplicado por message_logs.\n// O resumo semanal é um relatório: ganha o link do painel no fim.\nconst url = ($env.MOEDIN_APP_URL || 'https://moedin-ia.vercel.app') + '/dashboard';\nconst a = $input.first().json.alertas || [];\nreturn a.map(x => ({ json: (String(x.external_id || '').startsWith('alert:week') && !String(x.mensagem).includes(url))\n  ? { ...x, mensagem: String(x.mensagem) + '\\n\\n🔗 Ver no painel: ' + url } : x }));\n"
       },
       "id": "21dba681-d6fd-44b9-86f8-a97d5d81d8ed",
       "name": "Um item por alerta",
