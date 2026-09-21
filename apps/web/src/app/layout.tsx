@@ -52,11 +52,7 @@ export const metadata: Metadata = {
     description: "Controle financeiro pessoal com IA e WhatsApp.",
     images: ["/moedinhagrande.png"],
   },
-  icons: {
-    icon: "/moedinhagrande.png",
-    shortcut: "/moedinhagrande.png",
-    apple: "/moedinhagrande.png",
-  },
+  // Ícones vêm dos arquivos em src/app (favicon.ico, icon.png, apple-icon.png).
 };
 
 export default function RootLayout({
