@@ -15,6 +15,8 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 const AI_SERVICE_URL =
   process.env.AI_SERVICE_URL || process.env.NEXT_PUBLIC_AI_URL || "http://localhost:8000";
 
+const AI_SERVICE_TOKEN = process.env.AI_SERVICE_TOKEN;
+
 type InsightPayload = {
   month_label?: unknown;
   income_total?: unknown;
@@ -70,7 +72,13 @@ export async function POST(request: Request) {
 
     const upstream = await fetch(`${AI_SERVICE_URL}/insight`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        // Token compartilhado com o ai-service (AI_SERVICE_TOKEN, sem NEXT_PUBLIC).
+        // Sem ele definido o header some e o serviço, se também estiver sem token,
+        // segue aberto como antes.
+        ...(AI_SERVICE_TOKEN ? { "X-Service-Token": AI_SERVICE_TOKEN } : {}),
+      },
       body: JSON.stringify(payload),
       signal: controller.signal,
       cache: "no-store",
