@@ -747,7 +747,7 @@ export default function DashboardPage() {
               <SectionHeader
                 title="Orçamento do mês"
                 eyebrow="Limite de gastos"
-                action={<button onClick={() => router.push("/perfil")} className="text-sm font-medium text-primary-strong">Ajustar</button>}
+                action={<button onClick={() => router.push("/limite")} className="text-sm font-medium text-primary-strong">Ajustar</button>}
               />
               {generalBudget ? (
                 <div className="space-y-3">
