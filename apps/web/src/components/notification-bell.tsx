@@ -209,7 +209,7 @@ export default function NotificationBell({
           pct >= 100
             ? `Estourou o limite: ${formatCurrency(spent)} de ${formatCurrency(amount)}`
             : `Perto do limite: ${formatCurrency(spent)} de ${formatCurrency(amount)} (${pct.toFixed(0)}%)`,
-        href: "/perfil",
+        href: "/limite",
       });
     }
 
@@ -279,7 +279,7 @@ export default function NotificationBell({
             ) : (
               <div className="max-h-[360px] space-y-2 overflow-y-auto">
                 {alerts.map((alert) => {
-                  const Icon = alert.title.includes("Orçamento") || alert.href === "/perfil" ? TriangleAlert : CalendarClock;
+                  const Icon = alert.title.includes("Orçamento") || alert.href === "/limite" ? TriangleAlert : CalendarClock;
                   return (
                     <div key={alert.id} className="relative">
                       <Link
