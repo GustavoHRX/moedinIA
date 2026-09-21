@@ -1,33 +1,40 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import type { User } from "@supabase/supabase-js";
+import { getSupabaseKey } from "@/lib/supabase/env";
+
+// Rotas que exigem sessão. Ao acrescentar uma aqui, acrescente o mesmo caminho
+// (`/rota/:path*`) no `config.matcher` de `src/proxy.ts` — o Next só lê o matcher
+// de lá e ele precisa ser literal. O teste `proxy-routes.test.ts` falha se as
+// duas listas divergirem (foi exatamente essa divergência que deixou
+// /onboarding, /limite e /whatsapp sem proteção no servidor).
+export const PROTECTED_ROUTES = [
+  "/dashboard",
+  "/perfil",
+  "/historico",
+  "/metas",
+  "/fixos",
+  "/categorias",
+  "/gastos-fixos",
+  "/parcelamentos",
+  "/planejamento-mensal",
+  "/limite",
+  "/whatsapp",
+  "/onboarding",
+];
+export const AUTH_ROUTES = ["/login", "/cadastro", "/recuperar-senha"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request,
   });
   const pathname = request.nextUrl.pathname;
-  const authRoutes = ["/login", "/cadastro", "/recuperar-senha"];
-  const protectedRoutes = [
-    "/dashboard",
-    "/perfil",
-    "/historico",
-    "/metas",
-    "/fixos",
-    "/categorias",
-    "/gastos-fixos",
-    "/parcelamentos",
-    "/planejamento-mensal",
-  ];
-  const isAuthRoute = authRoutes.some((route) => pathname === route);
-  const isProtectedRoute = protectedRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+  const isAuthRoute = AUTH_ROUTES.some((route) => pathname === route);
+  const isProtectedRoute = PROTECTED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
   const hasSupabaseSessionCookie = request.cookies
     .getAll()
     .some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"));
-  const hasSupabaseSessionHeader = request.headers
-    .get("cookie")
-    ?.includes("auth-token");
-  const hasSessionCookie = Boolean(hasSupabaseSessionCookie || hasSupabaseSessionHeader);
+  const hasSessionCookie = hasSupabaseSessionCookie;
 
   function redirect(path: string) {
     const url = request.nextUrl.clone();
@@ -53,13 +60,20 @@ export async function middleware(request: NextRequest) {
   // bloco catch abaixo ainda dá um fallback tolerante em dev quando o Supabase
   // fica inacessível (rede offline), sem nunca liberar rota privada sem sessão.
 
-  const key =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = getSupabaseKey();
+
+  // Variáveis do Supabase ausentes: não dá para validar a sessão. Antes o `!`
+  // deixava isso estourar como 500 em toda rota protegida; agora rota protegida
+  // vai para o login (nunca é liberada sem sessão) e o resto segue normal.
+  if (!supabaseUrl || !key) {
+    console.error("[proxy] NEXT_PUBLIC_SUPABASE_URL / chave pública do Supabase não configuradas.");
+    return isProtectedRoute ? redirect("/login") : response;
+  }
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    key!,
+    supabaseUrl,
+    key,
     {
       cookies: {
         getAll() {
@@ -145,20 +159,3 @@ export async function middleware(request: NextRequest) {
 
   return response;
 }
-
-export const config = {
-  matcher: [
-    "/login",
-    "/cadastro",
-    "/recuperar-senha",
-    "/dashboard/:path*",
-    "/perfil/:path*",
-    "/historico/:path*",
-    "/metas/:path*",
-    "/fixos/:path*",
-    "/categorias/:path*",
-    "/gastos-fixos/:path*",
-    "/parcelamentos/:path*",
-    "/planejamento-mensal/:path*",
-  ],
-};
