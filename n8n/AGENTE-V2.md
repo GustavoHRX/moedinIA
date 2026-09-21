@@ -592,3 +592,12 @@ isolamento entre usuários, limite de 60. Os dados de teste foram apagados.
 **Limites conhecidos:** o modelo não vê as categorias próprias do usuário no contexto (para não gastar token a cada mensagem);
 ele só as usa quando o usuário cita o nome. Renomear ou apagar categoria continua sendo só pelo painel.
 
+
+## 19. Alerta diário das 9h desligado (20/09/2026)
+
+Por decisão do João, o gatilho **"Todo dia às 9h"** do workflow de alertas (`moedin-alertas-diarios.json`) está com
+`disabled: true`: não chegam mais os avisos de gasto fixo vencendo, limite a 80%/estourado e fatura perto do vencimento.
+Continuam ligados o **resumo semanal (domingo 20h)** e a **busca de cotações (todos os dias 7h10)**, esta última necessária
+para o câmbio. O workflow de alertas **não usa modelo de IA**: só Supabase, Evolution e uma API pública de câmbio, então
+desligar o aviso diário não reduz o gasto com OpenAI. Para religar: tirar o `disabled` do nó e publicar com
+`infra/bot/publicar-workflow.sh`. O usuário também pode pausar os próprios alertas pelo bot ("para de me mandar alertas").
