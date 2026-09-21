@@ -59,6 +59,12 @@ export async function POST(request: Request) {
   // deixaria para trás as mensagens de WhatsApp do usuário — com o texto bruto
   // do que ele escreveu — órfãs no banco, contradizendo a promessa de "apagar
   // tudo". Apagamos explicitamente ANTES de remover o usuário do Auth.
+  //
+  // A ORDEM É DELIBERADA e não deve ser invertida: como a FK é SET NULL, apagar o
+  // usuário primeiro zeraria `user_id` dos logs e não haveria mais como achá-los
+  // para apagar. O pior caso da ordem atual (logs apagados e `deleteUser`
+  // falhando) é benigno: quem pediu para apagar tudo perde só os logs e pode
+  // repetir o pedido.
   const { error: logsError } = await admin
     .from("message_logs")
     .delete()

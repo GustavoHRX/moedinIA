@@ -43,7 +43,7 @@ export default function AuthShell({
           </div>
 
           <div className="relative max-w-2xl py-12">
-            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[var(--brand-glow)] blur-3xl" />
+            <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[var(--brand-glow)] blur-3xl" />
             <ThemedLogo
               variant="symbol"
               className="relative mb-6 h-16 w-16 rounded-lg bg-primary-soft p-2 ring-1 ring-line"

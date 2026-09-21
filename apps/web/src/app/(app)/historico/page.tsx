@@ -9,6 +9,7 @@ import { SkeletonList } from "@/components/skeleton";
 import { todayDateInput, toCompetenceMonth } from "@/lib/dates";
 import { formatCurrency, formatDate, formatMoneyInputValue, parseMoneyInput } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/paginate";
 import NewEntryButton from "@/components/new-entry-button";
 import { ActionButton, Alert, Badge, EmptyState, PageFrame, PageHeader, SectionHeader, Surface } from "@/components/ui-kit";
 
@@ -123,31 +124,45 @@ export default function HistoricoPage() {
         ? Promise.resolve(cachedCategories)
         : refreshCategories();
 
-    const [transactionsRes, categoriesResult] = await Promise.all([
-      supabase
-        .from("transactions")
-        .select(
-          "id, type, amount, description, transaction_date, status, category_id, origin_type, installment_number, installment_total, categories(name)"
-        )
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .lte("transaction_date", today)
-        .order("transaction_date", { ascending: false })
-        .order("created_at", { ascending: false }),
-      categoriesPromise,
-    ]);
-
-    setLoading(false);
-
-    if (transactionsRes.error) {
+    // Paginado: o PostgREST corta a resposta em 1000 linhas, e o histórico é o
+    // livro-razão inteiro — sem isto o passado sumia em silêncio depois da
+    // milésima transação. `id` desempata a ordenação para a paginação não pular
+    // nem repetir linhas.
+    let loadedTransactions: TransactionItem[];
+    let categoriesResult: Awaited<typeof categoriesPromise>;
+    try {
+      [loadedTransactions, categoriesResult] = await Promise.all([
+        fetchAllRows<TransactionItem>((from, to) =>
+          supabase
+            .from("transactions")
+            .select(
+              "id, type, amount, description, transaction_date, status, category_id, origin_type, installment_number, installment_total, categories(name)"
+            )
+            .eq("user_id", user.id)
+            .eq("status", "active")
+            .lte("transaction_date", today)
+            .order("transaction_date", { ascending: false })
+            .order("created_at", { ascending: false })
+            .order("id", { ascending: false })
+            .range(from, to) as unknown as PromiseLike<{
+            data: TransactionItem[] | null;
+            error: { message: string } | null;
+          }>,
+        ),
+        categoriesPromise,
+      ]);
+    } catch (error) {
+      setLoading(false);
       setMessage(
-        `Erro ao carregar histórico: ${transactionsRes.error.message}`
+        `Erro ao carregar histórico: ${error instanceof Error ? error.message : "erro desconhecido"}`
       );
       return;
     }
 
+    setLoading(false);
+
     const nextHistory: HistoryData = {
-      transactions: (transactionsRes.data ?? []) as TransactionItem[],
+      transactions: loadedTransactions,
       categories: categoriesResult as Category[],
     };
     setTransactions(nextHistory.transactions);

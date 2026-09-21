@@ -189,6 +189,13 @@ export default function FinancialEntryModal({
     setMessage("");
   }, [open]);
 
+  // Erro de validação ("Informe a descrição...") não deve ficar na tela depois
+  // que a pessoa volta a editar o campo. O erro de carga de categorias é de
+  // outra natureza (não some digitando), então esse fica.
+  useEffect(() => {
+    setMessage((current) => (current.startsWith("Informe") ? "" : current));
+  }, [title, amount, date, categoryId, installmentTotal, installmentCount, fixedDueDay, fixedMonthsAhead]);
+
   useEffect(() => {
     if (!open) return;
 

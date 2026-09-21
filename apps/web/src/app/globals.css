@@ -771,3 +771,12 @@ input[type="datetime-local"] {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* O banner de consentimento é fixo no rodapé no mobile e cobria o botão
+   principal dos formulários. Enquanto ele estiver aberto, a página ganha
+   folga no fim para dar para rolar o botão para fora de baixo dele. */
+@media (max-width: 639px) {
+  html[data-consent-banner="open"] body {
+    padding-bottom: 13rem;
+  }
+}

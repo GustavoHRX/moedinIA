@@ -59,7 +59,17 @@ export async function enforceRateLimit(
   const limiter = limiters[name];
   if (!limiter) return null; // rate limit desligado
 
-  const { success, limit, remaining, reset } = await limiter.limit(identifier);
+  let result: Awaited<ReturnType<typeof limiter.limit>>;
+  try {
+    result = await limiter.limit(identifier);
+  } catch (error) {
+    // Rate limit é rede de segurança, não porta de entrada: se o Upstash estiver
+    // fora do ar, deixa a requisição passar (mesma postura de quando as envs
+    // faltam) em vez de derrubar export, exclusão de conta, insight e categorias.
+    console.error("[rate-limit] Upstash indisponível, liberando a requisição:", error);
+    return null;
+  }
+  const { success, limit, remaining, reset } = result;
   if (success) return null;
 
   const retryAfter = Math.max(1, Math.ceil((reset - Date.now()) / 1000));

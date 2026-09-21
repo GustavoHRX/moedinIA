@@ -46,12 +46,18 @@ export async function POST() {
   }
 
   const existingCategories = existing ?? [];
-  const hasIncome = existingCategories.some((category) => category.type === "income");
-  const hasExpense = existingCategories.some((category) => category.type === "expense");
+  // Compara por (tipo, nome) e cria só o que falta. Antes bastava existir UMA
+  // categoria do tipo para nenhuma padrão dele ser criada — e o bot do WhatsApp
+  // cria categorias, então quem criasse "Pets" pelo bot ANTES da primeira visita
+  // ao site ficava só com ela, sem as 9 de despesa. Categoria padrão não pode ser
+  // apagada nem renomeada (trigger 018), então não há risco de ressuscitar algo
+  // que a pessoa removeu. A comparação ignora caixa e acentuação, para não
+  // duplicar uma categoria própria chamada "lazer" ou "Saude".
+  const norm = (value: string) =>
+    value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+  const have = new Set(existingCategories.map((category) => `${category.type}:${norm(category.name)}`));
   const missingDefaults = DEFAULT_CATEGORIES.filter(
-    (category) =>
-      (category.type === "income" && !hasIncome) ||
-      (category.type === "expense" && !hasExpense)
+    (category) => !have.has(`${category.type}:${norm(category.name)}`)
   );
 
   if (missingDefaults.length === 0) {
