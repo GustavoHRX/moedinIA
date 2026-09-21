@@ -2,7 +2,7 @@ import Link from "next/link";
 import ThemedLogo from "@/components/themed-logo";
 
 export const metadata = {
-  title: "Página não encontrada — Moedin.IA",
+  title: "Página não encontrada",
 };
 
 export default function NotFound() {

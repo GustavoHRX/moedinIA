@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -26,6 +27,10 @@ import ThemedLogo from "@/components/themed-logo";
 import LandingMotion from "@/components/landing-motion";
 import LandingSkeleton from "@/components/landing-skeleton";
 import { categoryVisual } from "@/lib/categories";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 
 // Categorias reais do sistema, cada uma com sua cor da paleta da marca.
@@ -236,10 +241,9 @@ export default function LandingPage() {
             <h1 data-hero-title className="max-w-3xl font-display text-4xl font-bold leading-[1.05] text-[var(--navy)] sm:text-5xl lg:text-6xl" style={{ textWrap: "balance" }}>
               Seu dinheiro,{" "}
               <span className="relative inline-block text-[var(--primary)]">
-                sem mistério
+                sem mistério.
                 <Sparkles className="anim-sparkle absolute -right-6 -top-3 h-5 w-5 text-[var(--mint)] motion-reduce:hidden" strokeWidth={2.4} />
               </span>
-              .
             </h1>
             <p data-hero-sub className="mt-6 max-w-xl text-base font-medium leading-8 text-[var(--muted)] sm:text-lg">
               Manda um &ldquo;gastei 30 no mercado&rdquo; no WhatsApp e pronto. O Moedin.IA organiza, bota na
