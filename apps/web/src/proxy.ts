@@ -19,5 +19,8 @@ export const config = {
     "/gastos-fixos/:path*",
     "/parcelamentos/:path*",
     "/planejamento-mensal/:path*",
+    "/limite/:path*",
+    "/whatsapp/:path*",
+    "/onboarding/:path*",
   ],
 };
