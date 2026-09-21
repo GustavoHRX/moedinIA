@@ -35,7 +35,8 @@ export const metadata: Metadata = {
   applicationName: "Moedin.IA",
   keywords: ["controle financeiro", "finanças pessoais", "gastos", "WhatsApp", "orçamento", "IA"],
   authors: [{ name: "Equipe Moedin" }],
-  alternates: { canonical: "/" },
+  // Sem `alternates.canonical` global: ele era herdado por TODA página e fazia
+  // /termos declarar a home como canônica. Cada página pública define o seu.
   openGraph: {
     type: "website",
     locale: "pt_BR",

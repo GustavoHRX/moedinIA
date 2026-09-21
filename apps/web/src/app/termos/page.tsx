@@ -3,6 +3,7 @@ import ThemedLogo from "@/components/themed-logo";
 
 export const metadata = {
   title: "Termos de Uso e Privacidade",
+  alternates: { canonical: "/termos" },
 };
 
 const TERMS_VERSION = "1.0";

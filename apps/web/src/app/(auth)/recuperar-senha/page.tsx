@@ -47,10 +47,10 @@ export default function RecuperarSenhaPage() {
     <AuthShell
       eyebrow="Recuperação segura"
       title="Volte para seu painel sem perder o ritmo."
-      description="Enviaremos um link pelo Supabase Auth para redefinir sua senha e manter sua sessão protegida."
+      description="Enviaremos um link para o seu e-mail para redefinir sua senha e manter sua conta protegida."
       features={["Link seguro por e-mail", "Sessão protegida", "Volta rápida ao painel"]}
       spotlightTitle="Conta protegida"
-      spotlightText="O fluxo de redefinição mantém sua conta do Moedin.IA conectada ao Supabase Auth."
+      spotlightText="O link expira em pouco tempo e só funciona uma vez, então ninguém além de você consegue trocar a sua senha."
     >
       <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--brand-soft)] text-[var(--brand-strong)]">
         <ShieldCheck className="h-6 w-6" />
