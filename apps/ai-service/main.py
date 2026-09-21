@@ -13,6 +13,7 @@ Estratégia:
 """
 
 import base64
+import hmac
 import io
 import json
 import os
@@ -23,8 +24,8 @@ from zoneinfo import ZoneInfo
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import Depends, FastAPI, Header, HTTPException
+from pydantic import BaseModel, Field
 
 # Carrega o .env geral do monorepo (moedinha codigo/.env) quando rodando local.
 # No Docker as variáveis vêm do docker-compose (env_file), então isto é opcional
@@ -94,6 +95,31 @@ INCOME_HINTS = [
 ]
 
 app = FastAPI(title="Moedin.IA - AI Service")
+
+# Autenticação por token compartilhado (revisão de código, set/2026).
+# CORS não protege nada aqui: é política de navegador, e `curl` ou qualquer
+# servidor ignora. Sem autenticação, uma instância exposta vira conta de OpenAI/
+# Groq aberta para o mundo (/parse-image e /parse-audio gastam crédito de verdade).
+#
+# Se AI_SERVICE_TOKEN estiver definida, todo endpoint que gasta IA exige o header
+# `X-Service-Token` igual a ela. Se NÃO estiver, o serviço segue aberto (como
+# sempre foi) e avisa no log — assim rodar local e o n8n atual não quebram, mas
+# hospedar sem definir o token fica visível. /  e /health continuam abertos
+# (health check de plataforma não pode depender de segredo).
+AI_SERVICE_TOKEN = os.getenv("AI_SERVICE_TOKEN", "").strip()
+if not AI_SERVICE_TOKEN:
+    print(
+        "[ai-service] AVISO: AI_SERVICE_TOKEN não definida — os endpoints estão ABERTOS. "
+        "Defina antes de expor este serviço na internet."
+    )
+
+
+def require_token(x_service_token: str = Header(default="")) -> None:
+    if not AI_SERVICE_TOKEN:
+        return
+    if not hmac.compare_digest(x_service_token.encode(), AI_SERVICE_TOKEN.encode()):
+        raise HTTPException(status_code=401, detail="não autorizado")
+
 
 # CORS — AUDITORIA A-1.
 # O dashboard não chama mais este serviço direto do navegador (passa pela rota
@@ -631,17 +657,23 @@ def normalize_interpret(parsed_raw, texto: str) -> dict:
 # Modelos de request
 # ---------------------------------------------------------------------------
 class TextIn(BaseModel):
-    text: str
+    text: str = Field(max_length=4000)
+
+
+# Tetos de tamanho: sem eles qualquer chamador mandava um base64 arbitrário e o
+# serviço o decodificava inteiro em memória. 22 M de caracteres de base64 ≈ 16 MB
+# de mídia, um pouco acima do limite de 15 MB que o n8n já aplica.
+MAX_MEDIA_B64 = 22_000_000
 
 
 class ImageIn(BaseModel):
-    image_base64: str
-    mime: str = "image/jpeg"
+    image_base64: str = Field(max_length=MAX_MEDIA_B64)
+    mime: str = Field(default="image/jpeg", max_length=60)
 
 
 class AudioIn(BaseModel):
-    audio_base64: str
-    filename: str = "audio.ogg"
+    audio_base64: str = Field(max_length=MAX_MEDIA_B64)
+    filename: str = Field(default="audio.ogg", max_length=120)
 
 
 class CategoryTotalIn(BaseModel):
@@ -678,13 +710,13 @@ def health():
     return {"status": "ok"}
 
 
-@app.post("/parse-text")
+@app.post("/parse-text", dependencies=[Depends(require_token)])
 def parse_text(body: TextIn):
     parsed = parse_text_with_llm(body.text) or fallback_parse(body.text)
     return normalize_result(parsed, "texto", body.text)
 
 
-@app.post("/interpret")
+@app.post("/interpret", dependencies=[Depends(require_token)])
 def interpret(body: TextIn):
     """Classifica a intenção (lancamento/consulta/excluir/outro) e extrai os campos.
 
@@ -702,7 +734,7 @@ def interpret(body: TextIn):
     return normalize_interpret(parsed, body.text)
 
 
-@app.post("/parse-image")
+@app.post("/parse-image", dependencies=[Depends(require_token)])
 def parse_image(body: ImageIn):
     parsed = openai_parse_image(body.image_base64, body.mime)
     if parsed is None:
@@ -714,7 +746,7 @@ def parse_image(body: ImageIn):
     return normalize_result(parsed, "imagem", "[imagem de comprovante]")
 
 
-@app.post("/parse-audio")
+@app.post("/parse-audio", dependencies=[Depends(require_token)])
 def parse_audio(body: AudioIn):
     texto = openai_transcribe(body.audio_base64, body.filename)
     if texto is None:
@@ -754,7 +786,7 @@ def _chat_insight(client, model: str, resumo: str):
         return None
 
 
-@app.post("/insight")
+@app.post("/insight", dependencies=[Depends(require_token)])
 def insight(body: InsightIn):
     """Gera 1 insight amigável do mês via LLM. Sem chave de IA, retorna ok=False
     e o front continua com as heurísticas locais (nunca quebra)."""
