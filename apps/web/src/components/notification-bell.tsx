@@ -9,8 +9,15 @@ import { createClient } from "@/lib/supabase/client";
 import { addMonthsClamped, currentMonthRef, todayDateInput } from "@/lib/dates";
 import { formatCurrency } from "@/lib/formatters";
 import { categoryName, type CategoryRelation } from "@/lib/categories";
+import { fetchAllRows } from "@/lib/supabase/paginate";
 
 const DUE_SOON_DAYS = 5;
+
+// A tabela `budgets` em produção não tem a coluna `alert_percent` (a migration 001
+// a cria, mas nunca chegou no banco). Pedir a coluna fazia o PostgREST recusar a
+// consulta inteira (HTTP 400) e os avisos de orçamento nunca apareciam. Não existe
+// tela onde o usuário configure esse percentual, então o limiar é fixo.
+const BUDGET_ALERT_PERCENT = 80;
 
 type FixedExpenseRow = {
   id: string;
@@ -40,7 +47,6 @@ type BudgetRow = {
   id: string;
   category_id: string | null;
   amount: number;
-  alert_percent: number;
   categories: CategoryRelation;
 };
 
@@ -122,18 +128,36 @@ export default function NotificationBell({
         .eq("status", "active")
         .gte("transaction_date", `${monthKey}-01`)
         .lte("transaction_date", today),
-      supabase
-        .from("transactions")
-        .select("installment_id")
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .eq("origin_type", "installment"),
+      // Todas as parcelas já lançadas, de qualquer mês: paginado, senão o
+      // PostgREST corta em 1000 linhas e a contagem "parcela X de N" erra.
+      fetchAllRows<{ installment_id: string | null }>((from, to) =>
+        supabase
+          .from("transactions")
+          .select("id, installment_id")
+          .eq("user_id", user.id)
+          .eq("status", "active")
+          .eq("origin_type", "installment")
+          .order("id", { ascending: true })
+          .range(from, to),
+      ).then(
+        (data) => ({ data, error: null }),
+        (error: Error) => ({ data: null, error }),
+      ),
       supabase
         .from("budgets")
-        .select("id, category_id, amount, alert_percent, categories(name)")
+        .select("id, category_id, amount, categories(name)")
         .eq("user_id", user.id)
         .eq("month_ref", monthRef),
     ]);
+
+    // "Não consegui consultar" não é "não há nada pendente". Se qualquer leitura
+    // falhou, mantém os avisos que já estavam na tela e deixa o erro visível no
+    // console — antes o `?? []` engolia isso e o sino ficava mudo sem ninguém saber.
+    const failed = [fixedRes, installmentsRes, txRes, allInstallmentTxRes, budgetsRes].find((res) => res.error);
+    if (failed?.error) {
+      console.error("[notification-bell] falha ao carregar avisos:", failed.error.message);
+      return;
+    }
 
     const fixedExpenses = (fixedRes.data ?? []) as FixedExpenseRow[];
     const installments = (installmentsRes.data ?? []) as InstallmentRow[];
@@ -198,7 +222,7 @@ export default function NotificationBell({
       const amount = Number(budget.amount);
       if (amount <= 0) continue;
       const pct = (spent / amount) * 100;
-      const alertPercent = budget.alert_percent || 80;
+      const alertPercent = BUDGET_ALERT_PERCENT;
       if (pct < alertPercent) continue;
       const label = budget.category_id === null ? "Orçamento geral" : categoryName(budget.categories);
       next.push({

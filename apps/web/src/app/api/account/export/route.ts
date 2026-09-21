@@ -8,6 +8,9 @@ import { enforceRateLimit } from "@/lib/rate-limit";
  * sessão do próprio usuário (o RLS garante que só os dados dele saem).
  */
 
+// A exportação percorre 13 tabelas; damos folga ao limite da função.
+export const maxDuration = 60;
+
 const TABLES = [
   "profiles",
   "categories",
@@ -46,38 +49,45 @@ export async function GET() {
   // de linhas (1000 por padrão), então um `select("*")` seco devolvia uma
   // exportação silenciosamente incompleta — e a rota respondia 200 mesmo com
   // tabela que falhou. Agora paginamos até o fim e reportamos o que falhou.
+  //
+  // As 13 tabelas são lidas em paralelo (antes era uma atrás da outra, e numa
+  // conta grande o tempo somava até estourar o limite da função). A ordenação
+  // por `id` é o que torna a paginação determinística: sem ela `.range()` pode
+  // pular ou repetir linhas entre uma página e outra.
   const PAGE = 1000;
-  const failures: string[] = [];
-  let truncated = false;
+  const MAX_PAGES = 200; // teto de segurança: 200k linhas por tabela
 
-  for (const table of TABLES) {
+  async function exportTable(table: (typeof TABLES)[number]) {
     const rows: unknown[] = [];
-    let from = 0;
-    let failed = false;
-
-    // teto de segurança: 200 páginas = 200k linhas por tabela
-    for (let page = 0; page < 200; page++) {
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const from = page * PAGE;
       const { data, error } = await supabase
         .from(table)
         .select("*")
+        .order("id", { ascending: true })
         .range(from, from + PAGE - 1);
 
-      if (error) {
-        failures.push(table);
-        dump[table] = { error: "não foi possível exportar esta tabela" };
-        failed = true;
-        break;
-      }
+      if (error) return { table, rows: null, truncated: false };
 
       const batch = data ?? [];
       rows.push(...batch);
-      if (batch.length < PAGE) break;
-      from += PAGE;
-
-      if (page === 199) truncated = true;
+      if (batch.length < PAGE) return { table, rows, truncated: false };
     }
+    return { table, rows, truncated: true };
+  }
 
-    if (!failed) dump[table] = rows;
+  const results = await Promise.all(TABLES.map(exportTable));
+
+  const failures: string[] = [];
+  let truncated = false;
+  for (const { table, rows, truncated: hitCap } of results) {
+    if (rows === null) {
+      failures.push(table);
+      dump[table] = { error: "não foi possível exportar esta tabela" };
+      continue;
+    }
+    dump[table] = rows;
+    if (hitCap) truncated = true;
   }
 
   dump.export_status = {

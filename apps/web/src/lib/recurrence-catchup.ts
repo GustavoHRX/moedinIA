@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { toCompetenceMonth, todayDateInput } from "@/lib/dates";
 import { installmentOccurrences, monthlyOccurrences } from "@/lib/recurrence";
 import { splitInstallments } from "@/lib/money";
+import { fetchAllRows } from "@/lib/supabase/paginate";
 
 /**
  * Gera as transações vencidas de gastos fixos e parcelamentos que ficaram para
@@ -115,24 +116,31 @@ export async function catchUpRecurrences(
   // Transações de origem já existentes (qualquer status) para deduplicar.
   const originTypes = ["fixed_expense", "installment"];
   if (incomeList.length > 0) originTypes.push("fixed_income");
-  const { data: existing, error: existingError } = await supabase
-    .from("transactions")
-    .select(
-      incomeList.length > 0
-        ? "fixed_expense_id, installment_id, fixed_income_id, competence_month, installment_number"
-        : "fixed_expense_id, installment_id, competence_month, installment_number"
-    )
-    .eq("user_id", userId)
-    .in("origin_type", originTypes);
-
-  // achado 2.2: SEM esta consulta o catch-up estava cego — antes ignorava o
-  // erro e seguia inserindo tudo. Agora aborta e tenta de novo no próximo dia.
-  if (existingError) throw existingError;
+  // Paginado: com mais de 1000 ocorrências o Set de dedupe ficava incompleto, o
+  // lote batia em 23505 e caía no caminho linha a linha (funciona, mas vira N
+  // inserts e o total devolvido mentia). Um erro aqui aborta e tenta no próximo
+  // dia — o catch-up não pode seguir cego (achado 2.2).
+  const existing = await fetchAllRows<Record<string, unknown>>((from, to) =>
+    supabase
+      .from("transactions")
+      .select(
+        incomeList.length > 0
+          ? "id, fixed_expense_id, installment_id, fixed_income_id, competence_month, installment_number"
+          : "id, fixed_expense_id, installment_id, competence_month, installment_number"
+      )
+      .eq("user_id", userId)
+      .in("origin_type", originTypes)
+      .order("id", { ascending: true })
+      .range(from, to) as unknown as PromiseLike<{
+      data: Record<string, unknown>[] | null;
+      error: { message: string } | null;
+    }>,
+  );
 
   const existingFixed = new Set<string>();
   const existingInst = new Set<string>();
   const existingIncome = new Set<string>();
-  for (const row of existing ?? []) {
+  for (const row of existing) {
     const r = row as unknown as {
       fixed_expense_id: string | null;
       installment_id: string | null;

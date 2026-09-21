@@ -204,7 +204,19 @@ export default function TermsConsentPopup() {
     }
   }
 
-  if (!visible || checking) return null;
+  // Enquanto o banner está na tela (fixo no rodapé, no mobile), o CSS reserva
+  // espaço no fim da página para o botão principal do formulário não ficar
+  // escondido atrás dele. Ver `data-consent-banner` em globals.css.
+  const bannerOpen = visible && !checking;
+  useEffect(() => {
+    if (!bannerOpen) return;
+    document.documentElement.dataset.consentBanner = "open";
+    return () => {
+      delete document.documentElement.dataset.consentBanner;
+    };
+  }, [bannerOpen]);
+
+  if (!bannerOpen) return null;
 
   return (
     <div
