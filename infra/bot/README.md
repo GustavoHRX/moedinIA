@@ -120,6 +120,31 @@ backup que nunca foi restaurado é uma aposta.
 - **Restaurar de verdade** num servidor novo: descriptografe com `gpg -d`, suba o `.env` e o compose de `stack/`, restaure
   o `evolution.sql.gz` no Postgres e o `n8n/database.sqlite` (+ `-wal`/`-shm`/`config`) no volume do n8n com ele parado.
 
+## Testar no Mac sem mexer no que está no ar (22/09/2026)
+
+```bash
+docker compose -f docker-compose.yml -f infra/bot/docker-compose.teste-local.yml \
+  up -d --no-deps redis evolution-stub n8n
+bash infra/bot/testar-local.sh "gastei 30 no mercado"
+docker compose -f docker-compose.yml -f infra/bot/docker-compose.teste-local.yml down
+```
+
+Sobe **n8n + Redis + uma Evolution falsa** (`infra/bot/evolution-stub.py`): o n8n chama
+`http://evolution-stub:8080` e o texto que seria enviado cai em `n8n/files/respostas.log`, que é o que o
+`testar-local.sh` mostra. **Nada sai pelo WhatsApp**, então dá para testar com o servidor de casa no ar.
+
+- **O `--no-deps` não é opcional.** Sem ele o compose sobe o serviço `evolution` de verdade, e duas Evolutions
+  com a mesma sessão fazem o bot responder em dobro (ou deslogar). Não dá para "desligar" a porta 8080 do
+  serviço original pela sobreposição: o compose **soma** as listas de `ports` e de `depends_on` em vez de
+  substituir — por isso o stub é um serviço com outro nome, e não uma troca de imagem do `evolution`.
+- Antes de testar, importe os workflows **com o n8n parado** (`docker compose run --rm --no-deps -T n8n
+  import:workflow --input=/workflows/moedin-agente-v2.json`) e publique com `publish:workflow`. Nunca mexa no
+  SQLite pelo host.
+- Só o workflow do agente fica ativo aqui (`update:workflow --all --active=false` e depois `--id=MoedinAgenteV2aa
+  --active=true`), para os agendamentos de alerta não dispararem do Mac.
+- **O banco é o de produção.** Consulta é de graça, mas lançamento de teste entra na conta de verdade: apague
+  depois. O n8n local é o 2.36.8; o do servidor é o 2.39.8.
+
 ## Plano B: servidor novo do zero
 
 Se o notebook morrer, `docker-compose.yml`, `empacotar.sh` e `restaurar.sh` deste diretório montam um stack
