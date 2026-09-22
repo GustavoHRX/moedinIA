@@ -682,3 +682,24 @@ conta fixa, destinatário fixo, link filtrado, campo truncado, exclusão revers�
 **bloquear as ferramentas destrutivas quando a mensagem veio de arquivo ou áudio** (controle de fluxo de informação:
 entrou conteúdo não confiável, o turno perde privilégio). Daria trabalho no n8n — exigiria dois agentes ou um portão
 antes das ferramentas — e ficou anotado como próximo passo.
+
+## 22. v2.13 — turno que veio de arquivo não apaga nada (22/09/2026)
+
+Era o item que a §21 deixou anotado como aberto: **controle de privilégio por origem**, e desta vez determinístico.
+
+Quando a mensagem do turno veio de PDF, foto ou áudio, o conteúdo foi escrito por um terceiro. Nesse turno o agente
+**perde o direito de excluir**. Não é o prompt pedindo bom senso: é o banco recusando.
+
+- `Entrada do agente` ganhou o campo `origem` (`texto` | `pdf` | `imagem` | `audio`), vindo de `Mensagem normalizada`.
+- `excluir_lancamento`, `excluir_fixo` e `desfazer_importacao` passam `p_origem` **por expressão do n8n**, igual ao
+  `p_user_id` — o modelo não tem como mentir sobre isso.
+- Migration `032`: cada uma dessas RPCs ganhou uma **sobrecarga** com `p_origem`, que recusa e só então delega para a
+  função original. As versões antigas continuam existindo para uso interno, e nenhum corpo de função foi reescrito.
+- `importar_extrato` ficou **de fora de propósito**: importar é a razão de mandar o PDF, e só acontece depois de a
+  pessoa escrever "importa tudo", que já é um turno de texto.
+
+Resposta quando bloqueia: *"🛡️ Esse pedido de exclusão veio de dentro de um arquivo … se foi você mesmo, me escreva:
+'excluir o último'."*
+
+**ORDEM AO PUBLICAR:** aplicar a migration `032` **antes** de publicar o workflow. Se o workflow for primeiro, as três
+ferramentas chamam uma assinatura que ainda não existe e o PostgREST devolve 404.
