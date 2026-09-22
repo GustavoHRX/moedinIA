@@ -1,0 +1,29 @@
+# Sobreposição para TESTAR o bot no Mac sem encostar no WhatsApp de verdade.
+#
+#   docker compose -f docker-compose.yml -f infra/bot/docker-compose.teste-local.yml \
+#     up -d --no-deps redis evolution-stub n8n
+#
+# Sobe só n8n + Redis + uma Evolution FALSA (infra/bot/evolution-stub.py). O n8n
+# passa a chamar http://evolution-stub:8080 em vez da Evolution real, então nada
+# é enviado pelo WhatsApp: o texto das respostas cai em n8n/files/respostas.log.
+# Assim o servidor de casa continua no ar sozinho com a sessão do WhatsApp — as
+# duas Evolutions no ar ao mesmo tempo brigam pela sessão e o bot responde em dobro.
+#
+# O `--no-deps` é obrigatório: sem ele o compose sobe a Evolution DE VERDADE
+# (o serviço `evolution` do compose principal), que é justamente o que não pode.
+services:
+  evolution-stub:
+    container_name: moedin_evolution_stub
+    image: python:3.11-slim
+    command: python /stub/evolution-stub.py
+    volumes:
+      - ./infra/bot:/stub:ro
+      - ./n8n/files:/saida
+    environment:
+      PYTHONUNBUFFERED: "1"
+      STUB_LOG: /saida/respostas.log
+    restart: unless-stopped
+
+  n8n:
+    environment:
+      EVOLUTION_API_URL: http://evolution-stub:8080
