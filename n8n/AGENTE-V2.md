@@ -703,3 +703,25 @@ Resposta quando bloqueia: *"🛡️ Esse pedido de exclusão veio de dentro de u
 
 **ORDEM AO PUBLICAR:** aplicar a migration `032` **antes** de publicar o workflow. Se o workflow for primeiro, as três
 ferramentas chamam uma assinatura que ainda não existe e o PostgREST devolve 404.
+
+## 23. Arrumação do desenho no canvas (22/09/2026)
+
+Só posição, nenhuma mudança de lógica (conferido: mesmos 103 nós, mesmas conexões).
+
+- **A volta de 550 px sumiu.** `Marcar como lida` apontava para `Tipo da mensagem`, que estava **à esquerda** dele — o
+  fio atravessava o setor inteiro. O trecho do anti-spam virou uma linha reta que lê da esquerda para a direita:
+  `Contar 10 min → Contar dia → Excedeu o limite? → Marcar como lida → Tipo da mensagem`, e só então a mídia desce.
+  Sobrou uma única aresta para trás, de 220 px: `Tentativas dentro do limite? → Vincular por código`, que é um laço de
+  repetição de verdade e deve ficar assim mesmo.
+- O setor **3. Ingestão de mídia** ficou mais largo (1560 → 2440) e tudo que estava de `x ≥ 3020` andou 880 px para a
+  direita, mantendo o espaçamento entre setores.
+- **Nada mais se sobrepõe.** Havia quatro pares grudados, sendo um encavalado de verdade (`Texto recebido` em cima de
+  `Excedeu o limite?`). O setor **6. Resposta** passou a ter espaçamento constante de 220 px entre os cinco nós.
+- Todo nó está dentro de algum setor colorido (conferido por script, não no olho).
+
+**Sobre o ícone do Supabase nas ferramentas:** não dá, e o motivo é de projeto. As 27 ferramentas são `HTTP Request`
+chamando RPC (`/rest/v1/rpc/...`) com a chave vinda de `$env`; o nó nativo do Supabase só faz operação de linha
+(create/get/update/delete) com credencial guardada no n8n, então ele não chama função nem serve para o nosso desenho.
+O ícone de um nó vem do tipo dele e não é configurável. Testado também pôr o logo numa sticky note com
+`![](/icons/n8n-nodes-base/dist/nodes/Supabase/supabase.svg)`: **o n8n não renderiza imagem em sticky note** (o arquivo
+existe e responde 200, mas o markdown descarta a imagem). Fica o emoji no título do setor, que é o que já fazemos.
