@@ -12,13 +12,14 @@
 # "publish" só vale depois de reiniciar. Parar é o jeito seguro e previsível.
 #
 # Variáveis (opcionais):
-#   HOMELAB=docker@192.168.3.204        usuário@endereço do servidor
+#   HOMELAB=docker@192.168.3.204        outro endereço do servidor (o padrão é o IP do Tailscale, que
+#                                       funciona em casa e fora dela; na rede de casa o IP local também serve)
 #   HOMELAB_KEY=~/.ssh/moedin-homelab   chave SSH
 #   HOMELAB_STACK=~/stack               pasta do docker-compose no servidor
 set -euo pipefail
 
 [ "$#" -ge 1 ] || { echo "Uso: bash infra/bot/publicar-workflow.sh caminho/do/workflow.json [outros.json ...]"; exit 1; }
-ALVO="${HOMELAB:-docker@192.168.3.204}"
+ALVO="${HOMELAB:-docker@100.76.253.59}"
 CHAVE="${HOMELAB_KEY:-$HOME/.ssh/moedin-homelab}"
 PASTA="${HOMELAB_STACK:-~/stack}"
 SSH=(ssh -o BatchMode=yes -o ConnectTimeout=10 -i "$CHAVE" "$ALVO")
