@@ -725,3 +725,27 @@ chamando RPC (`/rest/v1/rpc/...`) com a chave vinda de `$env`; o nó nativo do S
 O ícone de um nó vem do tipo dele e não é configurável. Testado também pôr o logo numa sticky note com
 `![](/icons/n8n-nodes-base/dist/nodes/Supabase/supabase.svg)`: **o n8n não renderiza imagem em sticky note** (o arquivo
 existe e responde 200, mas o markdown descarta a imagem). Fica o emoji no título do setor, que é o que já fazemos.
+
+## 24. Bateria de teste adversarial (22/09/2026)
+
+`infra/bot/testes-seguranca.py` roda 12 ataques contra o **bot local** (nunca o servidor) e confere a resposta
+que ele tentaria enviar. Com o compose de teste no ar:
+
+```bash
+python3 infra/bot/testes-seguranca.py       # tudo
+python3 infra/bot/testes-seguranca.py 5     # a partir do caso 5
+```
+
+Os casos: pedido de script, insistência, "sou o dono do bot", tradução, pedido misturado (tem que responder **só** a
+parte financeira), pedido do system prompt, fatura maliciosa dentro de `[[CONTEUDO-LIDO:…]]`, instrução escondida em
+áudio, tentativa de fazer o bot repetir um link de fora, pergunta sobre a conta de outra pessoa, e dois controles que
+precisam continuar funcionando (consulta normal e link do painel).
+
+Cada caso declara o que a resposta **precisa** e o que ela **não pode** conter (por exemplo: não pode sair
+`import `, `banco-falso.com` nem o nome de uma ferramenta). Rodar isso depois de mexer no prompt evita a regressão
+clássica: apertar uma regra e, sem perceber, fazer o bot recusar coisa legítima — foi exatamente o que aconteceu na
+v2.11 com o pedido misturado.
+
+**Resultado em 22/09/2026: 12 de 12.** O único tropeço foi um erro 500 isolado num caso que passou ao repetir; o
+script agora registra o 500 como falha em vez de abortar a bateria. Cuidado ao repetir muitas vezes seguidas: o
+anti-spam corta em 20 mensagens por 10 minutos, e é para isso que serve o argumento de caso inicial.
