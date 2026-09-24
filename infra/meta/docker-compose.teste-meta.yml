@@ -1,0 +1,32 @@
+# Sobreposição para testar o workflow da META no Mac, junto com a de teste local da Evolution:
+#
+#   docker compose -f docker-compose.yml -f infra/bot/docker-compose.teste-local.yml \
+#     -f infra/meta/docker-compose.teste-meta.yml up -d --no-deps redis evolution-stub meta-stub n8n
+#
+# O `--no-deps` continua obrigatório (ver infra/bot/docker-compose.teste-local.yml).
+# Os valores META_* abaixo são FALSOS e só valem para o simulador. Os de verdade vão no .env do servidor.
+services:
+  meta-stub:
+    container_name: moedin_meta_stub
+    image: python:3.11-slim
+    command: python /stub/meta-stub.py
+    volumes:
+      - ./infra/meta:/stub:ro
+      - ./infra/meta/midia-teste:/midia:ro
+      - ./n8n/files:/saida
+    environment:
+      PYTHONUNBUFFERED: "1"
+      STUB_LOG: /saida/respostas-meta.log
+      STUB_TOKEN: token-local-de-teste
+      STUB_PHONE_ID: "100000000000001"
+      STUB_BASE_URL: http://meta-stub:8080
+    restart: unless-stopped
+
+  n8n:
+    environment:
+      META_GRAPH_URL: http://meta-stub:8080
+      META_GRAPH_VERSION: v25.0
+      META_PHONE_NUMBER_ID: "100000000000001"
+      META_ACCESS_TOKEN: token-local-de-teste
+      META_APP_SECRET: segredo-local-de-teste
+      META_VERIFY_TOKEN: verificar-local-de-teste

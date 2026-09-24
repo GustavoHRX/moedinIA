@@ -28,9 +28,22 @@ IDS=()
 for ARQ in "$@"; do
   [ -f "$ARQ" ] || { echo "Arquivo não encontrado: $ARQ"; exit 1; }
   ID=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['id'])" "$ARQ")
+  # O workflow da Meta só vai para o servidor de propósito (Fase 3 de docs/META-CLOUD-API.md).
+  # Sem esta trava, "publicar-workflow.sh n8n/workflow/*.json" o publicaria junto com o resto.
+  if [ "$ID" = "MoedinAgenteMeta" ] && [ "${PUBLICAR_META:-}" != "1" ]; then
+    echo "Pulando $ARQ (workflow da Meta). Para publicar de verdade: PUBLICAR_META=1 bash $0 $ARQ"; continue
+  fi
   NOME=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['name'])" "$ARQ")
   echo "==> Workflow: $NOME  ($ID)"; IDS+=("$ID")
 done
+
+[ "${#IDS[@]}" -gt 0 ] || { echo "Nada a publicar."; exit 0; }
+FILTRADOS=()
+for ARQ in "$@"; do
+  ID=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['id'])" "$ARQ")
+  for i in "${IDS[@]}"; do [ "$i" = "$ID" ] && FILTRADOS+=("$ARQ"); done
+done
+set -- "${FILTRADOS[@]}"
 
 echo "==> 1/5  Conferindo o servidor"
 "${SSH[@]}" "cd $PASTA && docker compose ps --status running --services | grep -qx n8n" \
