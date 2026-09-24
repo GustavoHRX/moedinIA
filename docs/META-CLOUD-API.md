@@ -23,12 +23,27 @@ O editor do n8n continua fechado: o Funnel só publica o proxy, e o proxy só re
 
 ## Fases
 
-**Fase 0 — local, sem conta Meta, sem tocar produção**
-- [ ] Simulador local da Cloud API (como o `infra/bot/evolution-stub.py`): webhook assinado, `/media`, `/messages`.
-- [ ] Workflow novo `moedin-meta` (id novo): recepção, validação da assinatura sobre o corpo cru, desafio `hub.challenge`, filtro de status.
-- [ ] Normalizador Meta → formato interno (texto, imagem, áudio, PDF; `user_id`/BSUID como chave, `wa_id` opcional).
-- [ ] Envio: texto (`preview_url:false`), PDF (upload → id → envio), marcar como lida.
-- [ ] Rodar a bateria `infra/bot/testes-seguranca.py` contra o caminho novo.
+**Fase 0 — local, sem conta Meta, sem tocar produção** ✅ concluída em 24/09/2026
+- [x] Simulador local da Cloud API: `infra/meta/meta-stub.py` (recusa envelope errado, como a Meta).
+- [x] Workflow novo `MoedinAgenteMeta`, **gerado** a partir do agente por `infra/meta/gerar-workflow-meta.py`
+      (o cérebro é um só; mudou o agente → rode o gerador de novo). Webhook `POST|GET /webhook/moedin-meta`.
+- [x] Assinatura `X-Hub-Signature-256` sobre o corpo cru, fail-closed; desafio `hub.challenge`; 200 imediato à Meta.
+- [x] Normalizador Meta → formato interno (texto, botão, imagem, áudio, PDF; telefone ou BSUID; status ignorado;
+      mensagem de outro `phone_number_id` ignorada).
+- [x] Mídia em 2 passos com limite de 15 MB e token só para host da Meta; PDF por upload + id; marcar como lida.
+- [x] Sem resumo semanal na Meta (seria template pago — decisão do João, 24/09/2026).
+- [x] Bateria adversarial: `python3 infra/bot/testes-seguranca.py --meta` — 12/12.
+
+Como testar localmente:
+```bash
+docker compose -f docker-compose.yml -f infra/bot/docker-compose.teste-local.yml \
+  -f infra/meta/docker-compose.teste-meta.yml up -d --no-deps redis evolution-stub meta-stub n8n
+python3 infra/meta/gerar-workflow-meta.py      # depois importe com o n8n PARADO (import:workflow + publish:workflow)
+python3 infra/meta/testar-meta-local.py texto "quanto gastei esse mês?"
+python3 infra/bot/testes-seguranca.py --meta
+```
+Resultado de 24/09: verificação ok/errado (200/403), sem assinatura / assinatura errada / corpo alterado (401, nada
+processado), recibo de status (200, ignorado), consulta, número desconhecido, imagem, arquivo > 15 MB, PDF — todos ok.
 
 **Fase 1 — conta Meta (só o João)**
 - [ ] Conta Meta for Developers, app com o produto WhatsApp, token permanente de usuário do sistema.
@@ -36,7 +51,7 @@ O editor do n8n continua fechado: o Funnel só publica o proxy, e o proxy só re
 
 **Fase 2 — endpoint e templates**
 - [ ] Tailscale Funnel + proxy com allowlist de caminho.
-- [ ] Template *utility* do resumo semanal enviado para aprovação.
+- [ ] ~~Template do resumo semanal~~ — fora por custo (24/09/2026). Workflow de alertas continua só na Evolution.
 - [ ] Aviso de erro ao admin sai do WhatsApp (e-mail ou Telegram).
 
 **Fase 3 — paralelo**
