@@ -762,6 +762,94 @@ input[type="datetime-local"] {
   animation: skeleton-fade 400ms var(--ease-out) forwards;
 }
 
+/* ---- Landing de venda (plano único) ---- */
+
+/* Entrada de mensagem/entrada nova (demo do hero, abas de persona).
+   Keyframe só no MOUNT do elemento — nada interrompe, então não precisa de transition. */
+@keyframes chat-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.chat-in {
+  animation: chat-in 280ms var(--ease-out) both;
+}
+
+/* Barra de orçamento da demo: anima por scaleX (GPU), nunca width */
+.budget-fill {
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+
+.strip-item {
+  transition: background-color var(--dur-base) var(--ease-out);
+}
+
+/* Feedback de toque em botões/abas: escala leve no :active (só cor no hover).
+   Fica num wrapper de classe própria para não colidir com o GSAP do hero
+   (clearProps limpa o inline no fim da entrada). */
+.press {
+  transition-property: background-color, border-color, color, transform;
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-out);
+}
+.press:active {
+  transform: scale(0.97);
+}
+
+/* "Como funciona": as 3 telas do celular empilhadas; a ativa vem por data-active */
+.hiw-screen {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-slow) var(--ease-out);
+}
+[data-hiw][data-active="0"] [data-screen="0"],
+[data-hiw][data-active="1"] [data-screen="1"],
+[data-hiw][data-active="2"] [data-screen="2"] {
+  opacity: 1;
+  transform: none;
+}
+.hiw-step {
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+@media (min-width: 1024px) {
+  [data-hiw] .hiw-step {
+    opacity: 0.38;
+  }
+  [data-hiw][data-active="0"] [data-hiw-step="0"],
+  [data-hiw][data-active="1"] [data-hiw-step="1"],
+  [data-hiw][data-active="2"] [data-hiw-step="2"] {
+    opacity: 1;
+  }
+}
+
+/* FAQ com <details>: ícone gira e o corpo entra com fade */
+.faq summary::-webkit-details-marker {
+  display: none;
+}
+.faq-icon {
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.faq[open] .faq-icon {
+  transform: rotate(45deg);
+}
+.faq[open] .faq-body {
+  animation: chat-in 240ms var(--ease-out) both;
+}
+
+/* CTA fixo no celular: entra de baixo quando o hero sai da tela */
+.sticky-cta {
+  transform: translateY(110%);
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+.sticky-cta.is-visible {
+  transform: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
