@@ -749,3 +749,54 @@ v2.11 com o pedido misturado.
 **Resultado em 22/09/2026: 12 de 12.** O único tropeço foi um erro 500 isolado num caso que passou ao repetir; o
 script agora registra o 500 como falha em vez de abortar a bateria. Cuidado ao repetir muitas vezes seguidas: o
 anti-spam corta em 20 mensagens por 10 minutos, e é para isso que serve o argumento de caso inicial.
+
+## 25. Sem mensagem por iniciativa do bot + aviso de limite no lançamento (30/09/2026)
+
+### Alertas automáticos desligados
+
+O gatilho **"Domingo às 20h"** (resumo semanal) do `moedin-alertas-diarios.json` foi desligado, somando-se ao das 9h
+(desligado em 20/09). **O bot não manda mais nenhuma mensagem por conta própria para os usuários.** O motivo é risco
+de banimento: na Evolution (WhatsApp não oficial), mensagem iniciada pelo número — e não resposta a quem escreveu — é
+o que mais pesa. Segue ligada só a busca de cotações das 7h10, que não envia nada (o câmbio depende dela).
+A ferramenta `configurar_alertas` continua existindo, mas hoje não tem efeito prático.
+
+### Aviso de limite junto da confirmação (migration `033`)
+
+O aviso de limite já existia desde a `029`, mas só aparecia no instante em que o gasto **cruzava** 80% ou 100%:
+quem já tinha estourado lançava os gastos seguintes sem ouvir nada. Agora ele vive em duas funções novas
+(`whatsapp_limit_alert` decide, `whatsapp_limit_alert_line` escreve) e `whatsapp_create_transaction` só chama a
+primeira. Para o limite da categoria e para o limite geral do mês, cada um vira no máximo **uma linha**:
+
+| Situação | Linha |
+|---|---|
+| Cruzou 100% com esse gasto | 🚨 Com esse gasto, passou do limite de *Lazer*: R$ 320,00 de R$ 300,00 (R$ 20,00 acima). |
+| Bateu 100% em cheio | 🚨 Com esse gasto, bateu exatamente o limite de *Lazer* (R$ 300,00). |
+| Já estava acima **e** o gasto é alto (≥ 10% do limite) | 🚨 Já passou do limite de *Lazer*: R$ 420,00 de R$ 300,00 (R$ 120,00 acima). |
+| Já estava acima e o gasto é pequeno | *(silêncio)* |
+| Cruzou 80% | ⚠️ Com esse gasto, chegou a 83% do limite de *Lazer*: restam R$ 50,00 de R$ 300,00. |
+| Entre 80% e 100% | ⚠️ Já usou 90% do limite de *Lazer*: restam R$ 30,00. |
+| Gasto alto sozinho (≥ 50% do limite) | ⚠️ Só esse gasto é 53% do limite de *Lazer*: restam R$ 110,00. |
+
+**Decisões:**
+- **Avisa, não bloqueia.** O lançamento é gravado e o aviso vem junto; quem quiser desfaz com "excluir o último". Pedir
+  confirmação antes de gravar seria um turno a mais em todo gasto grande.
+- **Silêncio depois de estourar.** O primeiro teste em produção mostrou o problema: com o limite geral já estourado,
+  *todo* gasto — até um café de R$ 5 — vinha com a sirene. Agora ele avisa uma vez, no gasto que estourou, e só
+  volta a avisar quando o gasto em si é alto.
+- **Só ⚠️ e 🚨.** O prompt já mandava o agente manter linhas com esses dois ícones, então a mudança inteira ficou no
+  banco: **o workflow do agente não mudou** e não precisou ser republicado (o que também respeita a regra de não
+  editar o `MoedinAgenteV2aa` durante a migração para a Cloud API).
+- O mês comparado é o do lançamento, e o gasto é somado por `transaction_date`, igual ao `whatsapp_monthly_limit`:
+  o que o bot avisa bate com o que ele mostra em "qual meu limite". O site grava os limites na mesma tabela
+  (`budgets`, `category_id` nulo = geral), então limite definido pelo painel vale aqui também.
+
+**Aplicação:** no banco foram três passos (`033`, `033b` e `033c`, ajustes feitos durante os testes); o arquivo
+`supabase/migrations/033_whatsapp_aviso_limite.sql` é o estado final e é o que vale para recriar o banco.
+
+**Testes:** 13 casos num Postgres descartável no Mac; 6 em produção dentro de uma transação desfeita no final
+(categoria e limite temporários); e um de ponta a ponta pelo bot local — "gastei 350 no zz teste aviso limite" voltou
+com a linha 🚨 do limite geral, repassada pelo agente. O lançamento de teste foi apagado.
+
+**Fora do escopo por enquanto:** o aviso vale para `criar_lancamento`. Importar fatura, editar valor e criar
+parcelamento também podem estourar limite e não avisam — a função `whatsapp_limit_alert` já está pronta para ser
+chamada desses lugares.

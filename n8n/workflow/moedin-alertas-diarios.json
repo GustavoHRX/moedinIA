@@ -79,7 +79,8 @@
       "position": [
         0,
         640
-      ]
+      ],
+      "disabled": true
     },
     {
       "parameters": {
@@ -209,7 +210,7 @@
     },
     {
       "parameters": {
-        "content": "## 🔔 Alertas diários do Moedin.IA\nTodo dia às 9h (America/Sao_Paulo) a RPC `whatsapp_daily_alerts` devolve, por usuário vinculado ao WhatsApp e com notificações ligadas:\n• gastos fixos que **vencem hoje**\n• limite mensal em **≥ 80%** ou **estourado** (uma vez por mês cada)\n• **fatura importada** vencendo em até 2 dias\n\n**Domingo 20h**: resumo semanal (`whatsapp_weekly_summaries`, top 5 categorias e comparação com a semana anterior).\nUsuário pode silenciar/pausar pelo próprio bot (`user_settings.whatsapp_muted_until` / `whatsapp_notifications`).\n\nO envio é registrado em `message_logs` (direction=out, external_id=chave do alerta) — é isso que impede repetir o mesmo alerta. Sem alertas → o Code devolve 0 itens e nada é enviado.\n\n**7h10 — cotações.** Busca o câmbio do dia numa API pública e gratuita (sem chave) e guarda em `fx_rates`. É o que deixa o bot aceitar *\"gastei 40 dólares\"*. Se a API falhar, o dia passa com a cotação anterior em vez de quebrar o fluxo.",
+        "content": "## 🔔 Alertas diários do Moedin.IA\n> ⛔ **DESLIGADOS desde 30/09/2026** (alerta das 9h desde 20/09). O bot não manda mais nenhuma mensagem por conta própria para os usuários: mensagem iniciada pelo número é o que mais pesa para banimento na Evolution. O aviso de limite agora vem **junto da confirmação do lançamento** (migration 033). Só a busca de cotações (7h10) segue ligada — ela não envia nada.\n\nTodo dia às 9h (America/Sao_Paulo) a RPC `whatsapp_daily_alerts` devolve, por usuário vinculado ao WhatsApp e com notificações ligadas:\n• gastos fixos que **vencem hoje**\n• limite mensal em **≥ 80%** ou **estourado** (uma vez por mês cada)\n• **fatura importada** vencendo em até 2 dias\n\n**Domingo 20h**: resumo semanal (`whatsapp_weekly_summaries`, top 5 categorias e comparação com a semana anterior).\nUsuário pode silenciar/pausar pelo próprio bot (`user_settings.whatsapp_muted_until` / `whatsapp_notifications`).\n\nO envio é registrado em `message_logs` (direction=out, external_id=chave do alerta) — é isso que impede repetir o mesmo alerta. Sem alertas → o Code devolve 0 itens e nada é enviado.\n\n**7h10 — cotações.** Busca o câmbio do dia numa API pública e gratuita (sem chave) e guarda em `fx_rates`. É o que deixa o bot aceitar *\"gastei 40 dólares\"*. Se a API falhar, o dia passa com a cotação anterior em vez de quebrar o fluxo.",
         "height": 1000,
         "width": 1320,
         "color": 5
