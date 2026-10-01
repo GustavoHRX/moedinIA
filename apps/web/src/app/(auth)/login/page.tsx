@@ -68,7 +68,7 @@ export default function LoginPage() {
     >
       <p className="font-display text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-strong)]">Acessar conta</p>
       <h1 className="mt-3 font-display text-4xl font-bold text-[var(--navy)]">Entrar</h1>
-      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Acesse sua conta para continuar no Moedin.IA.</p>
+      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Acesse sua conta para continuar no Moedin-IA.</p>
 
       <div className="mt-7">
         <GoogleSignInButton label="Entrar com Google" />

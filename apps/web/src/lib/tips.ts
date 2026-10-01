@@ -148,7 +148,7 @@ export function gastosFixosTips(input: {
     return [
       {
         id: "fixos-vazio",
-        text: "Aluguel, internet, academia… cadastra uma vez e o Moedin lança sozinho todo mês. Menos uma coisa pra lembrar.",
+        text: "Aluguel, internet, academia… cadastra uma vez e o Moedin-IA lança sozinho todo mês. Menos uma coisa pra lembrar.",
       },
     ];
   }

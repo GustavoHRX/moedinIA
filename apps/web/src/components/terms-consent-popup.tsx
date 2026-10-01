@@ -226,7 +226,7 @@ export default function TermsConsentPopup() {
     >
       <div className="flex flex-col gap-3 rounded-md border border-line bg-surface-strong p-4 sm:flex-row sm:items-center">
         <p className="flex-1 text-sm leading-6 text-fg">
-          Guardamos seus dados financeiros só para o Moedin.IA funcionar, e as respostas da IA podem
+          Guardamos seus dados financeiros só para o Moedin-IA funcionar, e as respostas da IA podem
           errar — a decisão final é sempre sua.{" "}
           <Link href="/termos" className="font-semibold text-primary-strong underline hover:text-primary">
             Ler os termos

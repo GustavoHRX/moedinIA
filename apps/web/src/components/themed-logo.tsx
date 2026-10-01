@@ -19,7 +19,7 @@ export default function ThemedLogo({
     <span className={`relative inline-flex shrink-0 items-center overflow-hidden ${sizeClass}`}>
       <Image
         src={isFull ? "/moedinha.png" : "/moedinhagrande.png"}
-        alt={isFull ? "Moedin.IA" : "Símbolo IA do Moedin.IA"}
+        alt={isFull ? "Moedin-IA" : "Símbolo IA do Moedin-IA"}
         fill
         sizes={isFull ? "240px" : "64px"}
         className={`theme-logo-light ${fitClass}`}
@@ -27,7 +27,7 @@ export default function ThemedLogo({
       />
       <Image
         src={isFull ? "/moedinha_branco.png" : "/logo_branco.png"}
-        alt={isFull ? "Moedin.IA" : "Símbolo IA do Moedin.IA"}
+        alt={isFull ? "Moedin-IA" : "Símbolo IA do Moedin-IA"}
         fill
         sizes={isFull ? "240px" : "64px"}
         className={`theme-logo-dark ${fitClass}`}

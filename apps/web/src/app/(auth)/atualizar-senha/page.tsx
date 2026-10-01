@@ -103,10 +103,10 @@ export default function AtualizarSenhaPage() {
     <AuthShell
       eyebrow="Nova senha"
       title="Defina um acesso seguro para continuar."
-      description="Atualize sua senha e volte ao painel do Moedin.IA com seus dados financeiros protegidos."
+      description="Atualize sua senha e volte ao painel do Moedin-IA com seus dados financeiros protegidos."
       features={["Senha renovada", "Conta protegida", "Retorno ao login"]}
       spotlightTitle="Segurança"
-      spotlightText="Depois de salvar a nova senha, você será levado para entrar novamente no Moedin.IA."
+      spotlightText="Depois de salvar a nova senha, você será levado para entrar novamente no Moedin-IA."
     >
       <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--brand-soft)] text-[var(--brand-strong)]">
         <KeyRound className="h-6 w-6" />

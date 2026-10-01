@@ -1,6 +1,6 @@
 /**
  * Traduz as mensagens de erro do Supabase Auth (sempre em inglês) para o
- * português no tom do Moedin.IA: direto, sem culpar o usuário (book pág. 10).
+ * português no tom do Moedin-IA: direto, sem culpar o usuário (book pág. 10).
  * Casamento por trecho porque o Supabase varia a pontuação/capitalização
  * entre versões da API.
  */

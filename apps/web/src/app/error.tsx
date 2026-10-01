@@ -24,7 +24,7 @@ export default function GlobalError({
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-[var(--bg)] px-6 py-16 text-center text-[var(--text)]">
-      <Link href="/" className="inline-flex" aria-label="Moedin.IA">
+      <Link href="/" className="inline-flex" aria-label="Moedin-IA">
         <ThemedLogo className="h-10 w-[120px]" />
       </Link>
       <h1 className="font-display text-2xl font-bold">Algo saiu do trilho por aqui.</h1>
