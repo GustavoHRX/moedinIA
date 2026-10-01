@@ -533,7 +533,7 @@ export default function FinancialEntryModal({
         >
           <header className="flex items-center justify-between bg-surface px-5 py-5 text-fg sm:px-6">
             <div>
-              <p className="eyebrow">Moedin.IA</p>
+              <p className="eyebrow">Moedin-IA</p>
               <h2 id="financial-entry-title" className="text-2xl font-semibold">{titleMap[mode]}</h2>
             </div>
             <button

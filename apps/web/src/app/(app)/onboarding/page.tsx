@@ -177,7 +177,7 @@ export default function OnboardingPage() {
 
       <Surface>
         <SectionHeader
-          title="1. Abra a conversa com o Moedin.IA"
+          title="1. Abra a conversa com o Moedin-IA"
           description={
             WHATSAPP_CONFIGURED
               ? `A mensagem já vai escrita com o seu código. Você só aperta enviar. Número: ${whatsappNumberDisplay()}`
@@ -225,7 +225,7 @@ export default function OnboardingPage() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={`/api/whatsapp/qr?v=${encodeURIComponent(code)}`}
-                  alt="QR code para abrir a conversa do Moedin.IA no WhatsApp"
+                  alt="QR code para abrir a conversa do Moedin-IA no WhatsApp"
                   width={168}
                   height={168}
                   className="h-[168px] w-[168px]"

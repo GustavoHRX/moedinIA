@@ -103,7 +103,7 @@ export default function AppShell({ children }: AppShellProps) {
   const displayName =
     profile?.full_name?.trim() ||
     user?.email?.split("@")[0] ||
-    "Moedin.IA";
+    "Moedin-IA";
 
   useEffect(() => {
     setMobileOpen(false);

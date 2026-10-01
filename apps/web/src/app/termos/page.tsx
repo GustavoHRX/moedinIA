@@ -19,7 +19,7 @@ export default function TermosPage() {
   return (
     <main className="min-h-screen bg-[var(--bg)] px-5 py-10 text-[var(--text)] sm:px-8">
       <div className="mx-auto max-w-2xl">
-        <Link href="/" className="inline-flex" aria-label="Moedin.IA">
+        <Link href="/" className="inline-flex" aria-label="Moedin-IA">
           <ThemedLogo className="h-11 w-[130px]" />
         </Link>
 
@@ -35,19 +35,19 @@ export default function TermosPage() {
 
         <div className="mt-8 space-y-5 rounded-[24px] border border-[var(--line)] bg-[var(--surface-strong)] p-6 text-base leading-7 text-[var(--muted-strong)] sm:p-8">
           <p>
-            O Moedin.IA é uma ferramenta de apoio ao controle financeiro pessoal. Ao usar o app, você
+            O Moedin-IA é uma ferramenta de apoio ao controle financeiro pessoal. Ao usar o app, você
             concorda com o registro de receitas e despesas, a categorização automática por
             Inteligência Artificial e a geração de relatórios, gráficos e alertas a partir dos dados
             que você informa.
           </p>
           <p>
             <strong className="text-[var(--text)]">O que fazemos com seus dados:</strong> valores,
-            datas, categorias e metas ficam guardados só no seu perfil e servem só para o Moedin.IA
+            datas, categorias e metas ficam guardados só no seu perfil e servem só para o Moedin-IA
             funcionar e melhorar pra você. A gente não vende nem compartilha esses dados com
             terceiros para fins comerciais.
           </p>
           <p>
-            <strong className="text-[var(--text)]">O que o Moedin.IA não faz:</strong> não realizamos
+            <strong className="text-[var(--text)]">O que o Moedin-IA não faz:</strong> não realizamos
             pagamentos, transferências, investimentos ou qualquer operação bancária real. Tudo aqui é
             organização e visualização — o dinheiro continua onde já estava.
           </p>
@@ -80,7 +80,7 @@ export default function TermosPage() {
           </p>
           <p>
             <strong className="text-[var(--text)]">Compartilhamento:</strong> para funcionar, o
-            Moedin.IA usa provedores de infraestrutura e de IA (Supabase, Groq e/ou OpenAI). O
+            Moedin-IA usa provedores de infraestrutura e de IA (Supabase, Groq e/ou OpenAI). O
             texto que você envia para categorização pode ser processado por esses provedores.
             Não vendemos nem cedemos seus dados para fins comerciais ou publicitários.
           </p>
@@ -94,7 +94,7 @@ export default function TermosPage() {
             </a>
           </p>
           <p>
-            O uso do Moedin.IA implica a aceitação destes Termos de Uso e desta Política de
+            O uso do Moedin-IA implica a aceitação destes Termos de Uso e desta Política de
             Privacidade, nas versões indicadas acima.
           </p>
         </div>

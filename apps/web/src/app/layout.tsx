@@ -27,29 +27,29 @@ const siteUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").rep
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Moedin.IA — seu dinheiro, sem mistério",
-    template: "%s — Moedin.IA",
+    default: "Moedin-IA — seu dinheiro, sem mistério",
+    template: "%s — Moedin-IA",
   },
   description:
     "Registre gastos pelo WhatsApp em segundos e acompanhe seu mês num painel claro. Controle financeiro pessoal com IA, sem planilha e sem economês.",
-  applicationName: "Moedin.IA",
+  applicationName: "Moedin-IA",
   keywords: ["controle financeiro", "finanças pessoais", "gastos", "WhatsApp", "orçamento", "IA"],
-  authors: [{ name: "Equipe Moedin" }],
+  authors: [{ name: "Equipe Moedin-IA" }],
   // Sem `alternates.canonical` global: ele era herdado por TODA página e fazia
   // /termos declarar a home como canônica. Cada página pública define o seu.
   openGraph: {
     type: "website",
     locale: "pt_BR",
     url: siteUrl,
-    siteName: "Moedin.IA",
-    title: "Moedin.IA — seu dinheiro, sem mistério",
+    siteName: "Moedin-IA",
+    title: "Moedin-IA — seu dinheiro, sem mistério",
     description:
       "Registre gastos pelo WhatsApp e acompanhe seu mês num painel claro. Controle financeiro pessoal com IA.",
-    images: [{ url: "/moedinhagrande.png", width: 512, height: 512, alt: "Moedin.IA" }],
+    images: [{ url: "/moedinhagrande.png", width: 512, height: 512, alt: "Moedin-IA" }],
   },
   twitter: {
     card: "summary",
-    title: "Moedin.IA — seu dinheiro, sem mistério",
+    title: "Moedin-IA — seu dinheiro, sem mistério",
     description: "Controle financeiro pessoal com IA e WhatsApp.",
     images: ["/moedinhagrande.png"],
   },

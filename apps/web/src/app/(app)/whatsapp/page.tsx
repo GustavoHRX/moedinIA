@@ -121,7 +121,7 @@ export default function WhatsAppPage() {
             title="Conexão"
             description={
               WHATSAPP_CONFIGURED
-                ? `Assistente do Moedin.IA no ${whatsappNumberDisplay()}.`
+                ? `Assistente do Moedin-IA no ${whatsappNumberDisplay()}.`
                 : "O número do assistente ainda não foi configurado neste ambiente."
             }
           />

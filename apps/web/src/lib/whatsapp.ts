@@ -2,7 +2,7 @@
  * Ponte entre o painel e o assistente do WhatsApp.
  *
  * Antes desta versão o site nunca dizia QUAL número procurar: o perfil mandava
- * "abra a conversa com o Moedin.IA" e mostrava o código, mas o número não
+ * "abra a conversa com o Moedin-IA" e mostrava o código, mas o número não
  * existia em lugar nenhum do projeto. Quem criava conta não tinha como começar.
  *
  * O número vem de NEXT_PUBLIC_WHATSAPP_NUMBER (precisa estar na Vercel também).
@@ -34,6 +34,6 @@ export function whatsappNumberDisplay(): string {
 export function whatsappDeepLink(code?: string | null): string {
   const texto = code
     ? `Olá, este é o meu código de ativação: ${code}`
-    : "Olá! Quero ativar o Moedin.IA.";
+    : "Olá! Quero ativar o Moedin-IA.";
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(texto)}`;
 }
