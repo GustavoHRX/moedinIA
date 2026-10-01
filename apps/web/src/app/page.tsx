@@ -200,7 +200,7 @@ export default async function LandingPage() {
               Mandou no WhatsApp,{" "}
               <span className="relative inline-block text-[var(--primary)]">
                 tá anotado.
-                <Sparkles className="absolute -right-6 -top-3 h-5 w-5 text-[var(--mint)] motion-reduce:hidden" strokeWidth={2.4} />
+                <Sparkles aria-hidden="true" className="absolute -right-[0.5em] top-[0.08em] h-[0.4em] w-[0.4em] text-[var(--mint)] motion-reduce:hidden" strokeWidth={2.4} />
               </span>
             </h1>
             <p data-hero-sub className="mt-6 max-w-xl text-base font-medium leading-8 text-[var(--muted)] sm:text-lg">
