@@ -2,9 +2,9 @@
 
 Workflow: `n8n/workflow/moedin-agente-v2.json` · id no n8n local: `MoedinAgenteV2aa`
 (http://localhost:5678/workflow/MoedinAgenteV2aa) · path do webhook: `POST /webhook/moedin-agente`.
-System prompt: `n8n/SYSTEM-PROMPT-AGENTE-V2.md` · Migrations: `022` a `031` em `supabase/migrations/`.
+System prompt: `n8n/SYSTEM-PROMPT-AGENTE-V2.md` · Migrations: `022` a `033` em `supabase/migrations/`.
 
-**Versão atual: v2.10** (20/09/2026) — 102 nós, 27 ferramentas. O que mudou depois da v2 original
+**Versão atual: v2.14** (30/09/2026) — 102 nós, 26 ferramentas. O que mudou depois da v2 original
 está nas seções 10 a 16 e 18, em ordem cronológica; o começo deste documento descreve o desenho que
 continua valendo.
 
@@ -800,3 +800,18 @@ com a linha 🚨 do limite geral, repassada pelo agente. O lançamento de teste 
 **Fora do escopo por enquanto:** o aviso vale para `criar_lancamento`. Importar fatura, editar valor e criar
 parcelamento também podem estourar limite e não avisam — a função `whatsapp_limit_alert` já está pronta para ser
 chamada desses lugares.
+
+### Ajustes no agente (mesmo dia, publicado junto)
+
+- **Saiu a ferramenta `configurar_alertas`** (26 ferramentas, 102 nós). Ela só ligava e desligava alertas que não
+  existem mais, e a descrição dela convidava o modelo a usar. O prompt agora diz que o Moedin não manda mensagem por
+  conta própria; "para de me mandar alertas" recebe essa explicação em uma linha, sem chamar ferramenta.
+- **Corrigido o "excluir o <nome>".** O prompt trazia o texto-modelo `*excluir o <nome>*`, e às vezes o modelo copiava
+  o `<nome>` ao pé da letra. O exemplo agora é concreto ("excluir o Uber", trocando pela descrição registrada), com a
+  proibição explícita de escrever sinais de menor/maior.
+- A regra das linhas de aviso ficou mais firme: copiar exatamente como vieram e, com vários lançamentos, não repetir a
+  mesma linha.
+
+Testado no bot local: "para de me mandar alertas" → explicação de uma linha; "gastei 350 … e 12 …" → aviso só no gasto
+alto e "excluir o ZZ cafe teste" no fim; bateria de segurança 12/12. Lançamentos de teste apagados.
+
