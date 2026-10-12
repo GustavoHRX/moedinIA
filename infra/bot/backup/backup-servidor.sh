@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Backup do bot do Moedin.IA. RODA NO SERVIDOR (home lab). Agendado no cron às 03:30 e
+# Backup do bot do Moedin-IA. RODA NO SERVIDOR (home lab). Agendado no cron às 03:30 e
 # disparado também pelo Mac às 20h (puxar-backup.sh), para a cópia do dia ser fresca.
 #
 # Gera ~/backups/moedin-AAAAMMDD-HHMM.tar.gz.gpg contendo:

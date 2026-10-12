@@ -11,7 +11,7 @@ GUARDAR="${GUARDAR:-14}"
 SSH=(ssh -o BatchMode=yes -o ConnectTimeout=15 -i "$CHAVE")
 mkdir -p "$DEST"; LOG="$DEST/puxar.log"
 log() { echo "$(date '+%F %T') $*" | tee -a "$LOG"; }
-falha() { log "FALHA: $*"; osascript -e "display notification \"$*\" with title \"Backup do Moedin.IA falhou\"" 2>/dev/null || true; exit 1; }
+falha() { log "FALHA: $*"; osascript -e "display notification \"$*\" with title \"Backup do Moedin-IA falhou\"" 2>/dev/null || true; exit 1; }
 
 log "início"
 "${SSH[@]}" "$ALVO" 'bash ~/backup/backup.sh' >>"$LOG" 2>&1 || log "aviso: não consegui gerar backup novo agora; vou trazer os que existem"

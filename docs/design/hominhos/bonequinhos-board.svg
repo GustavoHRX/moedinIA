@@ -108,5 +108,5 @@
   <text x="1120" y="340" fill="#F2F6F4" font-size="20" font-weight="600" text-anchor="middle">Timachi</text>
   <text x="1120" y="364" fill="#5A6B63" font-size="13" text-anchor="middle">óculos + barba + lapela</text>
 
-  <text x="60" y="400" fill="#5A6B63" font-size="12">No hover do site, o anel do badge gira 360° (coin-flip, 600ms spring) · SVG · Moedin.IA</text>
+  <text x="60" y="400" fill="#5A6B63" font-size="12">No hover do site, o anel do badge gira 360° (coin-flip, 600ms spring) · SVG · Moedin-IA</text>
 </svg>

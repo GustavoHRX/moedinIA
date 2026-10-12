@@ -1,4 +1,4 @@
-# Onde estão o Redis e as expressões regulares no Moedin.IA
+# Onde estão o Redis e as expressões regulares no Moedin-IA
 
 Levantamento feito em 22/09/2026, lendo o código (não de memória). Os caminhos são relativos à raiz do
 repositório. Serve de referência para manutenção e para a parte de técnicas empregadas do TCC.
@@ -53,7 +53,7 @@ Aparecem em quatro papéis bem distintos. Nenhum é decorativo.
 | `Rota rápida?` | **Roteamento determinístico.** Responde saudação, ajuda, link do painel, agradecimento e pedido de relatório em PDF **sem chamar a IA**. Também resolve o mês citado ("agosto", "mês passado", virada de ano). |
 | `Normalizar payload` | Extrai o número do `remoteJid` (dígitos), identifica o tipo (texto/imagem/áudio/PDF) e descarta grupo, mensagem própria e de sistema. |
 | `Interpretar documento` | **Sanitização**: tira caractere de controle e as sequências `[[` e `]]` do texto lido de PDF ou foto, e trunca os campos. |
-| `Guarda de saída` | **Filtro de saída**: acha e remove link que não seja do Moedin.IA antes de enviar. |
+| `Guarda de saída` | **Filtro de saída**: acha e remove link que não seja do Moedin-IA antes de enviar. |
 | `Montar PDF` | Escapar texto, quebrar linha e mapear acento (WinAnsi) no gerador de PDF escrito à mão. |
 
 Antes de comparar qualquer coisa, a rota rápida normaliza o texto: minúscula, sem acento, sem pontuação,

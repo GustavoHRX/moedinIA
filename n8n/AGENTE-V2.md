@@ -1,4 +1,4 @@
-# Moedin.IA — Agente de WhatsApp v2 (n8n)
+# Moedin-IA — Agente de WhatsApp v2 (n8n)
 
 Workflow: `n8n/workflow/moedin-agente-v2.json` · id no n8n local: `MoedinAgenteV2aa`
 (http://localhost:5678/workflow/MoedinAgenteV2aa) · path do webhook: `POST /webhook/moedin-agente`.
@@ -658,7 +658,7 @@ de controle e as sequências `[[` / `]]`, e é truncado — descrição 60, resu
 descrição com um parágrafo de instruções vira um pedaço de frase sem efeito, e é isso que vai para o banco na importação.
 
 **3. Guarda de saída** (nó `Guarda de saída`, entre `Resposta final` e o envio): apaga **todo link que não seja do
-Moedin.IA** (`moedin-ia.com.br`, o host de `MOEDIN_APP_URL`, `moedin-ia.vercel.app`, `wa.me`), tira marcas internas que
+Moedin-IA** (`moedin-ia.com.br`, o host de `MOEDIN_APP_URL`, `moedin-ia.vercel.app`, `wa.me`), tira marcas internas que
 tenham vazado e corta a resposta em 3500 caracteres. É determinístico: mesmo que o modelo seja convencido, o link do
 golpe não chega ao usuário. Vale também para a rota rápida, porque as duas passam por ali.
 

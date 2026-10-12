@@ -1,8 +1,8 @@
-# Relatório de refinamento do frontend Moedin.IA
+# Relatório de refinamento do frontend Moedin-IA
 
 ## Resumo
 
-Foi refinado o visual interno do Moedin.IA com foco em aparência premium, consistência de tema claro/escuro, sidebar mais forte e criação da tela de planos.
+Foi refinado o visual interno do Moedin-IA com foco em aparência premium, consistência de tema claro/escuro, sidebar mais forte e criação da tela de planos.
 
 As alterações preservaram autenticação, banco, categorias, lançamentos, filtros e regras de negócio existentes.
 
@@ -21,7 +21,7 @@ As alterações preservaram autenticação, banco, categorias, lançamentos, fil
 Alterações realizadas:
 
 - Sidebar desktop com altura total.
-- Logo completo do Moedin.IA maior no topo.
+- Logo completo do Moedin-IA maior no topo.
 - Badge `Finance + IA` no bloco de marca.
 - Menu lateral com ícones `lucide-react`.
 - Item ativo com contraste legível em tema claro e escuro.

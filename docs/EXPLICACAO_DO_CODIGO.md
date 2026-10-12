@@ -1,10 +1,10 @@
-# Explicacao do Codigo - Moedin.IA
+# Explicacao do Codigo - Moedin-IA
 
-Este documento explica, de forma pratica, como o codigo do projeto Moedin.IA esta organizado e como as principais partes se conectam.
+Este documento explica, de forma pratica, como o codigo do projeto Moedin-IA esta organizado e como as principais partes se conectam.
 
 ## 1. Visao geral do projeto
 
-O Moedin.IA e uma aplicacao de controle financeiro pessoal com:
+O Moedin-IA e uma aplicacao de controle financeiro pessoal com:
 
 - frontend web em Next.js;
 - autenticacao e banco pelo Supabase;
@@ -80,7 +80,7 @@ Isso significa que todas as paginas do sistema passam pelo provedor de tema e po
 apps/web/src/app/page.tsx
 ```
 
-E a landing page publica. Ela mostra a apresentacao do Moedin.IA, beneficios, chamada para login e cadastro.
+E a landing page publica. Ela mostra a apresentacao do Moedin-IA, beneficios, chamada para login e cadastro.
 
 ```text
 apps/web/src/app/(auth)

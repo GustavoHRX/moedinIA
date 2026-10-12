@@ -14,7 +14,7 @@ tirar isso.
 
 ## Product Purpose
 
-Moedin.IA é um assistente financeiro pessoal com IA: registra pelo WhatsApp,
+Moedin-IA é um assistente financeiro pessoal com IA: registra pelo WhatsApp,
 organiza automaticamente e mostra tudo num dashboard claro. Híbrido de verdade
 (chat + painel) é o diferencial competitivo. Sucesso = usuário registra sem
 fricção e entende o próprio mês num olhar.

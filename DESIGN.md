@@ -1,6 +1,6 @@
 # Design
 
-Fonte de verdade visual: Brand Book Moedin.IA v1.3 (tokens na pág. 12) +
+Fonte de verdade visual: Brand Book Moedin-IA v1.3 (tokens na pág. 12) +
 `apps/web/src/app/globals.css`.
 
 ## Theme

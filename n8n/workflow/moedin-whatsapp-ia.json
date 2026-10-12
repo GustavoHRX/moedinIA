@@ -1,5 +1,5 @@
 {
-  "name": "Moedin.IA - Lancamento por WhatsApp (IA, Redis, Supabase)",
+  "name": "Moedin-IA - Lancamento por WhatsApp (IA, Redis, Supabase)",
   "nodes": [
     {
       "parameters": {
@@ -257,7 +257,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={ \"number\": \"{{ $('global').item.json.telefone }}\", \"text\": \"👋 *Bem-vindo ao Moedin.IA*\\n\\nEsse WhatsApp ainda não está vinculado à sua conta.\\n\\nPra ativar é rapidinho:\\n\\n1️⃣  Crie sua conta em *moedin.ia.com*\\n\\n2️⃣  No seu *perfil*, copie o seu *código de ativação*\\n\\n3️⃣  Me mande esse código aqui\\n\\nAí eu ativo na hora e você já começa a registrar seus gastos! ✨\" }",
+        "jsonBody": "={ \"number\": \"{{ $('global').item.json.telefone }}\", \"text\": \"👋 *Bem-vindo ao Moedin-IA*\\n\\nEsse WhatsApp ainda não está vinculado à sua conta.\\n\\nPra ativar é rapidinho:\\n\\n1️⃣  Crie sua conta em *moedin.ia.com*\\n\\n2️⃣  No seu *perfil*, copie o seu *código de ativação*\\n\\n3️⃣  Me mande esse código aqui\\n\\nAí eu ativo na hora e você já começa a registrar seus gastos! ✨\" }",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -1137,7 +1137,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={ \"number\": \"{{ $('global').item.json.telefone }}\", \"text\": \"Oi! 💰 Eu sou o Moedin.IA. Me conta seus gastos (ex: 'gastei 50 no mercado'), pergunta 'quanto gastei esse mês' ou peça pra excluir um lançamento.\" }",
+        "jsonBody": "={ \"number\": \"{{ $('global').item.json.telefone }}\", \"text\": \"Oi! 💰 Eu sou o Moedin-IA. Me conta seus gastos (ex: 'gastei 50 no mercado'), pergunta 'quanto gastei esse mês' ou peça pra excluir um lançamento.\" }",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -1153,7 +1153,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ ok: true, mensagem: 'Oi! Sou o Moedin.IA. Me manda um gasto, pergunta quanto gastou no mes ou peca pra excluir.' }) }}",
+        "responseBody": "={{ JSON.stringify({ ok: true, mensagem: 'Oi! Sou o Moedin-IA. Me manda um gasto, pergunta quanto gastou no mes ou peca pra excluir.' }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
@@ -1425,7 +1425,7 @@
     },
     {
       "parameters": {
-        "content": "# 🪙 Moedin.IA — Fluxo do WhatsApp\nCada bloco colorido abaixo é um SETOR do fluxo. Siga a ordem dos números.",
+        "content": "# 🪙 Moedin-IA — Fluxo do WhatsApp\nCada bloco colorido abaixo é um SETOR do fluxo. Siga a ordem dos números.",
         "height": 110,
         "width": 900,
         "color": 7

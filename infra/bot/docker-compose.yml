@@ -1,4 +1,4 @@
-# Moedin.IA — o bot do WhatsApp rodando num servidor, sem depender do Mac.
+# Moedin-IA — o bot do WhatsApp rodando num servidor, sem depender do Mac.
 #
 # São só os quatro serviços que o assistente precisa. O painel está na Vercel e
 # o ai-service não é usado pelo agente v2, então nenhum dos dois vem para cá.

@@ -1,6 +1,6 @@
-# Moedin.IA
+# Moedin-IA
 
-Moedin.IA é uma plataforma de gestão financeira pessoal com dashboard web, histórico de lançamentos, planejamento mensal, gastos fixos, parcelamentos, metas, perfil, planos e integração com IA, WhatsApp, n8n, Evolution API e Supabase.
+Moedin-IA é uma plataforma de gestão financeira pessoal com dashboard web, histórico de lançamentos, planejamento mensal, gastos fixos, parcelamentos, metas, perfil, planos e integração com IA, WhatsApp, n8n, Evolution API e Supabase.
 
 Esta versão está publicada na branch:
 
@@ -33,7 +33,7 @@ git checkout versionjune26
 
 ## Visão geral
 
-O Moedin.IA usa Supabase Auth para autenticação, Supabase/PostgreSQL com RLS para isolamento dos dados por usuário e Next.js App Router para o frontend. A aplicação trabalha com dados financeiros pessoais e, por isso, prioriza:
+O Moedin-IA usa Supabase Auth para autenticação, Supabase/PostgreSQL com RLS para isolamento dos dados por usuário e Next.js App Router para o frontend. A aplicação trabalha com dados financeiros pessoais e, por isso, prioriza:
 
 - sessão autenticada;
 - rotas privadas protegidas por proxy/middleware;
@@ -314,7 +314,7 @@ O arquivo versionado `.env.example` contém apenas placeholders. Não coloque ch
 ### Variáveis públicas do web app
 
 ```env
-NEXT_PUBLIC_APP_NAME=Moedin.IA
+NEXT_PUBLIC_APP_NAME=Moedin-IA
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your-publishable-key

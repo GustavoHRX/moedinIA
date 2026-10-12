@@ -1,4 +1,4 @@
-# Bot do Moedin.IA fora do Mac: home lab
+# Bot do Moedin-IA fora do Mac: home lab
 
 **Estado atual (20/09/2026): o bot roda no servidor de casa, não no Mac.** Este diretório documenta o
 que está no ar, como publicar mudanças e como recriar tudo num servidor novo se um dia for preciso.

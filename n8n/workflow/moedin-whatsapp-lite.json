@@ -1,5 +1,5 @@
 {
-  "name": "Moedin.IA - WhatsApp LITE (texto -> banco)",
+  "name": "Moedin-IA - WhatsApp LITE (texto -> banco)",
   "nodes": [
     {
       "parameters": {
@@ -317,7 +317,7 @@
     },
     {
       "parameters": {
-        "content": "## Moedin.IA - WhatsApp LITE\n\nVersao simples e facil de rodar: so usa **variaveis de ambiente** (sem credenciais no n8n, sem Redis).\n\nFluxo: Webhook -> identifica usuario pelo telefone -> ai-service interpreta o texto -> grava em transactions -> aparece no site.\n\n**Env necessarias (ja no docker-compose):** SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, AI_SERVICE_URL\n\n**Testar:**\nPOST {webhook}/webhook/moedin-whatsapp\n```\n{ \"telefone\": \"5511999999999\", \"text\": \"gastei 50 no mercado\" }\n```\nObs: funciona sem OpenAI (parser por regra). Com OPENAI_API_KEY no ai-service, fica mais esperto.",
+        "content": "## Moedin-IA - WhatsApp LITE\n\nVersao simples e facil de rodar: so usa **variaveis de ambiente** (sem credenciais no n8n, sem Redis).\n\nFluxo: Webhook -> identifica usuario pelo telefone -> ai-service interpreta o texto -> grava em transactions -> aparece no site.\n\n**Env necessarias (ja no docker-compose):** SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, AI_SERVICE_URL\n\n**Testar:**\nPOST {webhook}/webhook/moedin-whatsapp\n```\n{ \"telefone\": \"5511999999999\", \"text\": \"gastei 50 no mercado\" }\n```\nObs: funciona sem OpenAI (parser por regra). Com OPENAI_API_KEY no ai-service, fica mais esperto.",
         "height": 360,
         "width": 520,
         "color": 4

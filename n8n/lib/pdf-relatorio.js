@@ -81,14 +81,14 @@ function construirPdfRelatorio(d) {
     fecharPagina();
     if (comCabecalho) {
       retangulo(0, ALT - 86, LARG, 86, VERDE);
-      texto('Moedin.IA', MARGEM, ALT - 46, 22, true, [1, 1, 1]);
+      texto('Moedin-IA', MARGEM, ALT - 46, 22, true, [1, 1, 1]);
       texto('Relatório de ' + d.titulo_mes, MARGEM, ALT - 68, 12, false, [1, 1, 1]);
       textoDireita(d.nome || '', LARG - MARGEM, ALT - 46, 11, true, [1, 1, 1]);
       textoDireita(d.periodo || '', LARG - MARGEM, ALT - 64, 9, false, [1, 1, 1]);
       y = ALT - 116;
     } else {
       retangulo(0, ALT - 34, LARG, 34, VERDE);
-      texto('Moedin.IA  ·  ' + d.titulo_mes, MARGEM, ALT - 22, 10, true, [1, 1, 1]);
+      texto('Moedin-IA  ·  ' + d.titulo_mes, MARGEM, ALT - 22, 10, true, [1, 1, 1]);
       y = ALT - 62;
     }
   }

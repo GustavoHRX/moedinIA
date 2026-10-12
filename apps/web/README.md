@@ -1,6 +1,6 @@
-# Moedin.IA Web
+# Moedin-IA Web
 
-Aplicação frontend do Moedin.IA, construída com Next.js 16, React 19, TypeScript, Tailwind CSS 4, Supabase SSR, Recharts e lucide-react.
+Aplicação frontend do Moedin-IA, construída com Next.js 16, React 19, TypeScript, Tailwind CSS 4, Supabase SSR, Recharts e lucide-react.
 
 Leia também o README da raiz do repositório para configuração completa de Supabase, migrations, Docker, n8n e LGPD.
 

@@ -1,10 +1,10 @@
-# Auditoria técnica de privacidade e LGPD - Moedin.IA
+# Auditoria técnica de privacidade e LGPD - Moedin-IA
 
 > Este documento é uma auditoria técnica e não constitui aconselhamento jurídico. A validação final de bases legais, textos contratuais, política de privacidade e termos deve ser feita com apoio jurídico.
 
 ## 1. Resumo executivo
 
-O projeto Moedin.IA possui uma base técnica inicial positiva para privacidade e proteção de dados: usa Supabase Auth, sessão por cookies via `@supabase/ssr`, middleware/proxy para rotas privadas, RLS nas tabelas financeiras principais e queries filtradas por usuário autenticado.
+O projeto Moedin-IA possui uma base técnica inicial positiva para privacidade e proteção de dados: usa Supabase Auth, sessão por cookies via `@supabase/ssr`, middleware/proxy para rotas privadas, RLS nas tabelas financeiras principais e queries filtradas por usuário autenticado.
 
 Os pontos mais importantes a evoluir são direitos do titular, documentação de incidentes, controle do uso futuro de IA/WhatsApp e endurecimento de ambientes com n8n/service role. O aceite de Termos de Uso e Política de Privacidade já possui persistência técnica em `user_settings`, mantendo `localStorage` apenas como apoio de UX.
 

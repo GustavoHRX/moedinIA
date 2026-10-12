@@ -1,5 +1,5 @@
 """
-Moedin.IA - Serviço de IA
+Moedin-IA - Serviço de IA
 
 Responsável por interpretar mensagens financeiras (texto, imagem de comprovante
 e áudio) e devolver uma estrutura padronizada que o n8n grava em `transactions`.
@@ -94,7 +94,7 @@ INCOME_HINTS = [
     "caiu na conta", "investimento rendeu",
 ]
 
-app = FastAPI(title="Moedin.IA - AI Service")
+app = FastAPI(title="Moedin-IA - AI Service")
 
 # Autenticação por token compartilhado (revisão de código, set/2026).
 # CORS não protege nada aqui: é política de navegador, e `curl` ou qualquer
@@ -292,7 +292,7 @@ def fallback_parse(text: str) -> dict:
 # ---------------------------------------------------------------------------
 def build_system_prompt() -> str:
     return (
-        "Você é um interpretador de mensagens financeiras do app Moedin.IA. "
+        "Você é um interpretador de mensagens financeiras do app Moedin-IA. "
         "Receba uma frase em português e devolva APENAS um JSON puro (sem markdown) com as chaves: "
         "tipo, valor, categoria, descricao, data.\n"
         "REGRA DO TIPO (muito importante): o padrão é SEMPRE 'expense' (despesa). "
@@ -760,7 +760,7 @@ def parse_audio(body: AudioIn):
 
 
 INSIGHT_SYSTEM_PROMPT = (
-    "Você é o Moedin.IA, um amigo que entende de grana. Receberá um resumo do mês "
+    "Você é o Moedin-IA, um amigo que entende de grana. Receberá um resumo do mês "
     "financeiro de uma pessoa. Responda com UMA observação curta (máx. 2 frases, "
     "até 220 caracteres) em português do dia a dia: direta, acolhedora, sem "
     "julgamento, sem economês, sem emoji. Aponte o padrão mais útil (categoria "
