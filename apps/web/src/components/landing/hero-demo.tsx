@@ -296,7 +296,7 @@ export default function HeroDemo() {
               </div>
               <div>
                 <p className="font-bold">Moedin-IA</p>
-                <p className="text-xs font-bold text-white/70">{typing ? "digitando..." : "online agora"}</p>
+                <p className="text-xs font-bold text-white/85">{typing ? "digitando..." : "online agora"}</p>
               </div>
             </div>
 
