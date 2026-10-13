@@ -24,8 +24,9 @@ fricção e entende o próprio mês num olhar.
 Amigável, tecnológico, direto. "Seu dinheiro, sem mistério." Amigo que entende
 de grana — nunca robótico, nunca banqueiro engravatado, nunca julgador.
 Referências: Claude/Anthropic (calor humano, tipografia generosa) e Manus IA
-(dark elegante, um acento vibrante único). Mascotes line-art ("bonequinhos
-Moedin") dão o carisma.
+(dark elegante, um acento vibrante único). Os mascotes line-art ("bonequinhos
+Moedin") fazem parte da marca; saíram das telas em setembro de 2026 e o código deles
+foi mantido para uso futuro.
 
 ## Anti-references
 

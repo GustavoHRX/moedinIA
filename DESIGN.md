@@ -37,14 +37,15 @@ Dark-first esverdeado (nunca preto puro). Tema claro derivado existe via
 
 Tokens: `--dur-fast` 150ms · `--dur-base` 250ms · `--dur-slow` 450ms ·
 `--ease-out` cubic-bezier(.16,1,.3,1) · `--ease-spring` cubic-bezier(.34,1.56,.64,1).
-As 8 animações da marca (book pág. 08): coin-flip, count-up, chart-grow,
-typing-dots, glow-pulse (só CTA hero), pop-in, slide-fade, celebrate.
+O book (pág. 08) define 8 animações. No código hoje: coin-flip, typing-dots e
+pop-in em CSS (`globals.css`); count-up em `animated-money.tsx` e celebrate em
+`celebrate.tsx`. O glow-pulse do book não é usado.
 Regras: máx. 1 loop por tela · nada acima de 600ms · `prefers-reduced-motion` obrigatório.
 
 ## Components
 
 - UI kit: `apps/web/src/components/ui-kit.tsx` (Surface, PageHeader, StatCard…).
-- Mascotes: `apps/web/src/components/hominhos.tsx` + `hominho-tip.tsx`
+- Mascotes (fora das telas desde set/2026, código mantido): `apps/web/src/components/hominhos.tsx` + `hominho-tip.tsx`
   (line-art menta 2.2, badge com 5 frisos; arte canônica em
   `docs/design/hominhos/`).
 - Gráficos Recharts: barras topo 6px raio, largura máx 32px; donut 12–16px de

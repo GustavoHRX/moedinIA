@@ -1,112 +1,44 @@
-# n8n local
+# n8n — o bot do Moedin-IA
 
-Este diretório guarda a instalação local do n8n usada pelo Docker Compose.
+Esta pasta guarda os workflows do bot de WhatsApp e a documentação dele.
 
-- `data/`: banco SQLite, credenciais e configurações locais do n8n. Não versionar.
-- `workflow/`: espaço para exportar/importar workflows em JSON.
-- `files/`: arquivos locais que workflows podem ler em `/files` dentro do container. Não versionar.
+| Caminho | O que é |
+|---|---|
+| `workflow/moedin-agente-v2.json` | O agente: recebe a mensagem, identifica o usuário, lê mídia e chama as ferramentas. **v2.14**, 102 nós, 26 ferramentas. Webhook: `POST /webhook/moedin-agente`. |
+| `workflow/moedin-erros.json` | Disparado quando o agente falha: avisa o número configurado em `N8N_ALERT_WA_ID`. |
+| `workflow/moedin-alertas-diarios.json` | Hoje só atualiza as cotações de câmbio às 7h10. Os gatilhos de alerta das 9h e do resumo de domingo estão desligados: o bot não manda mensagem por iniciativa própria. **Não apagar**: sem ele a conversão de moeda estrangeira para de atualizar. |
+| `AGENTE-V2.md` | Arquitetura, decisões, testes e histórico de versões do agente. |
+| `SYSTEM-PROMPT-AGENTE-V2.md` | O prompt do agente. É idêntico ao que está dentro do workflow. |
+| `lib/pdf-relatorio.js` | Fonte do gerador de PDF do relatório. O mesmo código está colado no nó "Montar PDF". |
+| `data/`, `files/` | Banco local do n8n e arquivos de teste. Não são versionados. |
 
-## Rodar
+As versões antigas do bot (v0 e v1) estão em [`../historico/`](../historico/LEIA.md).
 
-Na raiz do projeto:
+## Onde o bot roda
 
-```bash
-docker compose up -d n8n
-```
+Em produção, num servidor doméstico, junto com a Evolution API e o Redis. O que está no ar, como publicar e como fazer backup está em [`../infra/bot/README.md`](../infra/bot/README.md).
 
-Acesse:
-
-```text
-http://localhost:5678
-```
-
-## Agente de WhatsApp v2 (atual)
-
-Workflow ativo em produção local: `workflow/moedin-agente-v2.json` — **v2.6**, 98 nós e 24 tools
-que chamam RPCs do Supabase. Documentação completa, testes e limitações em **`AGENTE-V2.md`**;
-system prompt em `SYSTEM-PROMPT-AGENTE-V2.md`. Endpoint: `POST /webhook/moedin-agente`.
-
-Dois workflows acompanham: `workflow/moedin-alertas-diarios.json` (vencimento e limite às 9h,
-resumo semanal domingo 20h, cotações de câmbio às 7h10) e `workflow/moedin-erros.json`.
-
-> **Editar não basta: tem que publicar.** O n8n 2.36 separa rascunho de versão publicada, e o
-> webhook continua executando a publicada. Depois de importar ou editar, clique em **Publish**.
-
-> **Antes de mexer na "Rota rápida?"**, leia a seção 13 do `AGENTE-V2.md`: respostas curtas como
-> "ok", "tudo" e "sim" precisam continuar indo para o agente, senão a confirmação de importação de
-> fatura quebra.
-
-> Nunca abra `data/database.sqlite` com `sqlite3` no host nem rode `n8n import/update` pelo CLI
-> com o container rodando — corrompeu o banco em 08/09/2026 (ver `AGENTE-V2.md`, seção 8).
-
-## Workflow do TCC (v0, histórico)
-
-Workflow importado:
-
-```text
-Moedin TCC - Lancamento financeiro por webhook
-```
-
-Arquivo:
-
-```text
-n8n/workflow/moedin-tcc-lancamento-financeiro.json
-```
-
-Endpoint ativo:
-
-```text
-POST http://localhost:5678/webhook/moedin-tcc-lancamento
-```
-
-Payload esperado:
-
-```json
-{
-  "user_id": "uuid-do-usuario-no-supabase",
-  "text": "gastei R$ 35,90 no mercado hoje",
-  "external_id": "msg-001"
-}
-```
-
-Exemplos de mensagens aceitas:
-
-```text
-gastei R$ 35,90 no mercado hoje
-paguei 120,00 de internet em 04/05/2026
-recebi R$ 2500,00 de salario
-```
-
-O workflow:
-
-1. Recebe a mensagem por webhook.
-2. Extrai valor, tipo, data e descricao.
-3. Registra a mensagem em `message_logs`.
-4. Cria o lancamento em `transactions` com `source = n8n`.
-5. Responde com o JSON processado.
-
-Para gravar no Supabase, preencha no `.env`:
-
-```env
-SUPABASE_SERVICE_ROLE_KEY=
-```
-
-Depois reinicie o n8n:
+Para publicar uma mudança:
 
 ```bash
-docker compose restart n8n
+bash infra/bot/publicar-workflow.sh n8n/workflow/moedin-agente-v2.json
 ```
 
-## Logs
+## Três cuidados
+
+1. **Salvar não basta, tem que publicar.** O n8n separa rascunho de versão publicada, e o webhook executa a publicada.
+2. **Nunca abrir `data/database.sqlite` pelo computador com o container ligado**, nem rodar `n8n import` com ele ligado. Isso já corrompeu o banco uma vez (seção 8 do `AGENTE-V2.md`). Importar só pela tela do n8n ou com o container parado.
+3. **Antes de mexer no nó "Rota rápida?"**, ler a seção 13 do `AGENTE-V2.md`. Respostas curtas como "ok", "tudo" e "sim" precisam continuar indo para o agente, senão a confirmação de importação de fatura quebra.
+
+## Testar no computador
+
+O ambiente de teste troca a Evolution por um simulador, então nada sai pelo WhatsApp:
 
 ```bash
-docker compose logs -f n8n
+docker compose -f docker-compose.yml -f infra/bot/docker-compose.teste-local.yml \
+  up -d --no-deps redis evolution-stub n8n
+bash infra/bot/testar-local.sh "gastei 30 no mercado"
+python3 infra/bot/testes-seguranca.py
 ```
 
-## Parar
-
-```bash
-docker compose stop n8n
-```
-
-Para apagar a instalação local do n8n, pare o container e remova a pasta `n8n/data`.
+O `--no-deps` é obrigatório. O banco é o de produção: apague os lançamentos de teste depois.

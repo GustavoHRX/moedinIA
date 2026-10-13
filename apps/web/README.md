@@ -1,92 +1,50 @@
 # Moedin-IA Web
 
-Aplicação frontend do Moedin-IA, construída com Next.js 16, React 19, TypeScript, Tailwind CSS 4, Supabase SSR, Recharts e lucide-react.
+Painel e landing do Moedin-IA: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, Supabase SSR, Recharts, GSAP e lucide-react.
 
-Leia também o README da raiz do repositório para configuração completa de Supabase, migrations, Docker, n8n e LGPD.
+A visão geral do sistema, as rotas, as variáveis e o deploy estão no [README da raiz](../../README.md). O guia de leitura do código está em [`docs/EXPLICACAO_DO_CODIGO.md`](../../docs/EXPLICACAO_DO_CODIGO.md).
 
-## Rodar localmente
+## Rodar
 
-Crie `apps/web/.env.local` com:
+```bash
+npm install
+npm run dev        # http://localhost:3000 (next dev --webpack)
+```
+
+`.env.local` mínimo:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=sua-chave-publica
 ```
 
-Instale e inicie:
-
-```bash
-npm install
-npm run dev
-```
-
-Acesse:
-
-```text
-http://localhost:3000
-```
+Para exportar dados, excluir conta, o cron e o QR do WhatsApp funcionarem, veja a tabela de variáveis no README da raiz.
 
 ## Scripts
 
 ```bash
-npm run dev
-npm run lint
-npm run build
-npm run start
+npm run lint       # tsc + eslint
+npm test           # vitest
+npx next build --webpack
 ```
 
-## Estrutura principal
+O build precisa listar `ƒ Proxy (Middleware)`: é o `src/proxy.ts` protegendo o painel.
+
+## Estrutura
 
 ```text
-src/app/page.tsx                  # landing page
-src/app/(auth)                    # login, cadastro, recuperar senha, atualizar senha
-src/app/(app)                     # área autenticada
-src/app/api/categories/ensure     # garante categorias padrão por usuário
-src/components                    # componentes compartilhados
-src/lib                           # helpers e clientes Supabase
-src/proxy.ts                      # proxy/middleware do Next 16
+src/app/page.tsx        landing
+src/app/(auth)          login, cadastro, recuperar e atualizar senha
+src/app/(app)           painel (dashboard, historico, fixos, parcelamentos,
+                        categorias, metas, limite, whatsapp, onboarding, perfil)
+src/app/api             account, categories, cron, insight, whatsapp
+src/components          componentes compartilhados e o estado global do painel
+src/lib                 dinheiro, datas, recorrência, clientes do Supabase
+src/proxy.ts            proteção de rotas (o "middleware" do Next 16)
 ```
 
-## Rotas
+## Segurança
 
-Públicas:
-
-```text
-/
-/login
-/cadastro
-/recuperar-senha
-/atualizar-senha
-```
-
-Autenticadas:
-
-```text
-/dashboard
-/historico
-/lancamentos
-/planejamento-mensal
-/gastos-fixos
-/parcelamentos
-/metas
-/perfil
-/planos
-```
-
-## Validação
-
-Antes de commit/deploy:
-
-```bash
-npm run lint
-npm run build
-```
-
-O build deve mostrar `ƒ Proxy (Middleware)`, confirmando que `src/proxy.ts` está ativo.
-
-## Observações de segurança
-
-- O frontend deve usar apenas chaves públicas do Supabase.
-- Não use `SUPABASE_SERVICE_ROLE_KEY` nesta aplicação.
-- `.env.local`, `.next`, `node_modules`, logs e `*.tsbuildinfo` não devem ser versionados.
-- O aceite de Termos/Privacidade usa `localStorage` para UX e `user_settings` no Supabase para usuário logado.
+- No navegador, só chaves públicas do Supabase. A proteção dos dados é o RLS.
+- `SUPABASE_SERVICE_ROLE_KEY` é lida apenas em código de servidor (cron, exclusão de conta e contador da landing) e nunca leva o prefixo `NEXT_PUBLIC_`.
+- `.env.local`, `.next`, `node_modules` e logs não são versionados.

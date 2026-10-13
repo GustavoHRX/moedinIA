@@ -25,7 +25,7 @@ o `ai-service` não é usado.
                   pdf    → getBase64 → OpenAI Responses (input_file) → texto
                   tudo converge no NoOp "Mensagem normalizada"
 4 BUFFER          Redis SET moedin:buf:{wa_id}:{msg_id} (TTL 120s) + SET moedin:last:{wa_id} (TTL 120s)
-                  → Wait 4s → GET last → sou a última (por msg_id)? → KEYS moedin:buf:{wa_id}:*
+                  → Wait 3s → GET last → sou a última (por msg_id)? → KEYS moedin:buf:{wa_id}:*
                   → Consolidar (ordena por chegada, junta) → DEL cada chave
 5 ROTA + AGENTE   Entrada do agente (Set, executeOnce) → Rota rápida? (Code) → Caminho (Switch)
                   saída "texto"  → resposta pronta, sem IA          (setor 6)
@@ -33,11 +33,12 @@ o `ai-service` não é usado.
                   fallback       → AI Agent 3.1
                   + OpenAI Chat Model 1.3 ($env.OPENAI_MODEL, Responses API ON, reasoning low)
                   + Redis Chat Memory 1.6 (moedin:mem:{user_id}, 6 mensagens, TTL 24h)
-                  + 25 HTTP Request Tools → RPCs do Supabase (service_role)
+                  + 26 HTTP Request Tools → RPCs do Supabase (service_role)
                   (log de entrada em message_logs em paralelo)
 5b PDF            whatsapp_report_pdf_data (RPC) → Montar PDF (Code, sem biblioteca)
                   → Evolution sendMedia (document) → message_logs (out) → Respond 200
 6 RESPOSTA        Resposta final (Set) ← agente E rota "texto" convergem aqui
+                  → Guarda de saída (Code: remove link externo e marcas internas, v2.12)
                   → Evolution sendText (onError: continue) → message_logs (out) → Respond 200
 7 ERROS           saídas de erro do agente / mídia / PDF / RPCs de identificação
                   → aviso amigável no WhatsApp → Respond 500
@@ -112,7 +113,7 @@ Idempotente (`create or replace`).
 | `whatsapp_create_installment(user, title, total, installment_amount, count, start_date, category)` | `criar_parcelamento` |
 | `whatsapp_list_recurrences(user, kind)` | `listar_fixos` |
 | `whatsapp_delete_recurrence(user, kind, alvo)` — devolve `ambiguo=true` com candidatos | `excluir_fixo` |
-| `whatsapp_monthly_report` (já existia, 008) | `relatorio_mensal` |
+| `whatsapp_monthly_report` (já existia, 008; desde a v2.2 a ferramenta chama `whatsapp_monthly_report_v2`, da 023) | `relatorio_mensal` |
 | `whatsapp_monthly_limit(user, ref)` | `ver_limite_mensal` |
 | `whatsapp_set_monthly_limit(user, amount, months=13)` — convenção do site | `definir_limite_mensal` |
 | `whatsapp_month_summary(user, ref)` | `resumo_do_mes` |
@@ -159,7 +160,7 @@ limpos no fim (soft-delete/inativação; limite restaurado; vínculo falso remov
 | 21 | Injeção de prompt → não obedece, não vaza | ✅ |
 | — | Resposta chega no WhatsApp real | ✅ ("Oi, João!" no 5519998804130) |
 
-Latência típica: 8–16 s por mensagem (4 s de debounce + modelo com raciocínio + 1–2 tools).
+Latência típica: 8–16 s por mensagem (3 s de debounce desde a v2.2 + modelo com raciocínio + 1–2 tools).
 
 ### Como testar cada capacidade
 
@@ -186,7 +187,8 @@ Para mídia, use o `id` de uma mensagem real (`messageType` `imageMessage`/`audi
   disparar uma auto-resposta que o agente responde (só fora de finanças, sem gravar nada).
 - **v2.1 (publicada 09/09 00:20):** ❌ para gasto, ✅ só para receita, linha "🗑️ Errou? Diga *excluir o
   último*…" após registrar; `whatsapp_delete_transaction` redefinida na 022 (🗑️ e o tipo certo).
-- **Sem Error Trigger workflow.** O tratamento é por saídas de erro dentro do próprio workflow (agente,
+- **Sem Error Trigger workflow** *(resolvido em 09/09, v2.2: `moedin-erros.json` é o error workflow)*. Na
+  entrega original, o tratamento é por saídas de erro dentro do próprio workflow (agente,
   mídia, RPCs de identificação). Um erro num nó não coberto (ex.: Redis fora) derruba a execução sem
   aviso ao usuário. Criar um workflow com *Error Trigger* e apontá-lo em *Settings → Error workflow* é
   ajuste de UI que não fiz.
@@ -201,7 +203,8 @@ Para mídia, use o `id` de uma mensagem real (`messageType` `imageMessage`/`audi
   com data futura entram no limite, não no relatório).
 - `whisper-1` e o link de onboarding (`https://moedin-ia.vercel.app`) estão literais no JSON.
 - **`ai-service` como fallback**: não implementado (o briefing dizia "opcional").
-- **A v1 continua ativa** no n8n no path `moedin-whatsapp` (não conflita); desative quando quiser.
+- **A v1 continua ativa** no n8n no path `moedin-whatsapp` *(desativada em 09/09; o arquivo dela está em
+  `historico/n8n/workflow/`)*.
 - Modelo usa `reasoningEffort: low` para latência; `temperature` não é enviada.
 
 ## 7. Segurança (o que está garantido)
@@ -758,7 +761,7 @@ O gatilho **"Domingo às 20h"** (resumo semanal) do `moedin-alertas-diarios.json
 (desligado em 20/09). **O bot não manda mais nenhuma mensagem por conta própria para os usuários.** O motivo é risco
 de banimento: na Evolution (WhatsApp não oficial), mensagem iniciada pelo número — e não resposta a quem escreveu — é
 o que mais pesa. Segue ligada só a busca de cotações das 7h10, que não envia nada (o câmbio depende dela).
-A ferramenta `configurar_alertas` continua existindo, mas hoje não tem efeito prático.
+A ferramenta `configurar_alertas` ficou sem efeito prático e foi removida no mesmo dia (v2.14, ver abaixo).
 
 ### Aviso de limite junto da confirmação (migration `033`)
 

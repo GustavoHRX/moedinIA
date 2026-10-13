@@ -2,6 +2,17 @@
 
 > Este documento é uma auditoria técnica e não constitui aconselhamento jurídico. A validação final de bases legais, textos contratuais, política de privacidade e termos deve ser feita com apoio jurídico.
 
+> **Atualização — outubro de 2026.** Esta auditoria foi escrita em maio de 2026 e fica aqui como registro do ponto de partida. Desde então, os principais apontamentos foram resolvidos:
+>
+> - **Exportar e excluir conta** existem: `GET /api/account/export` e `POST /api/account/delete`, com botões na tela Perfil (o item 5 da seção de lacunas dizia que não havia).
+> - **Retenção de `message_logs`**: 180 dias, apagados por job diário no banco (`pg_cron`, migration 016 e 034).
+> - **Consentimento** registrado por usuário e por versão em `user_settings`.
+> - **Funções do WhatsApp** fechadas para `anon` e `authenticated` (migrations 014 e 026); a identidade no bot passou a ser só o vínculo por código de ativação.
+> - **Cabeçalhos de segurança e CSP** ativos em produção; rotas de API com limite de requisições.
+> - **RLS** em todas as tabelas, verificada com teste real entre duas contas na revisão final (`docs/REVISAO-FINAL.md`).
+>
+> O que segue aberto: não há trilha de auditoria de alterações, e a CSP ainda permite script inline.
+
 ## 1. Resumo executivo
 
 O projeto Moedin-IA possui uma base técnica inicial positiva para privacidade e proteção de dados: usa Supabase Auth, sessão por cookies via `@supabase/ssr`, middleware/proxy para rotas privadas, RLS nas tabelas financeiras principais e queries filtradas por usuário autenticado.
