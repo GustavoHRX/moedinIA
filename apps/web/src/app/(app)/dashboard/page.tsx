@@ -69,6 +69,8 @@ type DashboardData = {
   budgets: BudgetItem[];
   fixedExpenses: FixedExpense[];
   installments: Installment[];
+  /** Parcelas já lançadas por parcelamento, de qualquer mês (não só da janela). */
+  paidInstallmentCounts: Record<string, number>;
 };
 
 // Gráficos (Recharts) carregados sob demanda — fora do bundle inicial.
@@ -105,6 +107,7 @@ export default function DashboardPage() {
   const [budgets, setBudgets] = useState<BudgetItem[]>([]);
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([]);
   const [installments, setInstallments] = useState<Installment[]>([]);
+  const [paidInstallmentCounts, setPaidInstallmentCounts] = useState<Record<string, number>>({});
   const [chartsReady, setChartsReady] = useState(false);
   // Mês selecionado no seletor. Precisa vir antes de loadDashboard porque a
   // janela de dados carregada depende dele (achado 4.1).
@@ -123,6 +126,7 @@ export default function DashboardPage() {
     setBudgets(data.budgets);
     setFixedExpenses(data.fixedExpenses);
     setInstallments(data.installments);
+    setPaidInstallmentCounts(data.paidInstallmentCounts ?? {});
   }, []);
 
   const loadDashboard = useCallback(async (forceRefresh = false) => {
@@ -162,7 +166,7 @@ export default function DashboardPage() {
     const txSelect =
       "id, type, amount, description, transaction_date, created_at, category_id, origin_type, installment_number, installment_total, fixed_expense_id, installment_id, categories(name)";
 
-    const [transactionsResult, budgetsRes, fixedRes, installmentsRes] =
+    const [transactionsResult, budgetsRes, fixedRes, installmentsRes, paidParcelsResult] =
       await Promise.all([
         fetchAllRows<TransactionItem>((from, to) =>
           supabase
@@ -199,6 +203,24 @@ export default function DashboardPage() {
           .eq("user_id", currentUser.id)
           .eq("is_active", true)
           .order("created_at", { ascending: false }),
+        // Todas as parcelas já lançadas, de qualquer mês. A lista de lançamentos
+        // acima só cobre a janela de 6 meses; contar parcelas nela fazia a
+        // previsão ignorar a parcela deste mês em parcelamentos mais antigos.
+        fetchAllRows<{ installment_id: string | null }>((from, to) =>
+          supabase
+            .from("transactions")
+            .select("id, installment_id")
+            .eq("user_id", currentUser.id)
+            .eq("status", "active")
+            .eq("origin_type", "installment")
+            .order("id", { ascending: true })
+            .range(from, to),
+        )
+          .then((data) => ({ data, error: null as null | { message: string } }))
+          .catch((err: unknown) => ({
+            data: [] as { installment_id: string | null }[],
+            error: { message: err instanceof Error ? err.message : "erro ao carregar parcelas" },
+          })),
       ]);
 
     setLoading(false);
@@ -207,7 +229,8 @@ export default function DashboardPage() {
       transactionsResult.error ||
       budgetsRes.error ||
       fixedRes.error ||
-      installmentsRes.error;
+      installmentsRes.error ||
+      paidParcelsResult.error;
 
     if (error) {
       setMessage(`Erro ao carregar dashboard: ${error.message}`);
@@ -219,6 +242,10 @@ export default function DashboardPage() {
       budgets: (budgetsRes.data ?? []) as BudgetItem[],
       fixedExpenses: (fixedRes.data ?? []) as FixedExpense[],
       installments: (installmentsRes.data ?? []) as Installment[],
+      paidInstallmentCounts: paidParcelsResult.data.reduce<Record<string, number>>((acc, row) => {
+        if (row.installment_id) acc[row.installment_id] = (acc[row.installment_id] ?? 0) + 1;
+        return acc;
+      }, {}),
     };
     applyDashboardData(nextDashboard);
     setFinancialCache(cacheKey, nextDashboard);
@@ -273,17 +300,8 @@ export default function DashboardPage() {
       .filter((fe) => !fixedDoneIds.has(fe.id))
       .reduce((sum, fe) => sum + Number(fe.amount), 0);
 
-    const paidCountByInstallment = new Map<string, number>();
-    for (const t of transactions) {
-      if (t.origin_type === "installment" && t.installment_id) {
-        paidCountByInstallment.set(
-          t.installment_id,
-          (paidCountByInstallment.get(t.installment_id) ?? 0) + 1
-        );
-      }
-    }
     const pendingInstallmentTotal = installments.reduce((sum, item) => {
-      const paidCount = paidCountByInstallment.get(item.id) ?? 0;
+      const paidCount = paidInstallmentCounts[item.id] ?? 0;
       if (paidCount >= item.total_installments) return sum;
       const nextDueDate = addMonthsClamped(item.start_date, paidCount);
       if (nextDueDate.slice(0, 7) !== monthRef.slice(0, 7)) return sum;
@@ -291,7 +309,7 @@ export default function DashboardPage() {
     }, 0);
 
     return balance - pendingFixedTotal - pendingInstallmentTotal;
-  }, [isCurrentMonth, monthlyTransactions, fixedExpenses, transactions, installments, monthRef, balance]);
+  }, [isCurrentMonth, monthlyTransactions, fixedExpenses, installments, paidInstallmentCounts, monthRef, balance]);
 
   const expensesByCategory = useMemo<CategoryTotal[]>(
     () =>
