@@ -26,26 +26,34 @@ if (!rateLimitEnabled && process.env.NODE_ENV === "production") {
 
 const redis = rateLimitEnabled ? new Redis({ url: url!, token: token! }) : null;
 
-function make(tokens: number, window: Parameters<typeof Ratelimit.slidingWindow>[1]) {
+// Cada limiter tem o SEU prefixo. A biblioteca monta a chave no Redis como
+// `prefixo:identificador:janela`; com um prefixo só, dois limiters da mesma
+// janela (insight, export e delete são todos de 1 h) dividiam o contador, e
+// abrir o painel algumas vezes já deixava a exportação de dados em 429.
+function make(
+  name: string,
+  tokens: number,
+  window: Parameters<typeof Ratelimit.slidingWindow>[1],
+) {
   if (!redis) return null;
   return new Ratelimit({
     redis,
     limiter: Ratelimit.slidingWindow(tokens, window),
     analytics: false,
-    prefix: "moedin/rl",
+    prefix: `moedin/rl/${name}`,
   });
 }
 
 /** Perfis de limite por rota. Ajustar os números aqui. */
 export const limiters = {
   // ai-service custa dinheiro por chamada
-  insight: make(20, "1 h"),
+  insight: make("insight", 20, "1 h"),
   // export percorre todas as tabelas do utilizador — pesado
-  export: make(6, "1 h"),
+  export: make("export", 6, "1 h"),
   // ação destrutiva
-  delete: make(4, "1 h"),
+  delete: make("delete", 4, "1 h"),
   // leve, mas evita loop
-  ensure: make(30, "1 m"),
+  ensure: make("ensure", 30, "1 m"),
 };
 
 /**
