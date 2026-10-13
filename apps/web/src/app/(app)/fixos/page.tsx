@@ -7,6 +7,7 @@ import { useAppData } from "@/components/app-data-provider";
 import { useConfirm } from "@/components/confirm-dialog";
 import { SkeletonList } from "@/components/skeleton";
 import { categoryName, type CategoryRelation } from "@/lib/categories";
+import { todayDateInput } from "@/lib/dates";
 import { formatMoneyInputValue, parseMoneyInput } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/client";
 import { Money } from "@/components/money";
@@ -118,7 +119,14 @@ export default function FixosPage() {
       return;
     }
     setExpenses((expRes.data ?? []) as FixedItem[]);
-    setIncomes(incRes.error ? [] : ((incRes.data ?? []) as FixedItem[]));
+
+    // Erro aqui não pode virar lista vazia: a aba mostraria "nenhuma receita
+    // fixa" para quem tem salário cadastrado. Mantém o que já estava na tela.
+    if (incRes.error) {
+      showMessage(`Erro ao carregar receitas fixas: ${incRes.error.message}`, "error");
+      return;
+    }
+    setIncomes((incRes.data ?? []) as FixedItem[]);
   }, [cachedUser, categoriesLoaded, loadingUser, refreshCategories, router, supabase]);
 
   useEffect(() => {
@@ -158,7 +166,8 @@ export default function FixosPage() {
       amount: parsedAmount,
       due_day: parsedDueDay,
       is_active: true,
-      start_date: startDate || null,
+      // Sem data informada, o início é hoje (no fuso do app), nunca nulo.
+      start_date: startDate || todayDateInput(),
       ...(mode === "expense" ? { auto_create_transaction: true } : { kind: "custom" }),
     });
 

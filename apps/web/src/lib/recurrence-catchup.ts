@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { toCompetenceMonth, todayDateInput } from "@/lib/dates";
+import { dateInputInAppTimeZone, toCompetenceMonth, todayDateInput } from "@/lib/dates";
 import { installmentOccurrences, monthlyOccurrences } from "@/lib/recurrence";
 import { splitInstallments } from "@/lib/money";
 import { fetchAllRows } from "@/lib/supabase/paginate";
@@ -162,7 +162,11 @@ export async function catchUpRecurrences(
   const toInsert: NewTransaction[] = [];
 
   for (const fx of fixedList) {
-    const startBase = (fx.start_date ?? fx.created_at).slice(0, 10);
+    // `created_at` é um instante em UTC: a data dele precisa sair no fuso do app,
+    // senão um fixo cadastrado à noite "começa" no dia seguinte e pula o mês.
+    const startBase = fx.start_date
+      ? fx.start_date.slice(0, 10)
+      : dateInputInAppTimeZone(fx.created_at);
     const occurrences = monthlyOccurrences({
       startDate: startBase,
       dueDay: fx.due_day,
@@ -232,7 +236,9 @@ export async function catchUpRecurrences(
   // Receitas fixas (salário, vale-alimentação, vale-refeição): uma por mês no
   // dia do pagamento, a partir do início, até hoje.
   for (const inc of incomeList) {
-    const startBase = (inc.start_date ?? inc.created_at).slice(0, 10);
+    const startBase = inc.start_date
+      ? inc.start_date.slice(0, 10)
+      : dateInputInAppTimeZone(inc.created_at);
     const occurrences = monthlyOccurrences({
       startDate: startBase,
       dueDay: inc.due_day,
