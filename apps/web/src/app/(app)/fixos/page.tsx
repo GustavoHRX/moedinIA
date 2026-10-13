@@ -74,6 +74,13 @@ export default function FixosPage() {
   const [mode, setMode] = useState<Mode>("expense");
   const cfg = CONFIG[mode];
 
+  // "Receita fixa" do modal de novo lançamento chega aqui com ?aba=receitas.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("aba") === "receitas") {
+      setMode("income");
+    }
+  }, []);
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [expenses, setExpenses] = useState<FixedItem[]>([]);
   const [incomes, setIncomes] = useState<FixedItem[]>([]);

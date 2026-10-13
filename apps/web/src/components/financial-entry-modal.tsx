@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { useAppData } from "@/components/app-data-provider";
 import { addMonthsClamped, todayDateInput, toCompetenceMonth } from "@/lib/dates";
 import { catchUpRecurrences } from "@/lib/recurrence-catchup";
@@ -14,8 +15,7 @@ type EntryMode =
   | "expense_normal"
   | "expense_installment"
   | "expense_fixed"
-  | "income_normal"
-  | "income_fixed";
+  | "income_normal";
 
 type FinancialEntryModalProps = {
   open: boolean;
@@ -112,6 +112,7 @@ export default function FinancialEntryModal({
     refreshCategories,
     invalidateFinancialData,
   } = useAppData();
+  const router = useRouter();
   const [mode, setMode] = useState<EntryMode>("menu");
   const [mounted, setMounted] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -460,16 +461,6 @@ export default function FinancialEntryModal({
         if (ok) finish("Receita normal registrada com sucesso.");
       }
 
-      if (mode === "income_fixed") {
-        const ok = await createManualTransaction("income");
-        if (ok) {
-          // Temporary business rule: income recurrence is not modeled yet.
-          finish(
-            "Receita fixa salva como lançamento normal. A recorrência de receita será evoluída em etapa futura."
-          );
-        }
-      }
-
       if (mode === "expense_fixed") {
         await saveExpenseFixed();
       }
@@ -513,7 +504,6 @@ export default function FinancialEntryModal({
     expense_installment: "Gasto parcelado",
     expense_fixed: "Gasto fixo",
     income_normal: "Receita normal",
-    income_fixed: "Receita fixa",
   };
 
   return createPortal(
@@ -593,7 +583,13 @@ export default function FinancialEntryModal({
                     <ModeCard
                       title="Receita fixa"
                       description="Entra todo mês, tipo salário."
-                      onClick={() => setMode("income_fixed")}
+                      // Receita recorrente mora na tela Fixos, que cria o registro
+                      // em fixed_incomes e gera as ocorrências. Aqui o modal antes
+                      // gravava uma receita avulsa com nome de "fixa".
+                      onClick={() => {
+                        onClose();
+                        router.push("/fixos?aba=receitas");
+                      }}
                       tone="income"
                     />
                   </div>
