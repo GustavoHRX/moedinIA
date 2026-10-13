@@ -49,3 +49,7 @@ n8n/qrcode*.png
 # Chaves privadas exportadas (backup do home lab): NUNCA versionar
 *.asc
 *CHAVE-PRIVADA*
+
+# Anexos brutos da revisão final (saídas de ferramentas; o relatório é docs/REVISAO-FINAL.md)
+docs/revisao-final-anexos/
+docs/PROMPT-FABLE-REVISAO-FINAL.md
