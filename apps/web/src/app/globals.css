@@ -98,22 +98,14 @@
   --text: var(--fg);
   --navy: var(--fg);
   --muted: var(--fg-muted);
-  --text-muted: var(--fg-muted);
   --muted-strong: var(--fg);
-  --text-soft: var(--fg-soft);
   --brand: var(--primary);
   --brand-strong: var(--primary-strong);
   --brand-soft: var(--primary-soft);
-  --bg-accent: var(--primary-soft);
-  --card: var(--surface);
   --surface-muted: var(--bg-soft);
-  --income: var(--success);
   --expense: var(--danger);
-  --brand-gradient: var(--gradient);
-  --hero-gradient: var(--surface);
   --brand-glow: rgb(16 185 129 / 0.20);
   --glow: none;
-  --shadow-glow: none;
   --shadow-soft: none;
   --shadow-strong: var(--elev-pop);
 }
@@ -470,15 +462,6 @@ input[type="datetime-local"] {
   }
 }
 
-@keyframes glow-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 40px rgba(16, 185, 129, 0.15);
-  }
-  50% {
-    box-shadow: 0 0 56px rgba(16, 185, 129, 0.3);
-  }
-}
 
 @keyframes coin-flip {
   from {
@@ -623,85 +606,6 @@ input[type="datetime-local"] {
 }
 .typing-dot:nth-child(3) {
   animation-delay: 0.4s;
-}
-
-/* Moeda flutuando devagar no hero — a moeda como padrão gráfico (book pág. 06) */
-@keyframes float-soft {
-  0%,
-  100% {
-    transform: translateY(0) rotate(-4deg);
-  }
-  50% {
-    transform: translateY(-14px) rotate(4deg);
-  }
-}
-.coin-float {
-  animation: float-soft 7s ease-in-out infinite;
-}
-
-/* ---- Toque descontraído (landing) — micro-humor visual, sempre com propósito ---- */
-
-/* Balancinho: chama atenção sem irritar (ícones, selos) */
-@keyframes wiggle {
-  0%,
-  100% {
-    transform: rotate(-5deg);
-  }
-  50% {
-    transform: rotate(5deg);
-  }
-}
-.anim-wiggle-hover:hover,
-.hover-lift:hover .anim-wiggle-hover {
-  animation: wiggle 480ms var(--ease-spring);
-}
-
-/* Flutua devagar (mascotes, selo "mais popular") */
-@keyframes bob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-6px);
-  }
-}
-.anim-bob {
-  animation: bob 3.4s ease-in-out infinite;
-}
-
-/* Brilhinho girando (Sparkles ao lado do título) */
-@keyframes sparkle-spin {
-  0% {
-    transform: rotate(0) scale(1);
-    opacity: 0.7;
-  }
-  50% {
-    transform: rotate(90deg) scale(1.18);
-    opacity: 1;
-  }
-  100% {
-    transform: rotate(180deg) scale(1);
-    opacity: 0.7;
-  }
-}
-.anim-sparkle {
-  animation: sparkle-spin 4.2s var(--ease-out) infinite;
-}
-
-/* Card que levanta a mãozinha quando o mouse passa (só na landing).
-   A elevação é feita pela linha e por um degrau de fundo, não por borrão. */
-.hover-lift {
-  transition: transform var(--dur-base) var(--ease-spring),
-    border-color var(--dur-base) var(--ease-out),
-    background-color var(--dur-base) var(--ease-out);
-}
-@media (hover: hover) and (pointer: fine) {
-  .hover-lift:hover {
-    transform: translateY(-4px);
-    border-color: var(--line-strong);
-    background-color: var(--surface-strong);
-  }
 }
 
 /* ---- Rail lateral do painel (estilo Instagram web): ícones recolhidos, abre no hover ---- */
