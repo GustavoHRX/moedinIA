@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAppData, type AppProfile } from "@/components/app-data-provider";
@@ -50,13 +50,21 @@ export default function PerfilPage() {
     setMessageType(type);
   }
 
+  // Guarda para qual usuário o formulário já foi preenchido. O provider recria
+  // `profile` a cada evento de auth (renovação do token, volta para a aba); sem
+  // esta trava, o efeito abaixo rodava de novo e apagava o que a pessoa estava
+  // digitando e ainda não tinha salvo.
+  const filledForUserRef = useRef<string | null>(null);
+
   useEffect(() => {
     loadProfile();
   }, [loadingUser, cachedUser, profileLoaded, cachedProfile]);
 
   async function loadProfile() {
-    setLoading(true);
-    if (loadingUser) return;
+    if (loadingUser) {
+      setLoading(true);
+      return;
+    }
 
     const user = cachedUser;
 
@@ -65,10 +73,14 @@ export default function PerfilPage() {
       return;
     }
 
+    if (filledForUserRef.current === user.id) return;
+
+    setLoading(true);
     setEmail(user.email || "");
 
     if (profileLoaded && cachedProfile) {
       fillForm(cachedProfile);
+      filledForUserRef.current = user.id;
       setLoading(false);
       return;
     }
@@ -76,6 +88,7 @@ export default function PerfilPage() {
     const refreshedProfile = await refreshProfile();
     if (refreshedProfile) {
       fillForm(refreshedProfile);
+      filledForUserRef.current = user.id;
       setLoading(false);
       return;
     }
@@ -95,6 +108,7 @@ export default function PerfilPage() {
 
     if (data) {
       fillForm(data as Profile);
+      filledForUserRef.current = user.id;
     }
   }
 
