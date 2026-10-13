@@ -52,7 +52,3 @@ export function addMonthsClamped(dateString: string, monthsToAdd: number) {
   const lastDay = new Date(year, targetMonth + 1, 0).getDate();
   return formatDateInput(new Date(year, targetMonth, Math.min(day, lastDay)));
 }
-
-export function isPastOrToday(dateString: string) {
-  return dateString <= todayDateInput();
-}

@@ -38,9 +38,3 @@ export function splitInstallments(total: number, count: number): number[] {
   }
   return parts;
 }
-
-/** Valor exibido como "cada parcela" antes de salvar (o real vem de splitInstallments). */
-export function installmentPreview(total: number, count: number): number {
-  const parts = splitInstallments(total, count);
-  return parts[0] ?? 0;
-}

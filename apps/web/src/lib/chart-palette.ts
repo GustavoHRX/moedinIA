@@ -11,6 +11,3 @@ export const CHART_COLORS = [
   "var(--chart-5)",
   "var(--chart-6)",
 ] as const;
-
-export const CHART_INCOME = "var(--chart-1)";
-export const CHART_EXPENSE = "var(--chart-6)";

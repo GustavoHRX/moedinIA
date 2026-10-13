@@ -6,7 +6,7 @@ import { useAppData } from "@/components/app-data-provider";
 import { useConfirm } from "@/components/confirm-dialog";
 import { SkeletonList } from "@/components/skeleton";
 import { categoryName, type CategoryRelation } from "@/lib/categories";
-import { addMonthsClamped, toCompetenceMonth, todayDateInput } from "@/lib/dates";
+import { toCompetenceMonth, todayDateInput } from "@/lib/dates";
 import { formatCurrency, formatDate, formatMoneyInputValue, parseMoneyInput } from "@/lib/formatters";
 import { splitInstallments } from "@/lib/money";
 import { catchUpRecurrences } from "@/lib/recurrence-catchup";

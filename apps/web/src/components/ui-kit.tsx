@@ -138,12 +138,6 @@ export function SectionHeader({
   );
 }
 
-/** Rótulo pequeno em maiúsculas. Usar com muita parcimónia — no dashboard
- *  existiam 14 destes, com 3 valores de tracking diferentes. */
-export function Eyebrow({ children }: { children: ReactNode }) {
-  return <p className="eyebrow">{children}</p>;
-}
-
 /* -------------------------------------------------------------------------- */
 /* Segmentado (Entradas / Saídas)                                             */
 /* -------------------------------------------------------------------------- */
@@ -317,51 +311,6 @@ export function StatTile({
       <p className="text-xs font-normal text-fg-muted">{label}</p>
       <p className="money mt-0.5 truncate text-base font-semibold text-fg">{value}</p>
       {hint ? <p className="mt-0.5 text-xs font-normal text-fg-soft">{hint}</p> : null}
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Linha de lista                                                             */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Linha de lista. Substitui 3 variantes quase idênticas que diferiam só no
- * raio (16/18/16px) e no alfa da sombra (0.04 vs 0.05).
- */
-export function ListRow({
-  leading,
-  title,
-  subtitle,
-  trailing,
-  className,
-  highlight = false,
-  glow = false,
-}: {
-  leading?: ReactNode;
-  title: ReactNode;
-  subtitle?: ReactNode;
-  trailing?: ReactNode;
-  className?: string;
-  highlight?: boolean;
-  /** Linhas clicáveis podem acender no hover. */
-  glow?: boolean;
-}) {
-  return (
-    <div
-      className={cx(
-        "flex items-center gap-3 rounded-md border border-line px-4 py-3",
-        glow ? "glow-card" : "transition-colors",
-        highlight && "anim-flash-in",
-        className
-      )}
-    >
-      {leading}
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium text-fg">{title}</div>
-        {subtitle ? <div className="mt-0.5 truncate text-xs font-normal text-fg-muted">{subtitle}</div> : null}
-      </div>
-      {trailing ? <div className="shrink-0 text-right">{trailing}</div> : null}
     </div>
   );
 }
