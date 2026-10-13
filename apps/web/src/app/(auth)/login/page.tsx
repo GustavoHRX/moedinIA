@@ -80,7 +80,10 @@ export default function LoginPage() {
         <span className="h-px flex-1 bg-[var(--line)]" />
       </div>
 
-      <form onSubmit={handleLogin} className="space-y-4" noValidate>
+      {/* method="post": se a pessoa enviar antes de o JavaScript carregar, o
+          navegador faz o envio nativo. Sem isto ele ia por GET e a senha
+          aparecia na barra de endereço e nos logs. */}
+      <form method="post" onSubmit={handleLogin} className="space-y-4" noValidate>
         <div>
           <label htmlFor="login-email" className="mb-2 block text-sm font-semibold text-[var(--text)]">E-mail</label>
           <input id="login-email" name="email" className="control" type="email" autoComplete="email" required maxLength={EMAIL_MAX} placeholder="email@dominio.com" value={email} onChange={(e) => setEmail(e.target.value)} />

@@ -110,7 +110,7 @@ export default function CadastroPage() {
         <span className="h-px flex-1 bg-[var(--line)]" />
       </div>
 
-      <form onSubmit={handleRegister} className="space-y-4" noValidate>
+      <form method="post" onSubmit={handleRegister} className="space-y-4" noValidate>
         {/* honeypot — invisível para humanos, ignorado por leitores de tela */}
         <div aria-hidden="true" className="absolute left-[-9999px] h-0 w-0 overflow-hidden">
           <label htmlFor="cadastro-company">Empresa</label>

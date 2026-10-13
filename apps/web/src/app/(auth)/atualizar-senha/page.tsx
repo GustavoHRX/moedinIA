@@ -131,7 +131,7 @@ export default function AtualizarSenhaPage() {
           </p>
         </div>
       ) : (
-        <form onSubmit={handleUpdate} className="mt-7 space-y-4" noValidate>
+        <form method="post" onSubmit={handleUpdate} className="mt-7 space-y-4" noValidate>
           <div>
             <label htmlFor="atualizar-senha" className="mb-2 block text-sm font-semibold text-[var(--text)]">Nova senha</label>
             <PasswordInput id="atualizar-senha" name="new-password" autoComplete="new-password" required minLength={8} maxLength={PASSWORD_MAX} placeholder="Mínimo 8 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} />

@@ -59,7 +59,7 @@ export default function RecuperarSenhaPage() {
       <h1 className="mt-3 font-display text-4xl font-bold text-[var(--navy)]">Recuperar senha</h1>
       <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Informe o e-mail da conta para receber o link de redefinição.</p>
 
-      <form onSubmit={handleReset} className="mt-7 space-y-4" noValidate>
+      <form method="post" onSubmit={handleReset} className="mt-7 space-y-4" noValidate>
         <div>
           <label htmlFor="recuperar-email" className="mb-2 block text-sm font-semibold text-[var(--text)]">E-mail</label>
           <input id="recuperar-email" name="email" className="control" type="email" autoComplete="email" required maxLength={EMAIL_MAX} placeholder="email@dominio.com" value={email} onChange={(e) => setEmail(e.target.value)} />
