@@ -9,7 +9,7 @@ import { ActionButton, Alert, IconBox, PageFrame, PageHeader, SectionHeader, Sur
 import { Skeleton } from "@/components/skeleton";
 import { Money } from "@/components/money";
 import { formatMoneyInputValue, parseMoneyInput } from "@/lib/formatters";
-import { currentMonthRef } from "@/lib/dates";
+import { addMonthsClamped, currentMonthRef } from "@/lib/dates";
 import { categoryVisualFrom } from "@/lib/categories";
 import { categoryIconByName } from "@/lib/category-palette";
 
@@ -17,16 +17,14 @@ import { categoryIconByName } from "@/lib/category-palette";
 // usada pelo limite geral (e espelhada no RPC whatsapp_set_monthly_limit).
 function buildMonthlyRows(userId: string, categoryId: string | null, amount: number) {
   const startMonth = currentMonthRef();
-  return Array.from({ length: 13 }, (_, i) => {
-    const d = new Date(`${startMonth}T00:00:00`);
-    d.setMonth(d.getMonth() + i);
-    return {
-      user_id: userId,
-      category_id: categoryId,
-      month_ref: `${d.toISOString().slice(0, 7)}-01`,
-      amount,
-    };
-  });
+  // Conta em cima da string (sem Date/UTC): `toISOString()` devolvia o mês
+  // anterior para quem está num fuso à frente do UTC.
+  return Array.from({ length: 13 }, (_, i) => ({
+    user_id: userId,
+    category_id: categoryId,
+    month_ref: addMonthsClamped(startMonth, i),
+    amount,
+  }));
 }
 
 function CategoryLimitRow({
@@ -131,7 +129,7 @@ export default function LimitePage() {
   async function loadLimits(userId: string) {
     setLoading(true);
 
-    const { data: budgetRow } = await supabase
+    const { data: budgetRow, error: budgetError } = await supabase
       .from("budgets")
       .select("amount")
       .eq("user_id", userId)
@@ -139,17 +137,29 @@ export default function LimitePage() {
       .order("month_ref", { ascending: false })
       .limit(1)
       .maybeSingle();
+    // Consulta que falha não pode virar "Sem limite definido": a pessoa
+    // regravaria por cima de um limite que existe. Mostra o erro e para.
+    if (budgetError) {
+      showMessage(`Erro ao carregar o limite: ${budgetError.message}`, "error");
+      setLoading(false);
+      return;
+    }
     if (budgetRow?.amount != null) {
       setLimitValue(Number(budgetRow.amount));
       setLimitInput(formatMoneyInputValue(String(budgetRow.amount)));
     }
 
-    const { data: categoryRows } = await supabase
+    const { data: categoryRows, error: categoryError } = await supabase
       .from("budgets")
       .select("category_id, amount, month_ref")
       .eq("user_id", userId)
       .not("category_id", "is", null)
       .order("month_ref", { ascending: false });
+    if (categoryError) {
+      showMessage(`Erro ao carregar os limites por categoria: ${categoryError.message}`, "error");
+      setLoading(false);
+      return;
+    }
 
     // Mantém só a linha mais recente por categoria (já vem ordenado desc).
     const latestByCategory: Record<string, number> = {};
@@ -174,12 +184,19 @@ export default function LimitePage() {
 
     setSavingLimit(true);
     const startMonth = currentMonthRef();
-    await supabase
+    // Se a limpeza falhar, não insere: o insert bateria no índice único e a
+    // pessoa veria um erro de "duplicate key" sem entender.
+    const { error: deleteError } = await supabase
       .from("budgets")
       .delete()
       .eq("user_id", userId)
       .is("category_id", null)
       .gte("month_ref", startMonth);
+    if (deleteError) {
+      setSavingLimit(false);
+      showMessage(`Erro ao salvar limite: ${deleteError.message}`, "error");
+      return;
+    }
 
     const { error } = await supabase.from("budgets").insert(buildMonthlyRows(userId, null, parsed));
     setSavingLimit(false);
@@ -198,12 +215,16 @@ export default function LimitePage() {
     if (!userId) return false;
 
     const startMonth = currentMonthRef();
-    await supabase
+    const { error: deleteError } = await supabase
       .from("budgets")
       .delete()
       .eq("user_id", userId)
       .eq("category_id", categoryId)
       .gte("month_ref", startMonth);
+    if (deleteError) {
+      showMessage(`Erro ao salvar limite da categoria: ${deleteError.message}`, "error");
+      return false;
+    }
 
     const { error } = await supabase.from("budgets").insert(buildMonthlyRows(userId, categoryId, amount));
     if (error) {

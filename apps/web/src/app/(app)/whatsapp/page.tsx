@@ -40,14 +40,20 @@ export default function WhatsAppPage() {
   }, [loadingUser, cachedUser]);
 
   async function loadWhatsApp(userId: string) {
-    const { data: codeData } = await supabase.rpc("ensure_activation_code");
+    const { data: codeData, error: codeError } = await supabase.rpc("ensure_activation_code");
     if (codeData?.code) setActivationCode(codeData.code);
 
-    const { data: links } = await supabase
+    const { data: links, error: linksError } = await supabase
       .from("whatsapp_links")
       .select("id, updated_at, created_at")
       .eq("user_id", userId)
       .order("updated_at", { ascending: false });
+    // Falha na consulta não é "ainda não conectado": avisa em vez de mostrar
+    // um estado que pode ser falso.
+    if (codeError || linksError) {
+      showMessage("Não consegui carregar o estado do WhatsApp. Recarregue a página.", "error");
+      if (linksError) return;
+    }
     setWaLinkedCount(links?.length ?? 0);
     setWaLinkedAt(links?.[0]?.updated_at ?? links?.[0]?.created_at ?? null);
   }
