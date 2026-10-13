@@ -163,10 +163,10 @@ export default function AppShell({ children }: AppShellProps) {
 
       <div className="md:pl-[72px]">
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-line bg-surface-glass px-4 backdrop-blur-xl sm:px-6 md:hidden">
-          <Link href="/dashboard" aria-label="Ir para o dashboard">
+          <Link href="/dashboard" aria-label="Ir para o dashboard" className="min-w-0 shrink">
             <ThemedLogo className="h-[51px] w-[150px]" priority />
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
@@ -178,7 +178,12 @@ export default function AppShell({ children }: AppShellProps) {
             </button>
             <NotificationBell className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-line bg-surface text-fg" />
             <ThemeToggle className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-line bg-surface text-fg" showLabel={false} />
-            <LogoutButton className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium text-fg" />
+            {/* Só o ícone: com o rótulo "Sair" os quatro botões + logo passavam de 375 px
+                e a página inteira ganhava rolagem lateral. O nome vem do aria-label. */}
+            <LogoutButton
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-line bg-surface text-fg"
+              labelClassName="sr-only"
+            />
           </div>
         </header>
         {children}
