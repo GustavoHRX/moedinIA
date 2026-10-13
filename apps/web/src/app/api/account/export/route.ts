@@ -25,6 +25,8 @@ const TABLES = [
   "ai_insights",
   "message_logs",
   "whatsapp_links",
+  // Padrões que a pessoa ensinou ao bot ("Fone → Academia"): também é dado dela.
+  "whatsapp_category_rules",
 ] as const;
 
 export async function GET() {
@@ -50,7 +52,7 @@ export async function GET() {
   // exportação silenciosamente incompleta — e a rota respondia 200 mesmo com
   // tabela que falhou. Agora paginamos até o fim e reportamos o que falhou.
   //
-  // As 13 tabelas são lidas em paralelo (antes era uma atrás da outra, e numa
+  // As tabelas são lidas em paralelo (antes era uma atrás da outra, e numa
   // conta grande o tempo somava até estourar o limite da função). A ordenação
   // por `id` é o que torna a paginação determinística: sem ela `.range()` pode
   // pular ou repetir linhas entre uma página e outra.
