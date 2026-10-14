@@ -270,6 +270,8 @@ A branch `meta-cloud-api` guarda a migração do bot para a API oficial da Meta,
 
 ## Equipe
 
+Trabalho de Conclusão de Curso de Sistemas de Informação da FHO Uniararas.
+
 - Alefe Cirino
 - Gustavo Rodrigues
 - Gustavo Timachi
