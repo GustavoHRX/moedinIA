@@ -2,7 +2,7 @@
 
 Assistente financeiro pessoal. A pessoa registra gastos pelo **WhatsApp** (texto, áudio, foto de comprovante ou PDF de fatura) e acompanha tudo num **painel web**. Trabalho de Conclusão de Curso de Sistemas de Informação, em produção em <https://www.moedin-ia.com.br>.
 
-O código atual fica na branch `main`. As versões anteriores estão marcadas como tags (ver [Versões](#versões)).
+O código atual fica na branch `main`. As versões anteriores estão em branches `versao-*` e em tags (ver [Versões](#versões)).
 
 ![Landing do Moedin-IA](docs/screenshots/landing.png)
 
@@ -254,17 +254,17 @@ Auditoria técnica de privacidade: [`docs/privacy-lgpd-audit.md`](docs/privacy-l
 
 ## Versões
 
-Cada marco do projeto é uma tag. Para ver o código de uma versão: `git checkout <tag>`.
+Cada marco do projeto tem uma branch e uma tag com o mesmo código. Para ver uma versão: `git checkout versao-1.0`.
 
-| Tag | Data | O que marca |
-|---|---|---|
-| `v0.1` | 31/03/2026 | Protótipo inicial |
-| `v0.2` | 10/05/2026 | Sistema refeito em Next.js com Supabase |
-| `v1.0` | 10/06/2026 | Versão de junho |
-| `v1.1` | 18/08/2026 | Nova identidade visual, ajustes de interface e higiene do banco |
-| `v2.0` | 10/09/2026 | Agente de WhatsApp v2 no n8n e vínculo pelo painel |
-| `v2.1` | 30/09/2026 | Landing de plano único e agente v2.14 |
-| `v3.0` | 13/10/2026 | Revisão final: marca Moedin-IA, correções e limpeza do repositório |
+| Branch | Tag | Data | O que marca |
+|---|---|---|---|
+| `versao-0.1` | `v0.1` | 31/03/2026 | Protótipo inicial |
+| `versao-0.2` | `v0.2` | 10/05/2026 | Sistema refeito em Next.js com Supabase |
+| `versao-1.0` | `v1.0` | 10/06/2026 | Versão de junho |
+| `versao-1.1` | `v1.1` | 18/08/2026 | Nova identidade visual, ajustes de interface e higiene do banco |
+| `versao-2.0` | `v2.0` | 10/09/2026 | Agente de WhatsApp v2 no n8n e vínculo pelo painel |
+| `versao-2.1` | `v2.1` | 30/09/2026 | Landing de plano único e agente v2.14 |
+| `versao-3.0` | `v3.0` | 13/10/2026 | Revisão final: marca Moedin-IA, correções e limpeza do repositório |
 
 A branch `meta-cloud-api` guarda a migração do bot para a API oficial da Meta, que está pausada.
 
