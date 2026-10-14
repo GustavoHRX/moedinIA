@@ -54,7 +54,7 @@ Quando o bot grava um lançamento, o painel aberto atualiza sozinho pelo Realtim
 │   ├── SYSTEM-PROMPT-AGENTE-V2.md   Prompt do agente (igual ao que está dentro do workflow).
 │   └── lib/pdf-relatorio.js Fonte do gerador de PDF usado no workflow.
 ├── supabase/
-│   └── migrations/          001 a 034: esquema, RLS, funções do bot, Realtime.
+│   └── migrations/          001 a 035: esquema, RLS, funções do bot, Realtime.
 ├── infra/bot/               Compose do servidor do bot, scripts de publicar, testar e backup.
 ├── docs/                    Explicação do código, auditoria de privacidade, revisão final.
 ├── historico/               Versões antigas guardadas para consulta. Nada ali roda.
@@ -130,7 +130,7 @@ Outros dois workflows: `moedin-erros.json` (avisa o administrador quando o agent
 
 ## Banco de dados (`supabase/`)
 
-As migrations ficam em `supabase/migrations/`, numeradas de `001` a `034`, e são aplicadas em ordem pelo SQL Editor do Supabase.
+As migrations ficam em `supabase/migrations/`, numeradas de `001` a `035`, e são aplicadas em ordem pelo SQL Editor do Supabase.
 
 | Faixa | Conteúdo |
 |---|---|
@@ -139,6 +139,7 @@ As migrations ficam em `supabase/migrations/`, numeradas de `001` a `034`, e sã
 | 011–021 | Receitas fixas, endurecimento de segurança, retenção de logs, índices únicos contra duplicata |
 | 022–033 | Funções do agente: lançamentos, fixos, parcelas, metas, importação de fatura, câmbio, categorias, aviso de limite |
 | 034 | Busca do bot sem acento e reconciliação do repositório com a produção |
+| 035 | Correção de dados: categorias antigas sem dono |
 
 Tabelas principais: `profiles`, `categories`, `transactions`, `fixed_expenses`, `fixed_incomes`, `installments`, `budgets`, `goals`, `user_settings`, `whatsapp_links`, `whatsapp_category_rules`, `message_logs`, `ai_insights`, `fx_rates`.
 
