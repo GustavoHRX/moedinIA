@@ -17,9 +17,8 @@ export function formatDate(date: string | null | undefined, fallback = "Não def
  *
  * REVISÃO EXTERNA (ago/2026): a versão antiga fazia `.replace(/\./g, "")` cega,
  * então "23.50" virava 2350 — um lançamento colado em formato decimal com
- * ponto era gravado 100x maior. A regra abaixo é a mesma do parser do
- * ai-service (apps/ai-service/main.py::parse_amount), para o WhatsApp e o site
- * concordarem.
+ * ponto era gravado 100x maior. A regra abaixo é a mesma que o bot
+ * do WhatsApp usava na primeira versão, para os dois concordarem.
  *
  *   "1.200,50" -> 1200.5   (vírgula = decimal; pontos = milhar)
  *   "23.50"    -> 23.5     (1 ponto, 2 casas  = decimal)

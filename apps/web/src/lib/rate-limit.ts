@@ -5,9 +5,9 @@ import { Redis } from "@upstash/redis";
 /*
  * Rate limit por Upstash Redis.
  *
- * AUDITORIA: hoje as rotas /api/* são todas autenticadas (não há flood anónimo),
- * mas um utilizador autenticado ainda pode martelar /api/insight — que chama o
- * ai-service e custa dinheiro por chamada. Isto limita por utilizador.
+ * AUDITORIA: as rotas /api/* são todas autenticadas (não há flood anónimo), mas
+ * um utilizador autenticado ainda pode martelar a exportação (pesada) ou a
+ * exclusão de conta. Isto limita por utilizador.
  *
  * SE UPSTASH_REDIS_REST_URL / _TOKEN não estiverem definidos: o rate limit é
  * DESLIGADO (fail-open) — assim o dev local funciona sem Upstash. Em produção
@@ -28,8 +28,7 @@ const redis = rateLimitEnabled ? new Redis({ url: url!, token: token! }) : null;
 
 // Cada limiter tem o SEU prefixo. A biblioteca monta a chave no Redis como
 // `prefixo:identificador:janela`; com um prefixo só, dois limiters da mesma
-// janela (insight, export e delete são todos de 1 h) dividiam o contador, e
-// abrir o painel algumas vezes já deixava a exportação de dados em 429.
+// janela (export e delete são de 1 h) dividiam o contador entre si.
 function make(
   name: string,
   tokens: number,
@@ -46,8 +45,6 @@ function make(
 
 /** Perfis de limite por rota. Ajustar os números aqui. */
 export const limiters = {
-  // ai-service custa dinheiro por chamada
-  insight: make("insight", 20, "1 h"),
   // export percorre todas as tabelas do utilizador — pesado
   export: make("export", 6, "1 h"),
   // ação destrutiva
@@ -73,7 +70,7 @@ export async function enforceRateLimit(
   } catch (error) {
     // Rate limit é rede de segurança, não porta de entrada: se o Upstash estiver
     // fora do ar, deixa a requisição passar (mesma postura de quando as envs
-    // faltam) em vez de derrubar export, exclusão de conta, insight e categorias.
+    // faltam) em vez de derrubar export, exclusão de conta e categorias.
     console.error("[rate-limit] Upstash indisponível, liberando a requisição:", error);
     return null;
   }

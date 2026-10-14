@@ -47,8 +47,7 @@ Quando o bot grava um lançamento, o painel aberto atualiza sozinho pelo Realtim
 ```text
 .
 ├── apps/
-│   ├── web/                 Painel e landing (Next.js). É o que a Vercel publica.
-│   └── ai-service/          Serviço FastAPI da primeira versão do bot. O agente atual não usa.
+│   └── web/                 Painel e landing (Next.js). É o que a Vercel publica.
 ├── n8n/
 │   ├── workflow/            Os três workflows que rodam em produção.
 │   ├── AGENTE-V2.md         Documentação completa do bot, versão a versão.
@@ -59,7 +58,7 @@ Quando o bot grava um lançamento, o painel aberto atualiza sozinho pelo Realtim
 ├── infra/bot/               Compose do servidor do bot, scripts de publicar, testar e backup.
 ├── docs/                    Explicação do código, auditoria de privacidade, revisão final.
 ├── historico/               Versões antigas guardadas para consulta. Nada ali roda.
-├── docker-compose.yml       Ambiente local (n8n, Redis, Evolution, ai-service, web).
+├── docker-compose.yml       Ambiente local (n8n, Redis, Evolution, web).
 └── .env.example             Modelo das variáveis de ambiente.
 ```
 
@@ -80,7 +79,7 @@ Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, Supabase SSR, Rec
 
 | Rota | O que faz |
 |---|---|
-| `/dashboard` | Resumo do mês, gráficos, previsão de fim de mês, avisos |
+| `/dashboard` | Resumo do mês, gráficos, previsão de fim de mês, análises automáticas e avisos |
 | `/historico` | Todos os lançamentos, com filtros, edição, exclusão e exportação em CSV |
 | `/fixos` | Gastos fixos e receitas fixas (recorrentes) |
 | `/parcelamentos` | Compras parceladas, progresso e quitação antecipada |
@@ -102,7 +101,6 @@ A proteção é feita em `src/proxy.ts` (no Next 16 o antigo *middleware* se cha
 | `GET /api/account/export` | painel | Exporta todos os dados do usuário (LGPD) |
 | `POST /api/account/delete` | painel | Exclui a conta e os dados (LGPD) |
 | `GET /api/whatsapp/qr` | onboarding | QR code que abre a conversa com o bot |
-| `POST /api/insight` | dashboard | Frase de análise via `ai-service`; sem o serviço, o painel usa regras locais |
 | `GET /api/cron/recurrences` | Vercel Cron, 06:00 UTC | Gera os lançamentos de fixos e parcelas que venceram |
 
 Todas exigem sessão, menos o cron, que exige `Authorization: Bearer $CRON_SECRET`.

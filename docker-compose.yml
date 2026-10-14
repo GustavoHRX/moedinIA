@@ -14,36 +14,7 @@ services:
     tty: true
     environment:
       NODE_ENV: development
-      # AUDITORIA A-1 + revisão externa 7.2: o dashboard chama /api/insight (rota
-      # do próprio Next), que por sua vez fala com o ai-service server-to-server.
-      # Dentro do container, o host correto é o nome do serviço na rede do
-      # compose — `localhost:8000` apontaria para o próprio container web.
-      AI_SERVICE_URL: http://ai:8000
       NEXT_TELEMETRY_DISABLED: "1"
-    depends_on:
-      - ai
-    restart: unless-stopped
-
-  ai:
-    container_name: moedin_ai
-    image: python:3.11-slim
-    working_dir: /app
-    volumes:
-      - ./apps/ai-service:/app
-    command: sh -c "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
-    ports:
-      # Revisão externa 7.4: o ai-service não tem autenticação própria e carrega
-      # as chaves de IA. Publicado só em 127.0.0.1 para não ficar acessível na
-      # rede/internet se o host tiver a porta aberta. Os outros containers
-      # continuam alcançando via rede interna do compose (http://ai:8000).
-      - "127.0.0.1:8000:8000"
-    environment:
-      PYTHONUNBUFFERED: 1
-      GROQ_API_KEY: ${GROQ_API_KEY:-}
-      GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
-      AI_SERVICE_ALLOWED_ORIGINS: ${AI_SERVICE_ALLOWED_ORIGINS:-}
     restart: unless-stopped
 
   redis:
@@ -134,7 +105,6 @@ services:
       N8N_DIAGNOSTICS_CONFIG_BACKEND: ""
       SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
-      AI_SERVICE_URL: "http://ai:8000"
       WHATSAPP_PROVIDER: ${WHATSAPP_PROVIDER:-evolution}
       EVOLUTION_API_URL: ${EVOLUTION_API_URL:-}
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-}
@@ -154,7 +124,6 @@ services:
       MOEDIN_APP_URL: ${MOEDIN_APP_URL:-https://moedin-ia.vercel.app}
     depends_on:
       - redis
-      - ai
     volumes:
       - ./n8n/data:/home/node/.n8n
       - ./n8n/workflow:/workflows

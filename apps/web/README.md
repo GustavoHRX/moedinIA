@@ -37,7 +37,7 @@ src/app/page.tsx        landing
 src/app/(auth)          login, cadastro, recuperar e atualizar senha
 src/app/(app)           painel (dashboard, historico, fixos, parcelamentos,
                         categorias, metas, limite, whatsapp, onboarding, perfil)
-src/app/api             account, categories, cron, insight, whatsapp
+src/app/api             account, categories, cron, whatsapp
 src/components          componentes compartilhados e o estado global do painel
 src/lib                 dinheiro, datas, recorrência, clientes do Supabase
 src/proxy.ts            proteção de rotas (o "middleware" do Next 16)

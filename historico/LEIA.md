@@ -4,8 +4,9 @@ Arquivos de versões anteriores do Moedin-IA, guardados para consulta. **Nada aq
 
 | Pasta | O que é | De quando |
 |---|---|---|
+| `apps/ai-service/` | Serviço FastAPI que interpretava texto, áudio e imagem para o bot v1 (Groq e OpenAI, com parser por regex de reserva). O agente v2 faz isso dentro do n8n. A rota `/api/insight` do painel, que era a última a chamá-lo, saiu junto em out/2026. | jun–set/2026 |
 | `n8n/workflow/moedin-tcc-lancamento-financeiro.json` | Primeiro protótipo do webhook de lançamento (v0). Confia no `user_id` do corpo da requisição; nunca foi para produção. | mai/2026 |
-| `n8n/workflow/moedin-whatsapp-ia.json` | Bot v1: um `switch` de 4 intenções que chamava o `apps/ai-service`. Substituído pelo agente v2. | jun–ago/2026 |
+| `n8n/workflow/moedin-whatsapp-ia.json` | Bot v1: um `switch` de 4 intenções que chamava o `apps/ai-service` (hoje nesta pasta). Substituído pelo agente v2. | jun–ago/2026 |
 | `n8n/workflow/moedin-whatsapp-lite.json` | Variante enxuta da v1, só texto. | jun/2026 |
 | `n8n/TESTE-WHATSAPP-IA.md` | Roteiro de teste da v1. | jun/2026 |
 | `n8n/_arquitetura.html` | Desenho do fluxo da v1 (com ai-service e Groq). | ago/2026 |

@@ -67,7 +67,6 @@ Ficam em `src/app/api`. Todas conferem a sessão com `getUser()`.
 - `categories/ensure`: garante as categorias padrão.
 - `whatsapp/qr`: gera o QR no servidor.
 - `cron/recurrences`: protegido por segredo, comparado em tempo constante.
-- `insight`: repassa para o `apps/ai-service`, se configurado.
 
 `lib/rate-limit.ts` limita as chamadas por usuário usando Upstash Redis. Se o Redis estiver fora, a requisição passa: o limite é rede de segurança, não porta de entrada.
 
@@ -112,7 +111,7 @@ As migrations são aplicadas à mão no SQL Editor. Por isso existe a `034`: ela
 
 ## 9. O que não é usado hoje
 
-- `apps/ai-service`: serviço Python da primeira versão do bot. O agente atual faz tudo dentro do n8n. Só a rota `/api/insight` do painel ainda aponta para ele, e sem o serviço no ar o dashboard usa regras locais.
+- `historico/apps/ai-service`: serviço Python da primeira versão do bot. O agente atual faz tudo dentro do n8n, e a rota do painel que ainda apontava para ele foi removida. As análises do dashboard são regras calculadas no próprio navegador.
 - `apps/web/src/components/hominhos.tsx`, `hominho-tip.tsx` e `src/lib/tips.ts`: os mascotes saíram das telas, mas o código foi mantido de propósito.
 - `monthly_controls`: tabela da antiga tela de planejamento mensal. O painel não escreve mais nela.
 - `historico/`: versões antigas guardadas para consulta.

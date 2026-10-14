@@ -347,55 +347,6 @@ export default function DashboardPage() {
   const budgetRemaining = budgetAmount - expenseTotal;
   const topCategory = expensesByCategory[0];
 
-  // Insight de IA real (ai-service /insight). Cai em silêncio para as
-  // heurísticas locais se o serviço estiver fora ou sem chave configurada.
-  const [aiInsight, setAiInsight] = useState<string | null>(null);
-  useEffect(() => {
-    if (loading || monthlyTransactions.length === 0) return;
-
-    const monthKey = monthRef.slice(0, 7);
-    const cacheKey = `moedin-ai-insight:${cachedUser?.id}:${monthKey}:${Math.round(expenseTotal)}`;
-    try {
-      const cached = window.sessionStorage.getItem(cacheKey);
-      if (cached) {
-        setAiInsight(cached);
-        return;
-      }
-    } catch {}
-
-    // AUDITORIA A-1: chama a rota interna do Next (autenticada), não o ai-service direto.
-    const controller = new AbortController();
-
-    fetch(`/api/insight`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({
-        month_label: monthName,
-        income_total: incomeTotal,
-        expense_total: expenseTotal,
-        budget_amount: budgetAmount,
-        categories: expensesByCategory.slice(0, 8).map((item) => ({
-          name: item.name,
-          total: item.total,
-        })),
-      }),
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { ok?: boolean; insight?: string } | null) => {
-        if (data?.ok && data.insight) {
-          setAiInsight(data.insight);
-          try {
-            window.sessionStorage.setItem(cacheKey, data.insight);
-          } catch {}
-        }
-      })
-      .catch(() => {});
-
-    return () => controller.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, monthRef, Math.round(expenseTotal), Math.round(incomeTotal)]);
-
   // Orçamentos por categoria do mês, com gasto e uso calculados localmente
   const categoryBudgets = useMemo(() => {
     const monthKey = monthRef.slice(0, 7);
@@ -678,22 +629,9 @@ export default function DashboardPage() {
           </button>
         </section>
 
-        {!loading && (insights.length > 0 || aiInsight) ? (
+        {!loading && insights.length > 0 ? (
           <Surface>
             <SectionHeader title="Insights" eyebrow="Análise automática do mês" />
-            {aiInsight ? (
-              <div className="anim-pop-in mb-3 flex items-start gap-3 rounded-md border border-primary/30 bg-primary-soft px-4 py-3.5">
-                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-sm text-[var(--on-primary)]">
-                  ✦
-                </span>
-                <div className="min-w-0">
-                  <p className="eyebrow">
-                    ✦ Insight da IA
-                  </p>
-                  <p className="mt-1 text-sm font-semibold leading-6 text-fg">{aiInsight}</p>
-                </div>
-              </div>
-            ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
               {insights.map((ins, index) => {
                 const { Icon, color } = insightStyle[ins.tone];
