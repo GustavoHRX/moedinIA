@@ -9,10 +9,13 @@ import PasswordInput from "@/components/password-input";
 import { createClient } from "@/lib/supabase/client";
 import { translateAuthError } from "@/lib/auth-errors";
 import { PASSWORD_MAX, firstError, validatePassword } from "@/lib/auth-validation";
+import { useHydrated } from "@/lib/use-hydrated";
 
 export default function AtualizarSenhaPage() {
   const supabase = createClient();
   const router = useRouter();
+
+  const hydrated = useHydrated();
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -140,7 +143,7 @@ export default function AtualizarSenhaPage() {
             <label htmlFor="atualizar-confirmar" className="mb-2 block text-sm font-semibold text-[var(--text)]">Confirmar nova senha</label>
             <PasswordInput id="atualizar-confirmar" name="confirm-password" autoComplete="new-password" required minLength={8} maxLength={PASSWORD_MAX} placeholder="Repita a nova senha" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
           </div>
-          <button type="submit" disabled={loading || sessionState === "checking"} className="btn-primary w-full px-5 py-3.5 disabled:opacity-70">
+          <button type="submit" disabled={loading || sessionState === "checking" || !hydrated} className={`btn-primary w-full px-5 py-3.5 ${loading || sessionState === "checking" ? "opacity-70" : ""}`}>
             {sessionState === "checking" ? "Validando link..." : loading ? "Salvando..." : "Salvar nova senha"}
           </button>
           {message ? (

@@ -9,6 +9,7 @@ import GoogleSignInButton from "@/components/google-signin-button";
 import PasswordInput from "@/components/password-input";
 import { createClient } from "@/lib/supabase/client";
 import { translateAuthError } from "@/lib/auth-errors";
+import { useHydrated } from "@/lib/use-hydrated";
 import {
   EMAIL_MAX,
   PASSWORD_MAX,
@@ -20,6 +21,8 @@ import {
 export default function LoginPage() {
   const supabase = createClient();
   const router = useRouter();
+
+  const hydrated = useHydrated();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -97,7 +100,7 @@ export default function LoginPage() {
             Esqueci minha senha
           </Link>
         </div>
-        <button type="submit" disabled={loading} className="btn-primary inline-flex w-full items-center justify-center gap-2 px-5 py-3.5 disabled:opacity-70">
+        <button type="submit" disabled={loading || !hydrated} className={`btn-primary inline-flex w-full items-center justify-center gap-2 px-5 py-3.5 ${loading ? "opacity-70" : ""}`}>
           {loading ? "Entrando..." : "Entrar"}
           <ArrowRight className="h-4 w-4" />
         </button>

@@ -8,6 +8,7 @@ import GoogleSignInButton from "@/components/google-signin-button";
 import PasswordInput from "@/components/password-input";
 import { createClient } from "@/lib/supabase/client";
 import { translateAuthError } from "@/lib/auth-errors";
+import { useHydrated } from "@/lib/use-hydrated";
 import {
   EMAIL_MAX,
   NAME_MAX,
@@ -22,6 +23,8 @@ import {
 
 export default function CadastroPage() {
   const supabase = createClient();
+
+  const hydrated = useHydrated();
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -148,7 +151,7 @@ export default function CadastroPage() {
             <PasswordInput id="cadastro-confirmar" name="confirm-password" autoComplete="new-password" required minLength={8} maxLength={PASSWORD_MAX} placeholder="Repita a senha" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
           </div>
         </div>
-        <button type="submit" disabled={loading} className="btn-primary w-full px-5 py-3.5 disabled:opacity-70">
+        <button type="submit" disabled={loading || !hydrated} className={`btn-primary w-full px-5 py-3.5 ${loading ? "opacity-70" : ""}`}>
           {loading ? "Criando conta..." : "Criar conta"}
         </button>
         {message ? (

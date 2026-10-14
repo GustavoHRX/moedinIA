@@ -7,9 +7,11 @@ import AuthShell from "@/components/auth-shell";
 import { createClient } from "@/lib/supabase/client";
 import { translateAuthError } from "@/lib/auth-errors";
 import { EMAIL_MAX, validateEmail } from "@/lib/auth-validation";
+import { useHydrated } from "@/lib/use-hydrated";
 
 export default function RecuperarSenhaPage() {
   const supabase = createClient();
+  const hydrated = useHydrated();
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -64,7 +66,7 @@ export default function RecuperarSenhaPage() {
           <label htmlFor="recuperar-email" className="mb-2 block text-sm font-semibold text-[var(--text)]">E-mail</label>
           <input id="recuperar-email" name="email" className="control" type="email" autoComplete="email" required maxLength={EMAIL_MAX} placeholder="email@dominio.com" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
-        <button type="submit" disabled={loading} className="btn-primary w-full px-5 py-3.5 disabled:opacity-70">
+        <button type="submit" disabled={loading || !hydrated} className={`btn-primary w-full px-5 py-3.5 ${loading ? "opacity-70" : ""}`}>
           {loading ? "Enviando..." : "Enviar link"}
         </button>
         {message ? (
