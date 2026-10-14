@@ -2,10 +2,13 @@
 
 Assistente financeiro pessoal. A pessoa registra gastos pelo **WhatsApp** (texto, áudio, foto de comprovante ou PDF de fatura) e acompanha tudo num **painel web**. Trabalho de Conclusão de Curso de Sistemas de Informação, em produção em <https://www.moedin-ia.com.br>.
 
-Branch de trabalho: `versionjuly26`. O que está no ar é publicado a partir dela (ver [Deploy](#deploy)).
+O código atual fica na branch `main`. As versões anteriores estão marcadas como tags (ver [Versões](#versões)).
+
+![Landing do Moedin-IA](docs/screenshots/landing.png)
 
 ## Sumário
 
+- [Telas](#telas)
 - [Como o sistema é montado](#como-o-sistema-é-montado)
 - [Estrutura do repositório](#estrutura-do-repositório)
 - [Painel web (`apps/web`)](#painel-web-appsweb)
@@ -17,6 +20,28 @@ Branch de trabalho: `versionjuly26`. O que está no ar é publicado a partir del
 - [Deploy](#deploy)
 - [Segurança e LGPD](#segurança-e-lgpd)
 - [Documentos relacionados](#documentos-relacionados)
+- [Versões](#versões)
+- [Equipe](#equipe)
+
+## Telas
+
+As capturas usam uma conta de demonstração com dados fictícios.
+
+| Visão geral | Gráficos e orçamento |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Gráficos do dashboard](docs/screenshots/dashboard-graficos.png) |
+
+| Histórico | Parcelamentos |
+|---|---|
+| ![Histórico de lançamentos](docs/screenshots/historico.png) | ![Parcelamentos](docs/screenshots/parcelamentos.png) |
+
+| Metas | Limite de gasto |
+|---|---|
+| ![Metas](docs/screenshots/metas.png) | ![Limite de gasto](docs/screenshots/limite.png) |
+
+No celular:
+
+<img src="docs/screenshots/celular.png" alt="Dashboard no celular" width="300">
 
 ## Como o sistema é montado
 
@@ -226,6 +251,30 @@ Auditoria técnica de privacidade: [`docs/privacy-lgpd-audit.md`](docs/privacy-l
 | [`docs/REDIS-E-REGEX.md`](docs/REDIS-E-REGEX.md) | Onde o Redis e as expressões regulares aparecem |
 | [`DESIGN.md`](DESIGN.md), [`PRODUCT.md`](PRODUCT.md) | Identidade visual e definição do produto |
 | [`historico/LEIA.md`](historico/LEIA.md) | O que são os arquivos de versões antigas |
+
+## Versões
+
+Cada marco do projeto é uma tag. Para ver o código de uma versão: `git checkout <tag>`.
+
+| Tag | Data | O que marca |
+|---|---|---|
+| `v0.1` | 31/03/2026 | Protótipo inicial |
+| `v0.2` | 10/05/2026 | Sistema refeito em Next.js com Supabase |
+| `v1.0` | 10/06/2026 | Versão de junho |
+| `v1.1` | 18/08/2026 | Nova identidade visual, ajustes de interface e higiene do banco |
+| `v2.0` | 10/09/2026 | Agente de WhatsApp v2 no n8n e vínculo pelo painel |
+| `v2.1` | 30/09/2026 | Landing de plano único e agente v2.14 |
+| `v3.0` | 13/10/2026 | Revisão final: marca Moedin-IA, correções e limpeza do repositório |
+
+A branch `meta-cloud-api` guarda a migração do bot para a API oficial da Meta, que está pausada.
+
+## Equipe
+
+- Alefe Cirino
+- Gustavo Rodrigues
+- Gustavo Timachi
+- João Lima
+- Márcio Junior
 
 ## Licença
 
