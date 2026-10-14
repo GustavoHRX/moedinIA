@@ -47,20 +47,28 @@ O reset de senha **funciona em produção**. A lista de Redirect URLs já tinha 
 | `7a16c2b` | B12 | `.env.example` enxuto; modelo padrão do agente igual nos dois composes. |
 | `69ac29a` | M12 | README, `n8n/README` e `EXPLICACAO_DO_CODIGO` reescritos; ajustes nos demais. |
 
+### Segunda rodada (13/10, depois do primeiro push)
+
+O primeiro push (`a9f2336`) foi publicado e a migration 034 aplicada e conferida. Em seguida, com decisão do João:
+
+| Commit | O que mudou | Prova |
+|---|---|---|
+| `99c894d` | `apps/ai-service` vai para `historico/`; saem a rota `/api/insight`, o bloco do dashboard que a chamava e o serviço `ai` do compose. | lint, testes e build |
+| `49ebb34` | `moedin-ia.vercel.app` redireciona (308) para o domínio oficial, menos `/api` e `/auth`. | build de produção local com o cabeçalho `Host` trocado: `/login` e `/termos?x=1` redirecionam com caminho e querystring; `/api/cron/recurrences` continua 401 |
+| `7c21548` | Botão de envio dos formulários de auth só habilita depois que a página carrega. | HTML servido traz `disabled`; no navegador o botão fica ativo após carregar |
+| `c389d50` | Migration 035: as 12 categorias sem dono. **Já aplicada.** | ensaio com rollback e conferência depois: 0 globais, 0 lançamentos/limites/fixos apontando para categoria de outro usuário |
+
+Branches apagadas: locais `landing-plano-unico`, `newVersion`, `master`; em `origin`: `newVersion` (`0578d24`), `backupNewVersion` (`ef25ea6`), `feature-dev` (`be7f7df`), `old-template` (`56fcf48`), `versionjune26` (`af8fa3f`). O `.git` local caiu de 22 MB para 10 MB.
+
 ### Ficou de fora, de propósito
 
-- **`apps/ai-service` e a rota `/api/insight`**: decisão de produto (apagar junto com o bloco de insight do dashboard, ou hospedar). Hoje segue como estava.
 - **Guarda de saída do bot (M10)**: o furo é dedução, a correção por regex de domínio solto daria falso positivo e exige republicar o bot.
-- **Redirecionar `moedin-ia.vercel.app`** (M14): configuração de domínio na Vercel.
-- **12 categorias sem dono no banco** (M9b): o SQL de remapeamento está em `relatorio-banco.md`; mexe em dado de usuário real.
-- **Branches antigas e `git gc`**: apagar branch remota é irreversível.
 - **Baixos B2, B3, B5, B6, B8–B11**.
 
 ### Para fechar
 
-1. Aplicar a `034_reconcile_e_busca_sem_acento.sql` no SQL Editor.
-2. `git push origin versionjuly26:FINALVERSION` e `git push vercel-repo versionjuly26:main`.
-3. Conferir o deploy na Vercel e o reset de senha uma última vez.
+1. `git push origin versionjuly26:FINALVERSION` e `git push vercel-repo versionjuly26:main` (leva a segunda rodada para o ar).
+2. Conferir o deploy: `moedin-ia.vercel.app` deve redirecionar e o login deve funcionar.
 
 ---
 
