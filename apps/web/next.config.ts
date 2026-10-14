@@ -63,6 +63,21 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: dirname(fileURLToPath(import.meta.url)),
   },
+  // O endereço antigo da Vercel servia o mesmo site que o domínio próprio: duas
+  // URLs para o mesmo conteúdo dividem o resultado nos buscadores. Quem chega
+  // por ele vai para o domínio oficial.
+  // Ficam de fora /api (o cron da Vercel chama a rota pelo endereço .vercel.app
+  // e não segue redirecionamento) e /auth (retorno do login com Google).
+  async redirects() {
+    return [
+      {
+        source: "/:path((?!api/|auth/).*)",
+        has: [{ type: "host", value: "moedin-ia.vercel.app" }],
+        destination: "https://www.moedin-ia.com.br/:path",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
