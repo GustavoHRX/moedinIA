@@ -79,7 +79,7 @@ Quando o bot grava um lançamento, o painel aberto atualiza sozinho pelo Realtim
 │   ├── SYSTEM-PROMPT-AGENTE-V2.md   Prompt do agente (igual ao que está dentro do workflow).
 │   └── lib/pdf-relatorio.js Fonte do gerador de PDF usado no workflow.
 ├── supabase/
-│   └── migrations/          001 a 035: esquema, RLS, funções do bot, Realtime.
+│   └── migrations/          001 a 036: esquema, RLS, funções do bot, Realtime.
 ├── infra/bot/               Compose do servidor do bot, scripts de publicar, testar e backup.
 ├── docs/                    Explicação do código, auditoria de privacidade, revisão final.
 ├── historico/               Versões antigas guardadas para consulta. Nada ali roda.
@@ -140,7 +140,7 @@ Todas exigem sessão, menos o cron, que exige `Authorization: Bearer $CRON_SECRE
 
 ## Bot do WhatsApp (`n8n/`)
 
-Workflow principal: `n8n/workflow/moedin-agente-v2.json` (102 nós, 26 ferramentas). Caminho de uma mensagem:
+Workflow principal: `n8n/workflow/moedin-agente-v2.json` (103 nós, 27 ferramentas). Caminho de uma mensagem:
 
 1. **Recepção.** O webhook confere um token secreto e ignora grupos e mensagens do próprio bot.
 2. **Identificação.** O número é resolvido para um usuário pela tabela `whatsapp_links`. Quem não tem vínculo só consegue ativar com o código mostrado no painel.
@@ -155,7 +155,7 @@ Outros dois workflows: `moedin-erros.json` (avisa o administrador quando o agent
 
 ## Banco de dados (`supabase/`)
 
-As migrations ficam em `supabase/migrations/`, numeradas de `001` a `035`, e são aplicadas em ordem pelo SQL Editor do Supabase.
+As migrations ficam em `supabase/migrations/`, numeradas de `001` a `036`, e são aplicadas em ordem pelo SQL Editor do Supabase.
 
 | Faixa | Conteúdo |
 |---|---|
@@ -165,6 +165,7 @@ As migrations ficam em `supabase/migrations/`, numeradas de `001` a `035`, e sã
 | 022–033 | Funções do agente: lançamentos, fixos, parcelas, metas, importação de fatura, câmbio, categorias, aviso de limite |
 | 034 | Busca do bot sem acento e reconciliação do repositório com a produção |
 | 035 | Correção de dados: categorias antigas sem dono |
+| 036 | Bot: simular uma compra contra o limite e o saldo livre ("posso comprar 3000 em lazer?") |
 
 Tabelas principais: `profiles`, `categories`, `transactions`, `fixed_expenses`, `fixed_incomes`, `installments`, `budgets`, `goals`, `user_settings`, `whatsapp_links`, `whatsapp_category_rules`, `message_logs`, `ai_insights`, `fx_rates`.
 

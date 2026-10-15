@@ -82,7 +82,7 @@ Arquivo: `n8n/workflow/moedin-agente-v2.json`. É melhor abrir no n8n, onde os n
 | 2. Identificação | `resolve_user_by_wa` procura o número em `whatsapp_links`. Sem vínculo, o texto é tratado como tentativa de código de ativação. |
 | 3. Mídia | Imagem e PDF vão para a OpenAI; áudio é transcrito. O resultado vira texto delimitado por uma marca sorteada a cada execução. |
 | 4. Agrupamento | Cada mensagem vira uma chave no Redis com validade curta; depois de uma espera, só a última da sequência segue, levando o texto de todas. |
-| 5. Rota e agente | Um nó de código responde sem IA o que é trivial. O resto vai para o *AI Agent*, com memória curta no Redis e 26 ferramentas. |
+| 5. Rota e agente | Um nó de código responde sem IA o que é trivial. O resto vai para o *AI Agent*, com memória curta no Redis e 27 ferramentas. |
 | 6. Resposta | Guarda de saída (remove links externos e marcas internas) e envio pela Evolution. |
 | 7. Erros | Qualquer falha cai num aviso amigável e aciona o workflow de erros. |
 

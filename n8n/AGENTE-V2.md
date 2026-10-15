@@ -2,9 +2,9 @@
 
 Workflow: `n8n/workflow/moedin-agente-v2.json` · id no n8n local: `MoedinAgenteV2aa`
 (http://localhost:5678/workflow/MoedinAgenteV2aa) · path do webhook: `POST /webhook/moedin-agente`.
-System prompt: `n8n/SYSTEM-PROMPT-AGENTE-V2.md` · Migrations: `022` a `033` em `supabase/migrations/`.
+System prompt: `n8n/SYSTEM-PROMPT-AGENTE-V2.md` · Migrations: `022` a `036` em `supabase/migrations/`.
 
-**Versão atual: v2.14** (30/09/2026) — 102 nós, 26 ferramentas. O que mudou depois da v2 original
+**Versão atual: v2.15** (15/10/2026) — 103 nós, 27 ferramentas. O que mudou depois da v2 original
 está nas seções 10 a 16 e 18, em ordem cronológica; o começo deste documento descreve o desenho que
 continua valendo.
 
@@ -817,4 +817,20 @@ chamada desses lugares.
 
 Testado no bot local: "para de me mandar alertas" → explicação de uma linha; "gastei 350 … e 12 …" → aviso só no gasto
 alto e "excluir o ZZ cafe teste" no fim; bateria de segurança 12/12. Lançamentos de teste apagados.
+
+## 26. v2.15 — simular compra (15/10/2026)
+
+Em 14/10 o João perguntou "posso fazer uma compra 3000 laser?" e o bot respondeu "foi à vista ou parcelado?",
+tratando a pergunta como lançamento. Em seguida "e meu limite de lazer" mostrou só o limite geral, sem dizer que
+Lazer não tinha limite próprio.
+
+- **Ferramenta nova `simular_compra`** → `whatsapp_simulate_purchase` (migration `036`). Não grava nada: compara a
+  compra com o limite geral do mês, o limite da categoria (se existir) e o saldo livre estimado (mesma conta do
+  `resumo_do_mes`, só quando há receita registrada no mês). Parcelado conta só a 1ª parcela no mês.
+- Veredito: ✅ cabe, ⚠️ passa de 80% de algum limite, 🚨 estoura limite ou deixa o saldo livre negativo. Diferencia
+  "passa do seu limite, mas dinheiro tem" de "falta dinheiro no mês", diz quanto ainda cabe e em quantas parcelas a
+  parcela caberia.
+- A busca da categoria só lê (não cria categoria) e tolera erro de digitação: "laser" → Lazer, "mercdo" → Mercado.
+- Prompt: "posso comprar X?", "dá pra gastar…", "se eu comprar… estoura?" vão para `simular_compra`; nunca para
+  `criar_lancamento`. Só registra se a pessoa disser depois que comprou.
 
