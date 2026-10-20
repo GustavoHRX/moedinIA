@@ -854,3 +854,11 @@ pouco crédito na OpenAI. A transcrição de áudio continua no `whisper-1` da O
 - Migration `037`: cotação com mais de 3 dias é tratada como ausente — o bot pede o valor em reais em vez de
   converter com taxa velha.
 
+**Correção no mesmo dia (20/10).** Logo depois de publicar, foto e PDF caíam no aviso de erro: o schema embutido
+no corpo da requisição tinha `}}` colado, e no n8n `}}` fecha a expressão ("invalid syntax"). O teste anterior
+tinha rodado fora do n8n e não pegou. Agora as chaves do schema ficam separadas por espaço, como no original.
+Para não repetir: a Evolution falsa passou a entregar mídia (`getBase64FromMediaMessage` devolve
+`n8n/files/midia-teste/<nome>`) e `infra/bot/testar-midia-local.sh` manda foto, PDF ou áudio pelo fluxo inteiro.
+Testado assim: áudio `.ogg` ("gastei vinte e cinco reais na farmácia") → registrado em Saúde; comprovante → registrado;
+fatura → resumo com 5 itens, parcela 3/10 e pergunta de importação.
+

@@ -4,8 +4,13 @@
 Responde o suficiente para o workflow do agente rodar (sendText, markMessageAsRead,
 sendPresence, connectionState) e ESCREVE em /saida/respostas.log tudo que o bot
 tentou enviar. Nada sai para a internet.
+
+Mídia: getBase64FromMediaMessage devolve o arquivo /saida/midia-teste/<nome> quando o
+id da mensagem é "MIDIA-<nome>" (é o que infra/bot/testar-midia-local.sh manda).
 """
-import json, os, datetime
+import base64, json, mimetypes, os, datetime
+
+mimetypes.add_type("audio/ogg", ".ogg"); mimetypes.add_type("audio/ogg", ".opus"); mimetypes.add_type("audio/mp4", ".m4a")
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 LOG = os.environ.get("STUB_LOG", "/saida/respostas.log")
@@ -37,6 +42,17 @@ class H(BaseHTTPRequestHandler):
                 f.write("=== %s -> %s\n%s\n\n" % (agora, body.get("number", "?"), texto))
             print("[%s] sendText (%d chars)" % (agora, len(texto)), flush=True)
             return self._json(201, {"key": {"id": "STUB" + agora.replace(":", "")}, "status": "PENDING"})
+        if "/chat/getBase64FromMediaMessage/" in self.path:
+            msg_id = str(((body.get("message") or {}).get("key") or {}).get("id") or "")
+            nome = os.path.basename(msg_id[len("MIDIA-"):]) if msg_id.startswith("MIDIA-") else ""
+            arq = os.path.join(os.path.dirname(LOG), "midia-teste", nome)
+            if not nome or not os.path.isfile(arq):
+                return self._json(404, {"error": "midia de teste nao encontrada: " + nome})
+            mime = mimetypes.guess_type(arq)[0] or "application/octet-stream"
+            with open(arq, "rb") as f:
+                dados = base64.b64encode(f.read()).decode()
+            print("[%s] getBase64 %s (%s)" % (agora, nome, mime), flush=True)
+            return self._json(201, {"base64": dados, "mimetype": mime, "fileName": nome})
         if "/message/sendMedia/" in self.path or "/sendWhatsAppAudio/" in self.path:
             with open(LOG, "a", encoding="utf-8") as f:
                 f.write("=== %s -> %s (MÍDIA: %s)\n\n" % (agora, body.get("number", "?"), body.get("fileName", "arquivo")))
