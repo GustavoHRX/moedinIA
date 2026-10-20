@@ -261,7 +261,7 @@
         860
       ],
       "retryOnFail": true,
-      "maxTries": 3,
+      "maxTries": 2,
       "waitBetweenTries": 5000,
       "onError": "continueRegularOutput"
     },
@@ -288,7 +288,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ p_rates: ($json.result === 'success' && $json.rates) ? $json.rates : null }) }}",
+        "jsonBody": "={{ JSON.stringify({ p_rates: $json.rates || null }) }}",
         "options": {}
       },
       "id": "3f6613d2-914b-5ea1-b63d-da524b3c8955",
@@ -298,6 +298,19 @@
       "position": [
         440,
         860
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fonte principal: open.er-api.com (base BRL: 1 BRL = r unidades da moeda), que é o formato que\n// whatsapp_fx_upsert espera. Se ela falhar ou vier sem taxas, usa a AwesomeAPI como reserva\n// (dá quantos reais vale 1 unidade da moeda) e converte para o mesmo formato (r = 1 / bid).\n// Só sai daqui dado público de câmbio; nenhum dado de usuário vai para essas APIs.\nconst p = $input.first().json || {};\nif (p.result === 'success' && p.rates && Object.keys(p.rates).length > 10) {\n  return [{ json: { fonte: 'open.er-api.com', rates: p.rates } }];\n}\nconst moedas = ['USD', 'EUR', 'GBP', 'ARS', 'CLP', 'UYU', 'PYG', 'JPY', 'CAD', 'AUD', 'CHF', 'CNY', 'MXN', 'COP'];\ntry {\n  const r = await this.helpers.httpRequest({\n    url: 'https://economia.awesomeapi.com.br/json/last/' + moedas.map(m => m + '-BRL').join(','),\n    json: true, timeout: 20000,\n  });\n  const rates = {};\n  for (const v of Object.values(r || {})) {\n    const bid = Number(v && v.bid);\n    if (v && v.code && bid > 0) rates[v.code] = 1 / bid;\n  }\n  if (Object.keys(rates).length) return [{ json: { fonte: 'awesomeapi', rates } }];\n} catch (e) { /* as duas fontes falharam: não grava nada e a cotação antiga envelhece */ }\nreturn [{ json: { fonte: null, rates: null } }];"
+      },
+      "id": "99bb1a18-0137-4ff7-b169-07fdd8996f0a",
+      "name": "Escolher cotações",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        330,
+        1020
       ]
     }
   ],
@@ -380,6 +393,17 @@
       ]
     },
     "Cotações do dia (API)": {
+      "main": [
+        [
+          {
+            "node": "Escolher cotações",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escolher cotações": {
       "main": [
         [
           {
