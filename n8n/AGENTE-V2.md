@@ -2,9 +2,9 @@
 
 Workflow: `n8n/workflow/moedin-agente-v2.json` · id no n8n local: `MoedinAgenteV2aa`
 (http://localhost:5678/workflow/MoedinAgenteV2aa) · path do webhook: `POST /webhook/moedin-agente`.
-System prompt: `n8n/SYSTEM-PROMPT-AGENTE-V2.md` · Migrations: `022` a `036` em `supabase/migrations/`.
+System prompt: `n8n/SYSTEM-PROMPT-AGENTE-V2.md` · Migrations: `022` a `037` em `supabase/migrations/`.
 
-**Versão atual: v2.15** (15/10/2026) — 103 nós, 27 ferramentas. O que mudou depois da v2 original
+**Versão atual: v2.16** (19/10/2026) — 103 nós, 27 ferramentas, modelo Claude Sonnet 5.5. O que mudou depois da v2 original
 está nas seções 10 a 16 e 18, em ordem cronológica; o começo deste documento descreve o desenho que
 continua valendo.
 
@@ -833,4 +833,24 @@ Lazer não tinha limite próprio.
 - A busca da categoria só lê (não cria categoria) e tolera erro de digitação: "laser" → Lazer, "mercdo" → Mercado.
 - Prompt: "posso comprar X?", "dá pra gastar…", "se eu comprar… estoura?" vão para `simular_compra`; nunca para
   `criar_lancamento`. Só registra se a pessoa disser depois que comprou.
+
+## 27. v2.16 — troca para o Claude Sonnet 5.5 e câmbio que não envelhece (19/10/2026)
+
+**Modelo.** O agente, a leitura de foto e a de PDF saíram do `gpt-5.4-mini` (OpenAI) e foram para o **Claude
+Sonnet 5.5** (`claude-sonnet-5-5`), com pensamento adaptativo e esforço `low`. Motivo: crédito na Anthropic e
+pouco crédito na OpenAI. A transcrição de áudio continua no `whisper-1` da OpenAI: o Claude não transcreve áudio.
+
+- Agente: nó `lmChatAnthropic` v1.5 ("Modelo Claude (Sonnet 5.5)"), modo de pensamento *adaptive*, esforço `low`,
+  4.096 tokens de saída. Esse modo não manda `temperature`/`top_p`/`top_k`, que o Sonnet 5.5 recusa.
+- Foto e PDF: `POST https://api.anthropic.com/v1/messages` com o bloco `image` ou `document` em base64 e saída
+  presa ao mesmo JSON schema de antes (`output_config.format`; os campos que aceitavam nulo viraram `anyOf`).
+  Com `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`): se o modelo recusar por política, a própria
+  API refaz o pedido em outro modelo. O nó "Interpretar documento" lê os blocos de texto da resposta da Anthropic.
+- Credencial: "Anthropic account", id fixo `MoedinAnthropic01`, criada pelo `infra/bot/importar-credencial-anthropic.sh`
+  a partir do `ANTHROPIC_API_KEY` do `.env` (a chave nunca aparece na tela).
+
+**Câmbio.** As cotações estavam paradas desde 01/10 e o bot convertia dólar com a taxa de 18 dias antes.
+- Workflow das 7h10: se a open.er-api.com falhar, a AwesomeAPI entra de reserva (nó "Escolher cotações").
+- Migration `037`: cotação com mais de 3 dias é tratada como ausente — o bot pede o valor em reais em vez de
+  converter com taxa velha.
 

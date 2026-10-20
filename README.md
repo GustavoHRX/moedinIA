@@ -53,8 +53,8 @@ No celular:
  (servidor de casa)         (servidor de casa)                    ▲
                                   │                               │ leitura/escrita com RLS
                                   ▼                               │
-                               OpenAI                    Painel Next.js (Vercel)
-                     (texto, visão, transcrição)                  ▲
+                  Anthropic (Claude) + OpenAI    Painel Next.js (Vercel)
+             (texto e visão)  (só transcrição)            ▲
                                                                   │
                                                          Navegador do usuário
 ```
@@ -79,7 +79,7 @@ Quando o bot grava um lançamento, o painel aberto atualiza sozinho pelo Realtim
 │   ├── SYSTEM-PROMPT-AGENTE-V2.md   Prompt do agente (igual ao que está dentro do workflow).
 │   └── lib/pdf-relatorio.js Fonte do gerador de PDF usado no workflow.
 ├── supabase/
-│   └── migrations/          001 a 036: esquema, RLS, funções do bot, Realtime.
+│   └── migrations/          001 a 037: esquema, RLS, funções do bot, Realtime.
 ├── infra/bot/               Compose do servidor do bot, scripts de publicar, testar e backup.
 ├── docs/                    Explicação do código, auditoria de privacidade, revisão final.
 ├── historico/               Versões antigas guardadas para consulta. Nada ali roda.
@@ -144,7 +144,7 @@ Workflow principal: `n8n/workflow/moedin-agente-v2.json` (103 nós, 27 ferrament
 
 1. **Recepção.** O webhook confere um token secreto e ignora grupos e mensagens do próprio bot.
 2. **Identificação.** O número é resolvido para um usuário pela tabela `whatsapp_links`. Quem não tem vínculo só consegue ativar com o código mostrado no painel.
-3. **Mídia.** Foto e PDF vão para a OpenAI (visão); áudio é transcrito. O texto extraído chega ao agente marcado como dado, nunca como instrução.
+3. **Mídia.** Foto e PDF são lidos pelo Claude Sonnet 5.5 (visão); áudio é transcrito pelo Whisper da OpenAI. O texto extraído chega ao agente marcado como dado, nunca como instrução.
 4. **Agrupamento.** Mensagens enviadas em sequência são juntadas com um buffer no Redis.
 5. **Agente.** Pedidos simples (ajuda, link do painel, relatório em PDF) são respondidos sem IA. O resto vai para o agente, que escolhe a ferramenta.
 6. **Resposta.** Um nó de guarda apaga qualquer link que não seja do Moedin-IA antes do envio.
@@ -155,7 +155,7 @@ Outros dois workflows: `moedin-erros.json` (avisa o administrador quando o agent
 
 ## Banco de dados (`supabase/`)
 
-As migrations ficam em `supabase/migrations/`, numeradas de `001` a `036`, e são aplicadas em ordem pelo SQL Editor do Supabase.
+As migrations ficam em `supabase/migrations/`, numeradas de `001` a `037`, e são aplicadas em ordem pelo SQL Editor do Supabase.
 
 | Faixa | Conteúdo |
 |---|---|
@@ -166,6 +166,7 @@ As migrations ficam em `supabase/migrations/`, numeradas de `001` a `036`, e sã
 | 034 | Busca do bot sem acento e reconciliação do repositório com a produção |
 | 035 | Correção de dados: categorias antigas sem dono |
 | 036 | Bot: simular uma compra contra o limite e o saldo livre ("posso comprar 3000 em lazer?") |
+| 037 | Bot: cotação de câmbio com mais de 3 dias não é usada |
 
 Tabelas principais: `profiles`, `categories`, `transactions`, `fixed_expenses`, `fixed_incomes`, `installments`, `budgets`, `goals`, `user_settings`, `whatsapp_links`, `whatsapp_category_rules`, `message_logs`, `ai_insights`, `fx_rates`.
 

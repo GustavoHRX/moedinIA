@@ -80,7 +80,7 @@ Arquivo: `n8n/workflow/moedin-agente-v2.json`. É melhor abrir no n8n, onde os n
 |---|---|
 | 1. Recepção | Webhook, conferência do token, normalização do formato da Evolution, descarte de grupos e de mensagens do próprio bot. |
 | 2. Identificação | `resolve_user_by_wa` procura o número em `whatsapp_links`. Sem vínculo, o texto é tratado como tentativa de código de ativação. |
-| 3. Mídia | Imagem e PDF vão para a OpenAI; áudio é transcrito. O resultado vira texto delimitado por uma marca sorteada a cada execução. |
+| 3. Mídia | Imagem e PDF são lidos pelo Claude Sonnet 5.5; áudio é transcrito pelo Whisper (OpenAI). O resultado vira texto delimitado por uma marca sorteada a cada execução. |
 | 4. Agrupamento | Cada mensagem vira uma chave no Redis com validade curta; depois de uma espera, só a última da sequência segue, levando o texto de todas. |
 | 5. Rota e agente | Um nó de código responde sem IA o que é trivial. O resto vai para o *AI Agent*, com memória curta no Redis e 27 ferramentas. |
 | 6. Resposta | Guarda de saída (remove links externos e marcas internas) e envio pela Evolution. |
@@ -90,7 +90,7 @@ Arquivo: `n8n/workflow/moedin-agente-v2.json`. É melhor abrir no n8n, onde os n
 
 **Formatação.** As funções do banco devolvem a mensagem já pronta em português. Formatar no SQL economiza tokens e mantém o texto igual em toda resposta.
 
-**Prompt.** `n8n/SYSTEM-PROMPT-AGENTE-V2.md`. As regras fixas vêm no começo e os dados que mudam (nome, data, hora) no fim, para aproveitar o cache de prefixo da OpenAI.
+**Prompt.** `n8n/SYSTEM-PROMPT-AGENTE-V2.md`. As regras fixas vêm no começo e os dados que mudam (nome, data, hora) no fim, para aproveitar o cache de prefixo do provedor do modelo.
 
 O histórico de cada versão, com os testes e as decisões, está em [`n8n/AGENTE-V2.md`](../n8n/AGENTE-V2.md).
 

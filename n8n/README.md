@@ -4,7 +4,7 @@ Esta pasta guarda os workflows do bot de WhatsApp e a documentação dele.
 
 | Caminho | O que é |
 |---|---|
-| `workflow/moedin-agente-v2.json` | O agente: recebe a mensagem, identifica o usuário, lê mídia e chama as ferramentas. **v2.15**, 103 nós, 27 ferramentas. Webhook: `POST /webhook/moedin-agente`. |
+| `workflow/moedin-agente-v2.json` | O agente: recebe a mensagem, identifica o usuário, lê mídia e chama as ferramentas. **v2.16**, 103 nós, 27 ferramentas; modelo Claude Sonnet 5.5 (áudio no Whisper). Webhook: `POST /webhook/moedin-agente`. |
 | `workflow/moedin-erros.json` | Disparado quando o agente falha: avisa o número configurado em `N8N_ALERT_WA_ID`. |
 | `workflow/moedin-alertas-diarios.json` | Hoje só atualiza as cotações de câmbio às 7h10. Os gatilhos de alerta das 9h e do resumo de domingo estão desligados: o bot não manda mensagem por iniciativa própria. **Não apagar**: sem ele a conversão de moeda estrangeira para de atualizar. |
 | `AGENTE-V2.md` | Arquitetura, decisões, testes e histórico de versões do agente. |

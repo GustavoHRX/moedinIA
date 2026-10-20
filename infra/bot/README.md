@@ -23,7 +23,7 @@ O stack do servidor é **compartilhado** (o bot do Jura também vai morar lá), 
 
 ## O que foi acrescentado ao stack do servidor
 
-**No `.env`:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `WHATSAPP_WEBHOOK_TOKEN`, `OPENAI_MODEL`,
+**No `.env`:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `WHATSAPP_WEBHOOK_TOKEN`, `OPENAI_MODEL`, `ANTHROPIC_API_KEY` (desde 19/10, gravada por `chave-anthropic.sh`),
 `EVOLUTION_INSTANCE`, `N8N_ALERT_WA_ID`, `MOEDIN_APP_URL`.
 
 **No serviço `n8n`:** essas variáveis, mais `EVOLUTION_API_URL=http://evolution-api:8080`, `TZ` e
@@ -154,4 +154,4 @@ no servidor novo. Foram escritos para o caso Oracle e testados só até o empaco
 armadilhas acima, principalmente o `clientName` e o `DATABASE_SAVE_DATA_NEW_MESSAGE`.
 
 Nenhuma porta precisa ficar aberta para a internet: a Evolution conecta para fora até o WhatsApp e o n8n
-conecta para fora até o Supabase e a OpenAI. O acesso ao editor do n8n é pela rede de casa ou pelo Tailscale.
+conecta para fora até o Supabase, a Anthropic e a OpenAI. O acesso ao editor do n8n é pela rede de casa ou pelo Tailscale.
