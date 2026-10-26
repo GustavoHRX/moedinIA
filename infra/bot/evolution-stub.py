@@ -39,7 +39,8 @@ class H(BaseHTTPRequestHandler):
         if "/message/sendText/" in self.path:
             texto = body.get("text") or body.get("textMessage", {}).get("text") or ""
             with open(LOG, "a", encoding="utf-8") as f:
-                f.write("=== %s -> %s\n%s\n\n" % (agora, body.get("number", "?"), texto))
+                f.write("=== %s -> %s%s\n%s\n\n" % (agora, body.get("number", "?"),
+                        " (delay %s ms)" % body["delay"] if body.get("delay") else "", texto))
             print("[%s] sendText (%d chars)" % (agora, len(texto)), flush=True)
             return self._json(201, {"key": {"id": "STUB" + agora.replace(":", "")}, "status": "PENDING"})
         if "/chat/getBase64FromMediaMessage/" in self.path:

@@ -23,7 +23,7 @@ O stack do servidor é **compartilhado** (o bot do Jura também vai morar lá), 
 
 ## O que foi acrescentado ao stack do servidor
 
-**No `.env`:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `WHATSAPP_WEBHOOK_TOKEN`, `OPENAI_MODEL`, `ANTHROPIC_API_KEY` (desde 19/10, gravada por `chave-anthropic.sh`),
+**No `.env`:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `WHATSAPP_WEBHOOK_TOKEN`, `OPENAI_MODEL`, `ANTHROPIC_API_KEY` (desde 19/10, gravada por `chave-anthropic.sh`); a imagem da Evolution no servidor fica **fixada por digest** (v2.3.7), nunca `:latest`,
 `EVOLUTION_INSTANCE`, `N8N_ALERT_WA_ID`, `MOEDIN_APP_URL`.
 
 **No serviço `n8n`:** essas variáveis, mais `EVOLUTION_API_URL=http://evolution-api:8080`, `TZ` e

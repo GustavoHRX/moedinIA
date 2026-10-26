@@ -140,7 +140,7 @@ Todas exigem sessão, menos o cron, que exige `Authorization: Bearer $CRON_SECRE
 
 ## Bot do WhatsApp (`n8n/`)
 
-Workflow principal: `n8n/workflow/moedin-agente-v2.json` (103 nós, 27 ferramentas). Caminho de uma mensagem:
+Workflow principal: `n8n/workflow/moedin-agente-v2.json` (105 nós, 27 ferramentas). Caminho de uma mensagem:
 
 1. **Recepção.** O webhook confere um token secreto e ignora grupos e mensagens do próprio bot.
 2. **Identificação.** O número é resolvido para um usuário pela tabela `whatsapp_links`. Quem não tem vínculo só consegue ativar com o código mostrado no painel.

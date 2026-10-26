@@ -4,7 +4,7 @@ Workflow: `n8n/workflow/moedin-agente-v2.json` · id no n8n local: `MoedinAgente
 (http://localhost:5678/workflow/MoedinAgenteV2aa) · path do webhook: `POST /webhook/moedin-agente`.
 System prompt: `n8n/SYSTEM-PROMPT-AGENTE-V2.md` · Migrations: `022` a `037` em `supabase/migrations/`.
 
-**Versão atual: v2.16** (19/10/2026) — 103 nós, 27 ferramentas, modelo Claude Sonnet 5.5. O que mudou depois da v2 original
+**Versão atual: v2.17** (26/10/2026) — 105 nós, 27 ferramentas, modelo Claude Sonnet 5.5. O que mudou depois da v2 original
 está nas seções 10 a 16 e 18, em ordem cronológica; o começo deste documento descreve o desenho que
 continua valendo.
 
@@ -861,4 +861,30 @@ Para não repetir: a Evolution falsa passou a entregar mídia (`getBase64FromMed
 `n8n/files/midia-teste/<nome>`) e `infra/bot/testar-midia-local.sh` manda foto, PDF ou áudio pelo fluxo inteiro.
 Testado assim: áudio `.ogg` ("gastei vinte e cinco reais na farmácia") → registrado em Saúde; comprovante → registrado;
 fatura → resumo com 5 itens, parcela 3/10 e pergunta de importação.
+
+## 28. v2.17 — menos cara de robô para o WhatsApp (26/10/2026)
+
+O número do bot na Evolution (API não oficial) foi banido de novo. Não há como zerar esse risco enquanto o canal for não
+oficial; estas mudanças só diminuem os sinais que o WhatsApp usa para detectar automação.
+
+- **"Digitando" proporcional.** As 6 mensagens de texto do bot (resposta principal, ativação, não cadastrado, tipo não
+  suportado, limite, erro) agora vão com `delay` no corpo do `sendText`: a Evolution mostra "digitando…" durante esse
+  tempo e só então envia. Fórmula: `min(4500, 1000 + 15 × caracteres) + aleatório de 0 a 1500 ms` (entre 1 e 6 s). Antes a
+  resposta saía seca, uns 3 a 5 s depois, sempre no mesmo ritmo. (A tentativa de v2.9, um nó `sendPresence` separado, tinha
+  saído na v2.10; o `delay` do próprio envio evita o nó extra.)
+- **Quem não tem cadastro recebe a boas-vindas no máximo uma vez por dia** (chave `moedin:unk:{número}` no Redis, 24 h).
+  Antes, cada mensagem de um estranho ganhava resposta (até 5 por hora). Estranho que recebe resposta automática é quem
+  denuncia. Código de ativação válido continua funcionando a qualquer hora.
+- **Evolution fixada.** No servidor, `~/stack/docker-compose.yml` usava `evoapicloud/evolution-api:latest`; passou a usar o
+  digest da 2.3.7 (`sha256:96662553…`), a versão que já estava rodando. O `:latest` trocaria a versão sem aviso na próxima
+  recriação do container. Backup do compose antigo no próprio servidor (`docker-compose.yml.bak-pin-20261026`).
+  A versão do app WhatsApp **não** foi fixada de propósito: o Baileys busca a versão atual sozinho, e uma versão cravada
+  envelhece e passa a ser recusada.
+- A Evolution falsa de teste (`infra/bot/evolution-stub.py`) registra o `delay` no `respostas.log`.
+
+Testado no ambiente local (sem IA): "ajuda" saiu com delay de 5,5 s; um número desconhecido ganhou a boas-vindas na 1ª
+mensagem e silêncio na 2ª; nada foi gravado no banco.
+
+**O que não está nesta versão (precisa do João):** esquentar o chip com uso humano, manter o celular do chip ligado e em
+uso, pedir aos usuários que salvem o número e não bloqueiem, e ter um chip reserva.
 
