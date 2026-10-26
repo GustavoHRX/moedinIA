@@ -1,5 +1,5 @@
 {
   "name": "moedin-monorepo",
   "private": true,
-  "description": "Monorepo do Moedin-IA (web, api, ai-service, n8n). Cada app tem seu proprio package.json."
+  "description": "Monorepo do Moedin-IA (painel web, bot n8n, banco Supabase e infraestrutura do bot). Cada app tem seu proprio package.json."
 }
