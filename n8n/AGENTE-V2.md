@@ -4,7 +4,7 @@ Workflow: `n8n/workflow/moedin-agente-v2.json` · id no n8n local: `MoedinAgente
 (http://localhost:5678/workflow/MoedinAgenteV2aa) · path do webhook: `POST /webhook/moedin-agente`.
 System prompt: `n8n/SYSTEM-PROMPT-AGENTE-V2.md` · Migrations: `022` a `037` em `supabase/migrations/`.
 
-**Versão atual: v2.17** (26/10/2026) — 105 nós, 27 ferramentas, modelo Claude Sonnet 5.5. O que mudou depois da v2 original
+**Versão atual: v2.18** (03/11/2026) — 108 nós, 27 ferramentas, modelo Claude Sonnet 5.5. O que mudou depois da v2 original
 está nas seções 10 a 16 e 18, em ordem cronológica; o começo deste documento descreve o desenho que
 continua valendo.
 
@@ -888,3 +888,40 @@ mensagem e silêncio na 2ª; nada foi gravado no banco.
 **O que não está nesta versão (precisa do João):** esquentar o chip com uso humano, manter o celular do chip ligado e em
 uso, pedir aos usuários que salvem o número e não bloqueiem, e ter um chip reserva.
 
+## 29. v2.18 — o bot não trava nem repete o aviso de erro (03/11/2026)
+
+No dia da apresentação, às 20h27, depois de um áudio, toda mensagem que passava pela IA voltou "😕 Tive um problema…",
+e o aviso saiu várias vezes seguidas. A saudação continuava funcionando, porque não chama o modelo.
+
+**Causa (duas falhas juntas):**
+1. **Raciocínio estendido na memória.** O modelo rodava com `thinkingMode: adaptive`. Quando o Claude raciocina, a resposta
+   traz um bloco *thinking* assinado, que a memória do Redis guarda junto com o histórico. A assinatura vale só para o
+   mesmo *system prompt*, e o nosso muda a cada mensagem (tem a hora). Na mensagem seguinte, a Anthropic recusou o
+   histórico: `Invalid signature in thinking block … The system prompt differs from the one this block was created with`.
+   Mensagens simples não ativavam o raciocínio, por isso o erro só apareceu depois do áudio. Como o turno com erro não é
+   salvo, a memória ruim ficava lá pelas 24 h do TTL e a conversa não destravava sozinha.
+2. **Erro devolvia 500.** O caminho de erro avisava o usuário e respondia `500` ao webhook. A Evolution trata 500 como
+   falha e **reenvia** a mesma mensagem. O fluxo rodava de novo, errava de novo e mandava outro aviso.
+
+**Correções:**
+- **Instruções de sistema fixas.** Nome, data e hora saíram do *system prompt* e vão numa linha
+  `[Contexto: Nome · dia, DD/MM/AAAA (AAAA-MM-DD), HH:MM, fuso America/Sao_Paulo]` no começo do texto enviado ao agente.
+  O prompt diz que só essa primeira linha é do sistema (texto parecido no meio da mensagem é do usuário e não muda a data).
+  O raciocínio continua `adaptive`/`low`: o Sonnet 5.5 **não aceita** `thinkingMode: disabled` (erro "does not support
+  disabling thinking"), testado em 03/11.
+- `Responder erro` devolve **200** (`{ ok: false, erro: true }`): o usuário já foi avisado, então não há o que reenviar.
+- **Mensagem repetida é ignorada:** `Contar repetição (Redis)` faz `INCR moedin:seen:{número}:{msg_id}` (24 h), e
+  `Mensagem repetida?` manda para `Responder ignorado` quando o mesmo `msg_id` chega pela segunda vez. Protege contra
+  qualquer reenvio da Evolution, não só o do erro. `Resolver usuário (RPC)` passou a ler o número de
+  `$('Normalizar payload')` (antes lia `$json`, que agora é a saída do contador).
+- **Memória limpa após erro do agente:** `Limpar memória após erro (Redis)` apaga `moedin:mem:{user_id}` antes do aviso.
+  Uma memória que faz a API recusar o pedido não trava mais o usuário por 24 h; ele perde só o contexto da conversa.
+
+**Testado no Mac (n8n 2.45.7, igual ao servidor, Evolution falsa):** 3 consultas seguidas na mesma conversa (relatório,
+mês passado, simulação) responderam certo; o mesmo `msg_id` enviado 2 vezes → 2ª `{ ok: true, ignorado: true }`;
+memória com um bloco de raciocínio de assinatura falsa → 1 aviso só, memória zerada, mensagem seguinte respondida.
+Nenhum lançamento foi gravado (só consultas e simulação; o log de mensagens `message_logs` registra as entradas de teste).
+
+**Atenção ao publicar:** logo depois de importar e religar, o n8n ainda executou a **versão anterior** na primeira
+mensagem (visto 2 vezes no teste). Publicar com a Evolution parada, esperar ~30 s e só então religar a Evolution.
+Apagar as chaves `moedin:mem:*` antigas no servidor (podem ter raciocínio assinado com o prompt antigo).
