@@ -4,7 +4,7 @@
 # Se falhar, mostra uma notificação. Se o Mac estava dormindo às 20h, o launchd roda ao acordar;
 # se estava DESLIGADO, não roda: por isso o servidor também faz o seu próprio backup às 03:30.
 set -uo pipefail
-ALVO="${HOMELAB:-docker@192.168.3.204}"
+ALVO="${HOMELAB:-docker@dell}"
 CHAVE="${HOMELAB_KEY:-$HOME/.ssh/moedin-homelab}"
 DEST="${BACKUP_DEST:-$HOME/Backups/moedin-homelab}"
 GUARDAR="${GUARDAR:-14}"

@@ -6,7 +6,7 @@
 #      (cópia fora de Desktop/Documents: o launchd não tem permissão de ler essas pastas)
 set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
-ALVO="${HOMELAB:-docker@192.168.3.204}"; CHAVE="${HOMELAB_KEY:-$HOME/.ssh/moedin-homelab}"
+ALVO="${HOMELAB:-docker@dell}"; CHAVE="${HOMELAB_KEY:-$HOME/.ssh/moedin-homelab}"
 SSH=(ssh -o BatchMode=yes -o ConnectTimeout=10 -i "$CHAVE" "$ALVO")
 
 echo "==> 1/4  Chave gpg"

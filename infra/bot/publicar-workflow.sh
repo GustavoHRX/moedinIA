@@ -19,9 +19,9 @@
 set -euo pipefail
 
 [ "$#" -ge 1 ] || { echo "Uso: bash infra/bot/publicar-workflow.sh caminho/do/workflow.json [outros.json ...]"; exit 1; }
-ALVO="${HOMELAB:-docker@100.76.253.59}"
+ALVO="${HOMELAB:-docker@dell}"
 CHAVE="${HOMELAB_KEY:-$HOME/.ssh/moedin-homelab}"
-PASTA="${HOMELAB_STACK:-~/stack}"
+PASTA="${HOMELAB_STACK:-/srv/moedin}"
 SSH=(ssh -o BatchMode=yes -o ConnectTimeout=10 -i "$CHAVE" "$ALVO")
 
 IDS=()
@@ -63,7 +63,7 @@ done
 echo "==> 5/5  Conferindo que ficou ativo"
 sleep 6
 for ID in "${IDS[@]}"; do
-  "${SSH[@]}" "docker logs stack-n8n-1 --since 2m 2>&1 | grep -F 'Activated workflow' | grep -F '($ID)' | tail -1" \
+  "${SSH[@]}" "docker logs moedin-n8n-1 --since 2m 2>&1 | grep -F 'Activated workflow' | grep -F '($ID)' | tail -1" \
     || { echo "ATENÇÃO: não vi a linha de ativação de $ID. Confira o log do n8n."; exit 1; }
 done
 echo "Pronto: ${#IDS[@]} workflow(s) publicado(s) e ativo(s)."
