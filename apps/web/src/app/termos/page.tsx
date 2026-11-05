@@ -80,8 +80,10 @@ export default function TermosPage() {
           </p>
           <p>
             <strong className="text-[var(--text)]">Compartilhamento:</strong> para funcionar, o
-            Moedin-IA usa provedores de infraestrutura e de IA (Supabase, Groq e/ou OpenAI). O
-            texto que você envia para categorização pode ser processado por esses provedores.
+            Moedin-IA usa provedores de infraestrutura e de IA: o Supabase (banco de dados e
+            autenticação), a Anthropic (modelo Claude, que interpreta as mensagens, imagens e PDFs
+            enviados pelo WhatsApp) e a OpenAI (transcrição dos áudios). O conteúdo que você envia
+            pelo WhatsApp pode ser processado por esses provedores.
             Não vendemos nem cedemos seus dados para fins comerciais ou publicitários.
           </p>
           <p>
