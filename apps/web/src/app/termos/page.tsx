@@ -7,7 +7,7 @@ export const metadata = {
 };
 
 const TERMS_VERSION = "1.0";
-const PRIVACY_VERSION = "1.0";
+const PRIVACY_VERSION = "1.1";
 
 /**
  * Página pública com o texto completo dos Termos de Uso e da Política de

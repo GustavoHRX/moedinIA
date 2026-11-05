@@ -5,7 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 const TERMS_VERSION = "1.0";
-const PRIVACY_VERSION = "1.0";
+const PRIVACY_VERSION = "1.1";
 
 /**
  * Revisão externa (ago/2026): as chaves de localStorage eram globais, então o
