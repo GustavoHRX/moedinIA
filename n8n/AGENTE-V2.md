@@ -4,7 +4,7 @@ Workflow: `n8n/workflow/moedin-agente-v2.json` · id no n8n local: `MoedinAgente
 (http://localhost:5678/workflow/MoedinAgenteV2aa) · path do webhook: `POST /webhook/moedin-agente`.
 System prompt: `n8n/SYSTEM-PROMPT-AGENTE-V2.md` · Migrations: `022` a `037` em `supabase/migrations/`.
 
-**Versão atual: v2.19** (05/11/2026) — 108 nós, 27 ferramentas, modelo Claude Sonnet 5.5. O que mudou depois da v2 original
+**Versão atual: v2.20** (05/11/2026) — 109 nós, 27 ferramentas, modelo Claude Sonnet 5.5. O que mudou depois da v2 original
 está nas seções 10 a 16 e 18, em ordem cronológica; o começo deste documento descreve o desenho que
 continua valendo.
 
@@ -941,3 +941,25 @@ R$ 3.800,00 (1), "Saldo do mês" ignorado; fatura → R$ 841,40, 6 itens, 2 parc
 
 
 Bateria adversarial (12 casos) rodada em 05/11/2026 no bot local com a v2.19 (inclui as instruções fixas da v2.18): **12 de 12 aprovados**. Publicada no Dell em 05/11 com a Evolution parada (bot desligado).
+
+## 31. v2.20 — nova tentativa automática quando o Claude recusa o histórico (05/11/2026)
+
+Na validação (perfil Carlos), o erro de assinatura do raciocínio voltou mesmo com as instruções fixas da v2.18:
+`Invalid signature in thinking block. The block is bound to a different conversation`. A assinatura também vale
+para o **começo da conversa**: a memória guarda só as últimas trocas e, quando descarta a mais antiga, o histórico
+enviado muda e o bloco de raciocínio guardado deixa de valer. A API aceitaria `thinking.block_binding.prefix_mismatch_behavior: "drop_block"`
+(com o beta `thinking-binding-controls-2026-08-01`), mas o nó do Claude no n8n não deixa mandar esse campo.
+Na v2.18 isso virava "😕 Tive um problema" e, com a memória apagada, a mensagem seguinte ("era 160 e não 180")
+corrigiu o lançamento errado.
+
+- Novo nó `Moedin-IA Agente (2ª tentativa)`: cópia do agente, ligado ao mesmo modelo, memória e 27 ferramentas.
+  Fluxo: agente falha → `Limpar memória após erro (Redis)` → 2ª tentativa → `Resposta final`. Só se a 2ª também
+  falhar vai o aviso de erro. O usuário não vê nada e a mensagem atual é atendida.
+- Testado no Mac com um raciocínio de assinatura falsa na memória: 1º agente saída de erro, memória limpa,
+  2º agente respondeu, `Avisar erro` não rodou. Depois, C5b e C6 do Carlos refeitos: o óleo foi registrado
+  e a correção pegou o lançamento certo.
+- Se o n8n um dia permitir o `drop_block`, dá pra trocar a 2ª tentativa por ele.
+
+Junto: migration `038_importacao_sem_duplicar_no_reenvio.sql` (reenvio do mesmo PDF não duplica; a mensagem
+final separa saídas e entradas). Testada em Postgres descartável; aplicar no SQL Editor.
+
