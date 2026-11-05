@@ -4,7 +4,7 @@ Workflow: `n8n/workflow/moedin-agente-v2.json` · id no n8n local: `MoedinAgente
 (http://localhost:5678/workflow/MoedinAgenteV2aa) · path do webhook: `POST /webhook/moedin-agente`.
 System prompt: `n8n/SYSTEM-PROMPT-AGENTE-V2.md` · Migrations: `022` a `037` em `supabase/migrations/`.
 
-**Versão atual: v2.18** (03/11/2026) — 108 nós, 27 ferramentas, modelo Claude Sonnet 5.5. O que mudou depois da v2 original
+**Versão atual: v2.19** (05/11/2026) — 108 nós, 27 ferramentas, modelo Claude Sonnet 5.5. O que mudou depois da v2 original
 está nas seções 10 a 16 e 18, em ordem cronológica; o começo deste documento descreve o desenho que
 continua valendo.
 
@@ -925,3 +925,19 @@ Nenhum lançamento foi gravado (só consultas e simulação; o log de mensagens 
 **Atenção ao publicar:** logo depois de importar e religar, o n8n ainda executou a **versão anterior** na primeira
 mensagem (visto 2 vezes no teste). Publicar com a Evolution parada, esperar ~30 s e só então religar a Evolution.
 Apagar as chaves `moedin:mem:*` antigas no servidor (podem ter raciocínio assinado com o prompt antigo).
+
+## 30. v2.19 — resumo da importação separa entradas e saídas (05/11/2026)
+
+Ao testar uma planilha pessoal exportada do Excel em PDF (validação do TCC), o resumo antes da importação somava a
+entrada (aposentadoria) com as saídas num "Total" só e listava a entrada entre os "maiores". A gravação já estava certa;
+o texto confundia.
+
+- `Interpretar documento`: calcula `Total de saídas` e, se houver, `Total de entradas (… não somam nos gastos)`; os
+  "maiores" passam a ser só as saídas (`Maiores saídas (já em ordem)`); itens de entrada aparecem com "(entrada)" na lista.
+- Instruções do agente: o resumo cita o total de saídas, o de entradas quando houver, e copia a linha "Maiores saídas".
+
+Testado no Mac (n8n 2.45.7, Evolution falsa), sem importar nada: planilha → saídas R$ 2.138,28 (17), entradas
+R$ 3.800,00 (1), "Saldo do mês" ignorado; fatura → R$ 841,40, 6 itens, 2 parcelados, "Pagamento recebido" ignorado.
+
+
+Bateria adversarial (12 casos) rodada em 05/11/2026 no bot local com a v2.19 (inclui as instruções fixas da v2.18): **12 de 12 aprovados**. Publicada no Dell em 05/11 com a Evolution parada (bot desligado).
