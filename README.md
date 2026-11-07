@@ -2,6 +2,8 @@
 
 Assistente financeiro pessoal. A pessoa registra gastos pelo **WhatsApp** (texto, áudio, foto de comprovante ou PDF de fatura) e acompanha tudo num **painel web**. Trabalho de Conclusão de Curso de Sistemas de Informação, em produção em <https://www.moedin-ia.com.br>.
 
+Resumo do projeto para portfólio (problema, solução, prints, tecnologias, desafios): [`docs/portfolio/README.md`](docs/portfolio/README.md).
+
 O código atual fica na branch `main`. As versões anteriores estão em branches `versao-*` e em tags (ver [Versões](#versões)).
 
 ![Landing do Moedin-IA](docs/screenshots/landing.png)
